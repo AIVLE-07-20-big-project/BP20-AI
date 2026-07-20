@@ -13,7 +13,7 @@ class AgentRunRequest(BaseModel):
 
 class AgentRunResumeRequest(BaseModel):
     결정: Literal["approve", "edit", "reject"]
-    수정_방안: Optional[str] = None  # 결정="edit"일 때 candidate_actions 중 하나를 지정
+    수정_방안: Optional[str] = None
 
 
 class AgentRunResponse(BaseModel):

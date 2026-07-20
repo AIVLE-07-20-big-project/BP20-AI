@@ -107,7 +107,7 @@ def _json_rows(obj) -> list[dict]:
                 rows = _json_rows(obj[key])
                 if rows:
                     return rows
-        # 단일 레코드일 수도 있음
+
         if obj and all(not isinstance(v, (list, dict)) for v in obj.values()):
             return [obj]
         for value in obj.values():
@@ -192,7 +192,7 @@ def build_quarterly(df: pd.DataFrame) -> pd.DataFrame:
     out["year"] = out["year"].astype(int)
     out["month"] = out["month"].astype(int)
     out["STDR_YYQU_CD"] = [quarter_code(y, m) for y, m in zip(out["year"], out["month"])]
-    # KMA getMmSumry2: rn_day=월 강수량, rn=평년 대비 강수량 편차.
+
     if "rn_day" in out.columns:
         out["precip_total_mm"] = out["rn_day"]
     if "rn" in out.columns:

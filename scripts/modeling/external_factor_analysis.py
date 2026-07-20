@@ -38,14 +38,14 @@ WEATHER = SOURCE_DATA / "weather_seoul_quarterly.csv"
 EVENT_FEATURES = PROCESSED_DATA / "event_exposure_quarterly.csv"
 ANCHOR_RAW = SOURCE_DATA / "big_store.csv"
 ANCHOR_FEATURES = PROCESSED_DATA / "anchor_exposure_quarterly.csv"
-SUBWAY_RAW_DIR = SOURCE_DATA / "subway_data"          # CARD_SUBWAY_MONTH_YYYYMM.csv (수동 확보, 일별 원본)
-SUBWAY_STATIONS = SOURCE_DATA / "subway_stations.csv"  # 역 좌표(수집 단계 산출물)
+SUBWAY_RAW_DIR = SOURCE_DATA / "subway_data"
+SUBWAY_STATIONS = SOURCE_DATA / "subway_stations.csv"
 SUBWAY_FEATURES = PROCESSED_DATA / "subway_exposure_quarterly.csv"
 RESULT_PATH = MODEL / "external_factor_analysis.json"
 RADIUS_M = 2_000.0
-ANCHOR_RADIUS_M = 2_000.0  # 문화행사와 동일 반경 재사용 — 데이터 없이 임의로 다른 값을 고르지 않음
-# "인접 상권 비교"(sales_analysis.NEIGHBOR_RADIUS_M) 때와 같은 판단 기준 재사용 —
-# 500m는 역 0개 상권 38.1%로 너무 좁고 2,000m는 평균 11.4개로 흐려짐(실측).
+ANCHOR_RADIUS_M = 2_000.0
+
+
 SUBWAY_RADIUS_M = 1_000.0
 MIN_PEERS = 20
 
@@ -78,7 +78,7 @@ def audit_weather(path=WEATHER) -> dict:
     precip = pd.to_numeric(weather.get("precip_total_mm", weather.get("rn_day")), errors="coerce")
     negative_rain = int((precip < 0).sum())
     station_count = int(weather["stnid"].nunique()) if "stnid" in weather else 0
-    # 단일 관측소도 서울 전체 시계열 요인으로는 사용할 수 있지만 상권별 차이는 설명하지 못한다.
+
     usable = negative_rain == 0 and len(weather) >= 12
     reasons = []
     if negative_rain:
@@ -121,9 +121,9 @@ def peer_exposure_percentile(trdar_cd, yyqu_cd, panel_path=PANEL, event_path=EVE
 
     target_rows = merged.loc[merged["TRDAR_CD"] == int(trdar_cd), "event_exposure"]
     target_value = float(target_rows.iloc[0]) if not target_rows.empty else 0.0
-    # 노출 0인 상권이 많아 동률이 큰 분포라, 단순 "<=" 비율로 백분위를 매기면 동률
-    # 집단 전체가 부풀려진 높은 백분위를 받는다("<" 비율과 평균 내는 표준적인
-    # 동률 보정 방식을 사용한다).
+
+
+
     values = merged["event_exposure"]
     less = float((values < target_value).mean())
     less_equal = float((values <= target_value).mean())
@@ -223,7 +223,7 @@ def build_anchor_events(
                 records.append((int(trdar_cd), quarter, kind, float(distance), float(weight)))
         return records
 
-    # 휴업(재개업 가능)은 폐업으로 단정하지 않으므로 폐업 이벤트에서 제외한다.
+
     closed = anchors[anchors["TRDSTATENM"].str.strip().str.startswith("폐업")]
     records = _events(anchors, "APVPERMYMD", "open") + _events(closed, "DCBYMD", "close")
 
@@ -267,7 +267,7 @@ def _load_subway_ridership(raw_dir=SUBWAY_RAW_DIR) -> pd.DataFrame:
     """
     frames = []
     for path in sorted(Path(raw_dir).glob("CARD_SUBWAY_MONTH_*.csv")):
-        # 파일마다 인코딩이 다르다(실측: 대부분 utf-8이지만 일부는 cp949) — 순서대로 시도.
+
         for encoding in ("utf-8", "cp949", "utf-8-sig"):
             try:
                 frames.append(pd.read_csv(path, index_col=False, encoding=encoding))
@@ -311,7 +311,7 @@ def build_subway_exposure(raw_dir=SUBWAY_RAW_DIR, station_path=SUBWAY_STATIONS,
     ]
     ridership = ridership.dropna(subset=["STDR_YYQU_CD"])
 
-    # 역명 기준(같은 이름 다른 호선은 합산) 분기별 총 승하차량
+
     station_quarter = ridership.groupby(["역명", "STDR_YYQU_CD"], as_index=False)["ridership"].sum()
     station_quarter = station_quarter.rename(columns={"역명": "stnKrNm"})
 
@@ -542,7 +542,7 @@ def fit(panel_path=PANEL, event_path=EVENT_FEATURES, anchor_path=ANCHOR_FEATURES
     ci = model.conf_int().loc["d_event_exposure"].tolist()
     p_value = float(model.pvalues["d_event_exposure"])
 
-    # 미래 행사 노출이 현재 매출과 연결되면 잔여 교란 가능성이 크다.
+
     data = data.sort_values(["TRDAR_CD", "SVC_INDUTY_CD", "STDR_YYQU_CD"]).copy()
     data["placebo_event"] = data.groupby(["TRDAR_CD", "SVC_INDUTY_CD"])[
         "d_event_exposure"

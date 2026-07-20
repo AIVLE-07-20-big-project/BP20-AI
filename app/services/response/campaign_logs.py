@@ -91,7 +91,7 @@ def _append_row_atomic(row: dict, campaign_logs: Path) -> None:
             combined = new_row
         tmp_path = campaign_logs.with_suffix(".tmp")
         combined.to_csv(tmp_path, index=False)
-        tmp_path.replace(campaign_logs)  # 원자적 교체 — 부분쓰기 상태로 남지 않음
+        tmp_path.replace(campaign_logs)
 
 
 def append_log(thread_id: str, executed: bool, treatment_yyqu_cd: int,
@@ -118,8 +118,8 @@ def append_log(thread_id: str, executed: bool, treatment_yyqu_cd: int,
 
     trdar_cd = state["trdar_cd"]
     svc_induty_cd = state["svc_induty_cd"]
-    # state["yyqu_cd"]는 요청 시 명시적으로 지정했을 때만 채워진다 — 안 넘겼으면(최신 분기
-    # 자동 선택) Diagnoser가 실제로 진단한 분기(diagnosis.대상.기준분기)를 대신 쓴다.
+
+
     yyqu_cd = state.get("yyqu_cd") or (state.get("diagnosis") or {}).get("대상", {}).get("기준분기")
     action_id = state["selected_action"]["방안"]
     context_vector = state.get("context_vector") or [None] * len(CONTEXT_COLS)

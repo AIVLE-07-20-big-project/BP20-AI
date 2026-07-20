@@ -30,8 +30,8 @@ import pandas as pd
 from scipy.optimize import minimize
 
 ROOT = Path(__file__).resolve().parents[2]
-# 문서에 남아 있는 직접 실행(`python scripts/response_strategy/synthetic_control.py ...`)
-# 호환. 패키지 실행(-m)에서는 프로젝트 루트가 이미 import 경로에 있다.
+
+
 if __package__ in {None, ""} and str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -40,16 +40,16 @@ from scripts.modeling.sales_analysis import AMT, MIN_PEERS, MIN_Q, PANEL, shift_
 DATA = ROOT / "data"
 CAMPAIGN_LOGS = DATA / "agent" / "campaign_logs.csv"
 
-MIN_DONORS = 5              # 도너풀 최소 크기 — 이보다 적으면 가중치 최적화가 불안정
-MAX_DONORS = 30             # 도너 수가 관측 분기수(보통 6~9개)보다 훨씬 크면 볼록조합
-                            # 최적화가 과적합(가중치가 수백~수천 곳에 0.001씩 흩어짐)으로
-                            # 흐른다 — 실제로 3001491/CS100001을 도너 1,400곳 그대로 돌리면
-                            # RMSE 0.0008까지 내려가지만 "괜찮은 대역체를 찾은 것"이 아니라
-                            # 그냥 평균을 정교하게 흉내낸 것이라 판정 의미가 없어진다. 그래서
-                            # pre-period 로그매출 궤적과의 상관계수 상위 MAX_DONORS만 추린 뒤
-                            # 최적화한다.
-FIT_RMSE_THRESHOLD = 0.15   # pre-period 적합도 임계값(로그스케일 RMSE).
-                            # 초기값 — 실행 후 실측 분포로 재확인 예정(다른 임계값들과 동일한 관례)
+MIN_DONORS = 5
+MAX_DONORS = 30
+
+
+
+
+
+
+FIT_RMSE_THRESHOLD = 0.15
+
 AGE_COLS = {
     "10대": "AGRDE_10_SELNG_AMT", "20대": "AGRDE_20_SELNG_AMT",
     "30대": "AGRDE_30_SELNG_AMT", "40대": "AGRDE_40_SELNG_AMT",
@@ -202,7 +202,7 @@ def segment_baseline(trdar_cd, svc_induty_cd, yyqu_cd=None, panel=PANEL) -> dict
     as_of = int(yyqu_cd) if yyqu_cd is not None else int(_cell_series(p, trdar_cd, svc_induty_cd).index.max())
     donor_ids = list(base["가중치"].keys())
     w = np.array(list(base["가중치"].values()))
-    w = w / w.sum()  # 표시용으로 반올림된 가중치를 재정규화
+    w = w / w.sum()
 
     out = {}
     for label, col in AGE_COLS.items():
@@ -227,7 +227,7 @@ def segment_baseline(trdar_cd, svc_induty_cd, yyqu_cd=None, panel=PANEL) -> dict
             "해석주의_세그먼트": "동일 가중치를 세그먼트 매출에 적용한 참고치이며, 세그먼트별 실측 효과가 아님"}
 
 
-MEASURED_EFFECT_MIN_RELIABLE_CASES = 5   # 이 이상 반사실 계산 가능해야 "사용가능"
+MEASURED_EFFECT_MIN_RELIABLE_CASES = 5
 _LOG_REQUIRED_COLS = {
     "action_id", "trdar_cd", "svc_induty_cd", "treatment_yyqu_cd", "executed", "revenue_after",
 }

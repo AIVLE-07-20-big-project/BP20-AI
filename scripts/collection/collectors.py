@@ -32,7 +32,7 @@ class SeoulOpenApiCollector:
         res.raise_for_status()
         data = res.json()
         if self.SERVICE_NAME not in data:
-            # 인증키 오류/요청 한도 등은 별도 키로 반환됨 (예: RESULT)
+
             raise RuntimeError(f"API error: {data}")
         return data[self.SERVICE_NAME]["row"]
 

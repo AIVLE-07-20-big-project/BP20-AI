@@ -107,7 +107,7 @@ async def run_test():
         print(work_df.shape, work_df.columns.tolist())
         print(work_df.head(2), "\n")
 
-    # 문화행사는 분기 파라미터가 없어서 소량 페이지만 확인
+
     event_collector = CulturalEventCollector(api_key_event)
     async with httpx.AsyncClient() as client:
         event_df = await event_collector.fetch_page(client, 1, 100)

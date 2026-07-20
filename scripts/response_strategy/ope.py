@@ -41,10 +41,10 @@ CAMPAIGN_LOGS = DATA / "agent" / "campaign_logs.csv"
 
 @dataclass
 class LoggedBatch:
-    contexts: np.ndarray       # (n, d)
-    actions: list[str]         # (n,)
-    propensities: np.ndarray   # (n,) — 로깅 정책이 그 행동을 택했을 확률
-    rewards: np.ndarray        # (n,)
+    contexts: np.ndarray
+    actions: list[str]
+    propensities: np.ndarray
+    rewards: np.ndarray
 
 
 def ips(batch: LoggedBatch, target_action_fn: Callable[[np.ndarray], str]) -> float:
@@ -119,17 +119,17 @@ def selftest(n: int = 5000, seed: int = 0) -> dict:
         return float(true_theta[action] @ context + true_intercept[action])
 
     def target_action_fn(_context):
-        return "A"  # 검증 대상 타깃 정책: 항상 A
+        return "A"
 
     contexts = rng.normal(size=(n, d))
-    propensity = 1.0 / len(arms)  # 완전 무작위 로깅 정책 — propensity가 상수라 검증이 쉬움
+    propensity = 1.0 / len(arms)
     actions = rng.choice(arms, size=n)
     noise = rng.normal(0, 0.5, size=n)
     rewards = np.array([true_reward(contexts[i], actions[i]) for i in range(n)]) + noise
     batch = LoggedBatch(contexts=contexts, actions=list(actions),
                          propensities=np.full(n, propensity), rewards=rewards)
 
-    true_value = float(np.mean([true_reward(c, "A") for c in contexts]))  # 노이즈 평균 0
+    true_value = float(np.mean([true_reward(c, "A") for c in contexts]))
 
     est_ips = ips(batch, target_action_fn)
     est_dm = direct_method(batch, target_action_fn, arms)
@@ -146,7 +146,7 @@ def selftest(n: int = 5000, seed: int = 0) -> dict:
 
 _CONTEXT_COLS = [f"context_{i}" for i in range(1, 7)]
 _LOG_REQUIRED_COLS = {"action_id", "svc_induty_cd", "propensity", "reward", "executed"} | set(_CONTEXT_COLS)
-MIN_RELIABLE_SAMPLES = 20   # 이 이상 & ESS 충분해야 "사용가능"(조정 가능한 초기값)
+MIN_RELIABLE_SAMPLES = 20
 
 
 def _importance_weights(batch: LoggedBatch, target_action_fn: Callable[[np.ndarray], str]) -> np.ndarray:

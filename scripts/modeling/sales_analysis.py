@@ -38,41 +38,41 @@ NEIGHBOR_FEATURES = AGENT_DATA / "neighbor_sales_quarterly.csv"
 COX = MODEL / "cox_risk.pkl"
 
 AMT, CO = "THSMON_SELNG_AMT", "THSMON_SELNG_CO"
-MIN_CO = 30          # 마스킹 노이즈 차단 (저빈도 셀은 삭제되어 '0'이 아니라 '없음')
-PERIOD = 4           # 분기 계절 주기
-MIN_Q = 6            # 최소 관측 분기
-MIN_PEERS = 20       # 운영 비교에 필요한 최소 비교 대상 수
+MIN_CO = 30
+PERIOD = 4
+MIN_Q = 6
+MIN_PEERS = 20
 SPECIAL_SCALE_RATIO = 50
 
 STRUCT = {"STOR_CO": "점포수", "FRC_STOR_CO": "프랜차이즈수",
           "OPBIZ_RT": "개업률", "CLSBIZ_RT": "폐업률", "TOT_FLPOP_CO": "유동인구",
           "TOT_REPOP_CO": "상주인구", "TOT_WRC_POPLTN_CO": "직장인구"}
-# ★ 직장인구는 4분기에 한 번만 갱신되고 다음 해 1~3분기는 동일 값으로 채워지는
-#   원자료 특성이 있다. "처음/현재"만 비교하는 이 STRUCT 요약(여러 해에 걸친 비교)에는
-#   문제 없지만, 분기별 세밀한 변화로 해석하면 안 된다.
-#
-# ★★ 상주인구는 그보다 더 드물게(연 1회 미만) 갱신된다 — trend_panel.csv 2024~2026
-#   관측 구간 20,411개 셀 중 사실상 전부가 변화율 0.0(표준편차 0)이었다. 즉 "변화율이
-#   작다"가 아니라 "이번 관측 구간엔 갱신 자체가 없었다"는 뜻이다. 그래서 변화율이
-#   정확히(또는 거의) 0이면 REPOP_FRESHNESS_EPS 가드로 "안정적"이 아니라 "갱신 안 됨"
-#   으로 취급해, 거주자가 안정적이라고 확신하는 판정(외부_유입_감소류)에는 쓰지 않는다.
-#   아래 세 임계값은 trend_panel.csv 전체 셀의 실측 변화율 분포(첫 관측 대비 마지막
-#   관측)를 보고 정했다 — 유동인구는 20%대 분위, 직장인구는 그보다 변동폭이 커서
-#   더 높게, 상주인구는 실제로 움직일 때는 늘 두 자릿수 %로 크게 뛰는 걸 확인해 낮게.
+
+
+
+
+
+
+
+
+
+
+
+
 FLPOP_THRESHOLD = 0.12
 WORKPOP_THRESHOLD = 0.15
 REPOP_THRESHOLD = 0.05
 REPOP_FRESHNESS_EPS = 1e-6
 
-# 인접 상권 비교 — "이 상권만의 문제"(고립형)와 "동네 전체가 같이 움직임"(지역 동반)을
-# 구분한다. 반경은 area_coords.csv 실측 상권 밀도 분포로 정했다: 500m는 이웃 0개인
-# 상권이 5.9%로 너무 좁고, 2,000m는 평균 48.5개로 "인접"의 의미가 흐려진다. 1,000m는
-# 평균 14.2개(중앙값 13개), 이웃 0개 비율 0.5%로 적절했다.
+
+
+
+
 NEIGHBOR_RADIUS_M = 1_000.0
 MIN_NEIGHBORS = 3
-AREA_DECLINE_THRESHOLD = 0.10  # build-neighbors 실행 후 실측 분포로 재확인 예정
+AREA_DECLINE_THRESHOLD = 0.10
 
-# 4축 분해 — '무엇이 아직 살아있는가'를 찾는다. 대응방안은 살아있는 축 위에 세운다.
+
 AXES = {
     "시간대": {"TMZON_00_06_SELNG_AMT": "00-06시", "TMZON_06_11_SELNG_AMT": "06-11시",
                "TMZON_11_14_SELNG_AMT": "11-14시", "TMZON_14_17_SELNG_AMT": "14-17시",
@@ -85,18 +85,18 @@ AXES = {
                "AGRDE_30_SELNG_AMT": "30대", "AGRDE_40_SELNG_AMT": "40대",
                "AGRDE_50_SELNG_AMT": "50대", "AGRDE_60_ABOVE_SELNG_AMT": "60대이상"},
 }
-Z_STRONG, Z_WEAK = 1.0, -1.0   # 동업종 분포 대비 강점/약점 판정
+Z_STRONG, Z_WEAK = 1.0, -1.0
 
-# 순서가 있는 축 (인접 관계가 의미를 가짐)
+
 ORDERED = {
     "시간대": ["00-06시", "06-11시", "11-14시", "14-17시", "17-21시", "21-24시"],
     "요일": ["월", "화", "수", "목", "금", "토", "일"],
     "연령대": ["10대", "20대", "30대", "40대", "50대", "60대이상"],
 }
-RATES = {"개업률", "폐업률"}      # 이미 % 단위 → 변화율이 아니라 %p 로 보고
+RATES = {"개업률", "폐업률"}
 
-# Cox 공변량. 목적은 예측이 아니라 '지금 왜 위험한가'의 정량화이므로
-# 폐업률·개업률을 포함한다. (예측이라면 이벤트와 순환하므로 빼야 함)
+
+
 COVS = ["매출_하락률", "폐업률", "개업률", "유동인구_변화", "log_점포수"]
 
 
@@ -249,9 +249,9 @@ def classify_market_state(sales_change, store_change, per_store_change) -> str:
     return "관찰필요"
 
 
-# classify_market_state()가 관측 기간(첫 분기~현재) 전체의 장기 변화만으로 내리는 판정이라,
-# 라벨만 보면 "정상"이 최근 분기 하락세와 모순돼 보일 수 있다 — 실제로는 "-10% 구조적 붕괴
-# 문턱을 아직 안 넘었다"는 뜻일 뿐, 최근 추세와는 별개의 판정임을 명시해야 오해가 없다.
+
+
+
 MARKET_STATE_EXPLANATION = {
     "정상": "관측 기간 전체(첫 분기 대비 현재)로 보면 총매출과 점포당 매출 모두 -10% 이상 "
             "급감하지는 않았다는 뜻입니다. 최근 1~2개 분기의 하락세와는 별개의 장기 판정이므로, "
@@ -308,8 +308,8 @@ def classify_traffic_source(repop_change, flpop_change, workpop_change=None) -> 
             return "상권_전방위_축소"
         if repop_confirmed_stable and flpop_down and workpop_down:
             return "직장인구_이탈형_외부유입감소"
-        # 직장인구_감소_선행신호는 거주자 상태를 주장하지 않는 판정이라 상주인구
-        # 신선도와 무관하게 유동인구·직장인구만으로 판정한다.
+
+
         if flpop_stable and workpop_down:
             return "직장인구_감소_선행신호"
         if repop_down and flpop_stable and workpop_stable:
@@ -433,16 +433,16 @@ def load_risk(panel: pd.DataFrame):
 
 class Diagnoser:
     def __init__(self, panel=PANEL, neighbor_path=NEIGHBOR_FEATURES):
-        # panel이 경로면 CSV로 읽고, 이미 로드된 DataFrame이면 그대로 쓴다(FastAPI에서
-        # 업로드 신규 행을 합친 패널을 디스크에 쓰지 않고 바로 진단하기 위함).
+
+
         p = pd.read_csv(panel) if isinstance(panel, (str, Path)) else panel
         self.p = p.sort_values("STDR_YYQU_CD")
         self.p["cell"] = self.p["TRDAR_CD"].astype(str) + "_" + self.p["SVC_INDUTY_CD"]
         self.neighbor = pd.read_csv(neighbor_path) if Path(neighbor_path).exists() else None
 
-        # 4축 share: 반드시 '축 내부 합'으로 나눈다.
-        # 총매출로 나누면 성별·연령합 < 총매출(고객 식별된 거래만 집계)이라
-        # '식별률' 차이가 모든 항목을 일제히 밀어올린다.
+
+
+
         self.axis_cols, shares = {}, {}
         for ax, m in AXES.items():
             have = [c for c in m if c in self.p.columns]
@@ -481,7 +481,7 @@ class Diagnoser:
             z = {}
             for c, label in cs.items():
                 m, sd, v = stat.loc["mean", c], stat.loc["std", c], row[c]
-                # 분산이 사실상 0이면 z가 폭발한다 (동업종 전체가 같은 분포)
+
                 if pd.isna(v) or pd.isna(sd) or sd < 1e-4 or (m and sd / m < 0.01):
                     continue
                 z[label] = round(float((v - m) / sd), 2)
@@ -534,10 +534,10 @@ class Diagnoser:
             & (self.p["SVC_INDUTY_CD"] == last["SVC_INDUTY_CD"])
             & (self.p["TRDAR_CD"] != last["TRDAR_CD"])
         ]
-        # _axes()와 동일한 좁히기 패턴: 상권유형(TRDAR_SE_CD_NM)이 있고 좁힌 집합이
-        # MIN_PEERS 이상이면 그걸 쓴다. 안 좁히면 발달상권(대체로 규모가 큼)이 골목상권까지
-        # 섞인 전국 동업종 중앙값과 비교돼 스케일만으로 "특수 상권"으로 오판된다
-        # (예: 강남역 카페는 전국 기준 107배지만 발달상권 기준 14배).
+
+
+
+
         if "TRDAR_SE_CD_NM" in self.p and pd.notna(last.get("TRDAR_SE_CD_NM")):
             narrow_peers = quality_peers[quality_peers["TRDAR_SE_CD_NM"] == last["TRDAR_SE_CD_NM"]]
             if len(narrow_peers) >= MIN_PEERS:
@@ -553,14 +553,14 @@ class Diagnoser:
             quality_warnings.append("특수 상권 유형으로 일반 상권 비교 불가")
         analysis_usable = not quality_warnings
 
-        # 1. 심각도
+
         sev = {
             "전분기_대비": pct_change(s, 1),
             "전년동기_대비": pct_change(s, PERIOD),
             "최고분기": int(s.idxmax()),
             "최고점_대비": round(float((y[-1] - y.max()) / y.max()), 4),
-            "하락_분기_비율": decline_ratio(y),      # 노이즈에 강건한 주지표
-            "연속_하락_분기수": consec_decline(y),   # 보조 지표
+            "하락_분기_비율": decline_ratio(y),
+            "연속_하락_분기수": consec_decline(y),
             "관측_분기수": len(s),
         }
         rank_peers = self.p[
@@ -576,7 +576,7 @@ class Diagnoser:
         if analysis_usable and not target_rank.empty:
             sev["동업종_순위"] = f"{len(rank_peers)}곳 중 {int(target_rank.iloc[0])}위"
 
-        # 2. 상대 추세 비교. 관측 집계만으로 인과관계를 확정하지 않는다.
+
         g_me = slope(y)
         g_tr = slope(c["TRDAR_AMT"].to_numpy())
         g_in = slope(c["INDUTY_AMT"].to_numpy())
@@ -601,7 +601,7 @@ class Diagnoser:
                  "상대_추세_차이": relative, "판정": v,
                  "해석주의": "관측 추세의 동반 여부이며 인과관계를 의미하지 않음"}
 
-        # 3. 구조 변화 — 매출 = 점포수 x 점포당매출. 어느 쪽이 무너졌나?
+
         st = {}
         for col, name in STRUCT.items():
             if col not in c:
@@ -613,15 +613,15 @@ class Diagnoser:
                         {"처음": round(v0, 1), "현재": round(v1, 1),
                          "변화율": round((v1 - v0) / v0, 4) if v0 else None})
 
-        # 유동인구_원인 — 매출 하락이 상권 자체 축소, 거주자 이탈, 방문객 감소,
-        # 직장인구(근무자) 이탈 중 어디에 가까운지 구분한다(동반 변화 비교, 인과관계 아님).
+
+
         repop_change = st.get("상주인구", {}).get("변화율")
         flpop_change = st.get("유동인구", {}).get("변화율")
         workpop_change = st.get("직장인구", {}).get("변화율")
         st["유동인구_원인"] = classify_traffic_source(repop_change, flpop_change, workpop_change)
 
-        # 인접상권_비교 — 상권 전체(업종 무관) 매출 전분기 대비 변화가 지리적으로
-        # 가까운 상권들과 동조화되는지(관측된 동반 변화, 인과관계 아님).
+
+
         neighbor_row = None
         if self.neighbor is not None:
             match = self.neighbor[
@@ -653,7 +653,7 @@ class Diagnoser:
         st["시장_상태"] = state
         st["시장_상태_해설"] = MARKET_STATE_EXPLANATION.get(state)
 
-        # 매출 = 거래건수 × 거래당 매출로 관측 변화를 분해한다.
+
         if CO in c and c[CO].notna().all():
             transactions = c[CO].astype(float)
             ticket = c[AMT].astype(float) / transactions.replace(0, np.nan)
@@ -673,17 +673,17 @@ class Diagnoser:
                 "감소 때문인지 객단가 변화 때문인지 알 수 없으니, 거래당 매출과 함께 확인하세요."
             )
 
-        # 4. 축 분해 — 무엇이 살아있고 무엇이 죽었나
+
         axes = self._axes(last) if self.axis_cols and analysis_usable else {}
 
-        # 5. 처방 — 항상 방안을 낸다. 국면에 따라 종류가 달라질 뿐.
+
         rx = self._prescribe(state, sev, st, axes) if analysis_usable else {
             "등급": "분석_차단",
             "긴급도": "확인 필요",
             "방향": "일반 상권 비교와 자동 처방을 제공하지 않습니다.",
             "확인과제": quality_warnings,
         }
-        # Cox 위험도는 패널 최신 시점 기준이므로 과거 진단에 붙이면 미래 정보가 섞인다.
+
         if (analysis_usable and self.risk is not None and cell in self.risk.index
                 and int(last["STDR_YYQU_CD"]) == int(self.p["STDR_YYQU_CD"].max())):
             rx.update(self._risk_block(cell))
@@ -796,7 +796,7 @@ class Diagnoser:
         }
 
 
-# ═══════════════════════════════════════════════════════════════
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")

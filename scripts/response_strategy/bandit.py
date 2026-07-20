@@ -54,9 +54,9 @@ class NeuralContextualBandit:
         self.arms = list(arms)
         self.context_dim = context_dim
         self.encoding_dim = encoding_dim
-        self.alpha = alpha       # UCB 탐색 폭 계수
-        self.ridge = ridge       # A 초기화 리지 계수(0으로 나눔 방지 + 초반 보수적 탐색)
-        self.temperature = temperature  # propensity용 softmax 온도(추천 자체는 그대로 argmax)
+        self.alpha = alpha
+        self.ridge = ridge
+        self.temperature = temperature
         self.policy_version = policy_version
         self.encoder = _Encoder(context_dim, encoding_dim=encoding_dim)
         self.encoder.eval()
@@ -151,7 +151,7 @@ class NeuralContextualBandit:
             last_loss = float(loss.item())
         self.encoder.eval()
 
-        # 인코더가 바뀌면 표현 공간이 달라지므로 팔별 LinUCB 통계를 버퍼로 재구성한다.
+
         self._reset_linear_heads()
         for context, arm_index, reward, weight in self.buffer:
             z = self._encode(context)
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     if _args and _args[0] == "retrain" and len(_args) >= 2:
         print(json.dumps(retrain_cli(_args[1]), ensure_ascii=False, indent=2))
     else:
-        # 사용 예시 — 실제 arm/컨텍스트는 app 레이어(action_rules.py)가 채운다.
+
         bandit = NeuralContextualBandit(context_dim=8, arms=["쿠폰_20%", "이벤트_주말", "SNS_홍보"])
         ctx = np.random.default_rng(0).normal(size=8)
         print(bandit.select_arm(ctx))

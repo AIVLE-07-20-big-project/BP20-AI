@@ -187,8 +187,8 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
         "AGRDE_50_FLPOP_CO": "50대", "AGRDE_60_ABOVE_FLPOP_CO": "60대 이상",
     }
     time_traffic = {c.replace("SELNG_AMT", "FLPOP_CO"): label for c, label in time_sales.items()}
-    # sales_analysis.AXES 의 "성별"/"연령대" 라벨과 동일하게 맞춘다(대응방안 추천이
-    # 세그먼트 매출비중을 조회할 때 이 라벨로 찾기 때문에 임의로 바꾸면 안 됨).
+
+
     gender_sales = {"ML_SELNG_AMT": "남성", "FML_SELNG_AMT": "여성"}
     age_sales = {
         "AGRDE_10_SELNG_AMT": "10대", "AGRDE_20_SELNG_AMT": "20대",

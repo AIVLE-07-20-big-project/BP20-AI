@@ -9,7 +9,7 @@ PROCESSED_DATA = DATA / "processed"
 SOURCE_DATA = DATA / "source"
 
 AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
-BANDIT_MODEL_DIR = MODEL / "bandit"  # 등급별 하위폴더(model/bandit/{등급}/active.pt)
+BANDIT_MODEL_DIR = MODEL / "bandit"
 CAMPAIGN_LOGS = AGENT_DATA / "campaign_logs.csv"
 RAG_INDEX_EXPORT = MODEL / "rag_index" / "export"
 

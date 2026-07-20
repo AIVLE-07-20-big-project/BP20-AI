@@ -14,13 +14,12 @@ class RecommendationState(TypedDict, total=False):
     yyqu_cd: int | None
 
     diagnosis: dict | None
-    문제유형: str | None  # = Diagnoser의 5_처방.등급 (docs/response_recommendation_agent_plan.md §6)
+    문제유형: str | None
 
     candidate_actions: list[dict]
     selected_action: dict | None
     bandit_result: dict | None
-    context_vector: list[float] | None  # build_context_vector() 출력 — campaign-logs가
-                                          # thread_id 체크포인트에서 그대로 읽어감(계획 §0)
+    context_vector: list[float] | None
     policy_version: str | None
 
     scm_result: dict | None
@@ -32,5 +31,5 @@ class RecommendationState(TypedDict, total=False):
     approval_status: Literal["pending", "approved", "edited", "rejected"] | None
     final_report: dict | None
 
-    status: str  # 진행 상태/종료 사유 요약(사람이 읽는 용도)
+    status: str
     warnings: list[str]

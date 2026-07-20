@@ -47,7 +47,7 @@ ACTIONS: dict[str, dict] = {
     "지역 제휴 마케팅": {"axis": "customer_acquisition"},
 }
 
-# rag/retriever.py의 build_evidence(axis=...) 호출에 그대로 쓰는 매핑
+
 ACTION_TO_AXIS: dict[str, str] = {name: v["axis"] for name, v in ACTIONS.items()}
 
 ACTION_RULES: dict[str, list[str]] = {

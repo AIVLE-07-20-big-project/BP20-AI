@@ -33,7 +33,6 @@ from scripts.modeling.sales_analysis import Diagnoser
 from scripts.response_strategy.ope import evaluate_policy
 from scripts.response_strategy.synthetic_control import measured_effect, segment_baseline
 
-# 운영 기본값은 충분한 안정성을 유지하고, 통합 테스트에서는 patch로 낮출 수 있다.
 OPE_BOOTSTRAP_SAMPLES = 200
 MEASURED_EFFECT_BOOTSTRAP_SAMPLES = 500
 

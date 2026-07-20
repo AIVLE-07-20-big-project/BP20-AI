@@ -154,7 +154,7 @@ def train(panel_path=PANEL, model_path=MODEL_PATH) -> dict:
     for quarter, idx in table.groupby("STDR_YYQU_CD").groups.items():
         quarter_rates[int(quarter)] = round(float(training_hybrid[idx].mean()), 4)
 
-    # 명백한 매출 충격을 주입해 탐지 민감도를 검증한다.
+
     rng = np.random.default_rng(42)
     sample_idx = rng.choice(len(table), size=min(5000, len(table)), replace=False)
     sample = table.iloc[sample_idx].copy()
@@ -286,7 +286,7 @@ class AISalesAnalyzer:
 
         structure = _score_detector(selected, self.bundle["structure_detector"])
         change = _score_detector(selected, self.bundle["change_detector"])
-        # 매출 변화율 자체가 극단이면 단일 변화 지표만으로도 변화 이상이다.
+
         sales_change_extreme = bool({"sales_qoq", "sales_yoy"}.intersection(change["extremes"]))
         change["is_anomaly"] = bool(change["is_anomaly"] or sales_change_extreme)
         observed_changes = [

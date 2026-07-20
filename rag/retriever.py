@@ -37,7 +37,6 @@ class RagIndex:
     _model: Any = field(default=None, repr=False)
     _model_error: str | None = field(default=None, repr=False)
 
-    # ---------- 로딩 ----------
     @classmethod
     def load(cls, export_dir: str | Path) -> "RagIndex":
         d = Path(export_dir)
@@ -85,7 +84,6 @@ class RagIndex:
         scored.sort(key=lambda item: item[0], reverse=True)
         return scored[:k]
 
-    # ---------- 검색 ----------
     def _mask(self, tier: str | None, axis: str | None, require_stat: bool) -> np.ndarray:
         mask = np.ones(len(self.chunks), dtype=bool)
         if tier:
@@ -116,7 +114,6 @@ class RagIndex:
         order = idxs[np.argsort(-sims[idxs])][:k]
         return [(float(sims[i]), self.chunks[i]) for i in order]
 
-    # ---------- 2트랙 근거 수집 ----------
     def build_evidence(
         self,
         query: str,
@@ -169,8 +166,6 @@ class RagIndex:
             "has_magnitude": bool(allowed),
         }
 
-
-# ---------- 수치 추출 유틸 ----------
 
 STAT_RE = re.compile(
     r"[+\-]?\d[\d,]*(?:\.\d+)?\s?(?:%|퍼센트|원)"
