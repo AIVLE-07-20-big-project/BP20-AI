@@ -71,7 +71,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    df = pd.read_csv(ROOT / "data" / "merged_sales_analysis.csv")
+    df = pd.read_csv(ROOT / "data" / "processed" / "merged_sales_analysis.csv")
     target_q = int(args.yyqu_cd)
     row = df[
         (df["TRDAR_CD"] == int(args.trdar_cd))

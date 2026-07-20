@@ -36,7 +36,7 @@ from sklearn.linear_model import Ridge
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
-CAMPAIGN_LOGS = DATA / "campaign_logs.csv"
+CAMPAIGN_LOGS = DATA / "agent" / "campaign_logs.csv"
 
 
 @dataclass

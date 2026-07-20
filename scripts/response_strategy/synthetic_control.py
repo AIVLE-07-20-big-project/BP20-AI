@@ -38,7 +38,7 @@ if __package__ in {None, ""} and str(ROOT) not in sys.path:
 from scripts.modeling.sales_analysis import AMT, MIN_PEERS, MIN_Q, PANEL, shift_quarter
 
 DATA = ROOT / "data"
-CAMPAIGN_LOGS = DATA / "campaign_logs.csv"
+CAMPAIGN_LOGS = DATA / "agent" / "campaign_logs.csv"
 
 MIN_DONORS = 5              # 도너풀 최소 크기 — 이보다 적으면 가중치 최적화가 불안정
 MAX_DONORS = 30             # 도너 수가 관측 분기수(보통 6~9개)보다 훨씬 크면 볼록조합

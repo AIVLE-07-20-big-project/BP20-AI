@@ -23,7 +23,7 @@ from scripts.modeling.sales_analysis import AMT, CO, MIN_CO, shift_quarter
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PANEL = ROOT / "data" / "trend_panel.csv"
+PANEL = ROOT / "data" / "agent" / "trend_panel.csv"
 MODEL_PATH = ROOT / "model" / "ai_sales_model.pkl"
 MIN_PEERS = 20
 

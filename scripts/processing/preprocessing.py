@@ -4,15 +4,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
+SOURCE = DATA / "source"
+PROCESSED = DATA / "processed"
 
-sales = pd.read_csv(DATA / "sales_estimate.csv")
-store = pd.read_csv(DATA / "store_stats.csv")
-pop = pd.read_csv(DATA / "foot_traffic.csv")
+sales = pd.read_csv(SOURCE / "sales_estimate.csv")
+store = pd.read_csv(SOURCE / "store_stats.csv")
+pop = pd.read_csv(SOURCE / "foot_traffic.csv")
 
 df = sales.merge(store, on=["TRDAR_CD", "SVC_INDUTY_CD", "STDR_YYQU_CD"], how="left", suffixes=("", "_store"))
 df = df.merge(pop, on=["TRDAR_CD", "STDR_YYQU_CD"], how="left", suffixes=("", "_pop"))
 
-repop_path = DATA / "resident_population.csv"
+repop_path = SOURCE / "resident_population.csv"
 if repop_path.exists():
     repop = pd.read_csv(repop_path)
     df = df.merge(repop, on=["TRDAR_CD", "STDR_YYQU_CD"], how="left", suffixes=("", "_repop"))
@@ -20,7 +22,7 @@ if repop_path.exists():
 else:
     print("상주인구 파일이 없어 건너뜁니다:", repop_path.name)
 
-workpop_path = DATA / "workplace_population.csv"
+workpop_path = SOURCE / "workplace_population.csv"
 if workpop_path.exists():
     workpop = pd.read_csv(workpop_path)
     df = df.merge(workpop, on=["TRDAR_CD", "STDR_YYQU_CD"], how="left", suffixes=("", "_workpop"))
@@ -28,7 +30,7 @@ if workpop_path.exists():
 else:
     print("직장인구 파일이 없어 건너뜁니다:", workpop_path.name)
 
-weather_path = DATA / "weather_seoul_quarterly.csv"
+weather_path = SOURCE / "weather_seoul_quarterly.csv"
 if weather_path.exists():
     weather = pd.read_csv(weather_path)
     if "STDR_YYQU_CD" in weather.columns:
@@ -59,5 +61,6 @@ if "TOT_WRC_POPLTN_CO" in df.columns:
     print("\n직장인구 결측 비율:")
     print(df[["TOT_WRC_POPLTN_CO"]].isna().mean())
 
-df.to_csv(DATA / "merged_sales_analysis.csv", index=False, encoding="utf-8-sig")
+PROCESSED.mkdir(parents=True, exist_ok=True)
+df.to_csv(PROCESSED / "merged_sales_analysis.csv", index=False, encoding="utf-8-sig")
 print("\n저장 완료: merged_sales_analysis.csv")

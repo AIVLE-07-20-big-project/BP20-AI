@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
+DATA_DIR = ROOT / "data" / "source"
 
 BASE_URL = "https://apihub.kma.go.kr/api/typ02/openApi/SfcMtlyInfoService/getMmSumry2"
 
@@ -267,7 +267,7 @@ async def run(
     end_month: int,
 ) -> None:
     api_key = load_api_key()
-    DATA_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     monthly_frames = []
     async with httpx.AsyncClient() as client:

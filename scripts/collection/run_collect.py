@@ -27,7 +27,7 @@ from scripts.collection.collectors import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
+DATA_DIR = ROOT / "data" / "source"
 
 def get_setting(name: str) -> str | None:
     value = os.environ.get(name)
@@ -133,7 +133,7 @@ async def run_full(start_year=2024, end_year=2026, end_quarter=1, only="all"):
     (api_key_sales, api_key_store, api_key_foot_traffic, api_key_resident_pop,
      api_key_work, api_key_event, api_key_big_store, api_key_subway) = load_keys()
     quarters = all_quarter_codes(start_year=start_year, end_year=end_year, end_quarter=end_quarter)
-    DATA_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     print(f"수집 대상 분기: {quarters[0]} ~ {quarters[-1]} ({len(quarters)}개)\n")
 
     if only in {"all", "sales"}:

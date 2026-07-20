@@ -28,10 +28,13 @@ from scipy.spatial import cKDTree
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 MODEL = ROOT / "model"
-MERGED = DATA / "merged_sales_analysis.csv"
-PANEL = DATA / "trend_panel.csv"
-AREA_COORDS = DATA / "area_coords.csv"
-NEIGHBOR_FEATURES = DATA / "neighbor_sales_quarterly.csv"
+AGENT_DATA = DATA / "agent"
+PROCESSED_DATA = DATA / "processed"
+SOURCE_DATA = DATA / "source"
+MERGED = PROCESSED_DATA / "merged_sales_analysis.csv"
+PANEL = AGENT_DATA / "trend_panel.csv"
+AREA_COORDS = SOURCE_DATA / "area_coords.csv"
+NEIGHBOR_FEATURES = AGENT_DATA / "neighbor_sales_quarterly.csv"
 COX = MODEL / "cox_risk.pkl"
 
 AMT, CO = "THSMON_SELNG_AMT", "THSMON_SELNG_CO"
