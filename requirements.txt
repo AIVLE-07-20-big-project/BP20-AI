@@ -1,0 +1,28 @@
+httpx>=0.27
+fastapi>=0.111
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pandas>=2.2
+lightgbm>=4.3
+scikit-learn>=1.4
+numpy>=1.26
+pyproj>=3.6
+
+# 생존분석 (Cox 시변 공변량 모형)
+lifelines>=0.28.0
+statsmodels>=0.14.0
+scipy>=1.12.0
+
+# 승인된 대응방안의 근거 기반 리포트 생성(rag/generator.py)에 필요
+openai>=1.0
+langgraph>=1.0
+langgraph-checkpoint-sqlite>=3.0
+langsmith>=0.4
+
+# 고객대응방안 추천 — Neural Contextual Bandit(scripts/response_strategy/bandit.py),
+# RAG 임베딩 파인튜닝에서만 필요. Windows는 CPU 전용 wheel로 설치할 것:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+
+# RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요
+sentence-transformers>=3.0
