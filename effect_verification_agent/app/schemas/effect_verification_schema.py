@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class RecommendationType(str, Enum):
@@ -143,6 +143,34 @@ class EffectVerificationRequest(BaseModel):
     condition: VerificationCondition
     before: PeriodMetrics
     after: PeriodMetrics
+
+    @model_validator(mode="after")
+    def validate_metrics_for_recommendation_type(self):
+        if self.recommendation_type == RecommendationType.SALES:
+            if self.before.sales is None or self.after.sales is None:
+                raise ValueError(
+                    "SALES recommendation requires before.sales and after.sales"
+                )
+        elif self.recommendation_type == RecommendationType.REVIEW:
+            if self.before.review is None or self.after.review is None:
+                raise ValueError(
+                    "REVIEW recommendation requires before.review and after.review"
+                )
+
+        has_start = self.condition.start_hour is not None
+        has_end = self.condition.end_hour is not None
+        if has_start != has_end:
+            raise ValueError(
+                "start_hour and end_hour must be provided together"
+            )
+        if has_start and self.condition.start_hour == self.condition.end_hour:
+            raise ValueError("start_hour and end_hour must be different")
+        if (
+            self.recommendation_type == RecommendationType.REVIEW
+            and not self.condition.target_aspect
+        ):
+            raise ValueError("REVIEW recommendation requires target_aspect")
+        return self
 
 
 class MetricResult(BaseModel):
