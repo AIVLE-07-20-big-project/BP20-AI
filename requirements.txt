@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pandas
+numpy
+paddlepaddle
+paddleocr
+protobuf
+huggingface_hub
+opencv-python
+matplotlib
+pillow
