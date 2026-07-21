@@ -9,6 +9,7 @@ from typing import Literal, TypedDict
 
 
 class RecommendationState(TypedDict, total=False):
+    analysis_id: str
     trdar_cd: str
     svc_induty_cd: str
     yyqu_cd: int | None
