@@ -1,6 +1,4 @@
-"""POST /api/v1/reports — Spring Boot가 신규 매출 원본 파일을 업로드하면
-매출 진단까지 한 번의 동기 호출로 처리해 JSON으로 돌려준다.
-"""
+"""매출 분석을 저장하고, 선택한 분석에만 대응방안 추천을 실행한다."""
 from __future__ import annotations
 
 from typing import Optional
@@ -8,8 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.schemas.report import ReportResponse
-from app.routers.agent_runs import continue_agent_run, read_agent_run, start_agent_run
-from app.services import ingestion, pipeline
+from app.routers.agent_runs import start_agent_run
+from app.services import analyses, ingestion, pipeline
 
 router = APIRouter()
 
@@ -43,31 +41,45 @@ async def create_analysis(
     svc_induty_cd: str = Form(...),
     yyqu_cd: Optional[int] = Form(None),
 ) -> dict:
-    """파일을 반영해 진단·추천을 실행하고 리포트 생성 승인 전까지 진행한다."""
-    _report, raw_diag, warnings = await _ingest_and_diagnose(
+    """CSV를 반영해 매출만 분석하고 후속 추천에 사용할 결과를 저장한다."""
+    report, raw_diag, warnings = await _ingest_and_diagnose(
         file, trdar_cd, svc_induty_cd, yyqu_cd,
     )
-    return start_agent_run({
-        "trdar_cd": trdar_cd,
-        "svc_induty_cd": svc_induty_cd,
-        "yyqu_cd": yyqu_cd,
-        "diagnosis": raw_diag,
-        "warnings": warnings,
-    })
+    return analyses.create_analysis(
+        trdar_cd=trdar_cd,
+        svc_induty_cd=svc_induty_cd,
+        yyqu_cd=yyqu_cd,
+        report=report,
+        diagnosis=raw_diag,
+        warnings=warnings,
+    )
 
 
 @router.get("/analyses/{analysis_id}")
 def get_analysis(analysis_id: str) -> dict:
-    return read_agent_run(analysis_id)
+    analysis = analyses.get_analysis(analysis_id)
+    if analysis is None:
+        raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")
+    return analysis
 
 
-@router.post("/analyses/{analysis_id}/reports")
-def create_analysis_report(analysis_id: str) -> dict:
-    """사용자가 요청한 경우 승인 대기 중인 분석으로 최종 리포트를 생성한다."""
-    return continue_agent_run(analysis_id, {"결정": "approve"})
+@router.post("/analyses/{analysis_id}/recommendations")
+def create_analysis_recommendation(analysis_id: str) -> dict:
+    """저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다."""
+    analysis = analyses.get_analysis(analysis_id)
+    if analysis is None:
+        raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")
+    return start_agent_run({
+        "analysis_id": analysis_id,
+        "trdar_cd": analysis["trdar_cd"],
+        "svc_induty_cd": analysis["svc_induty_cd"],
+        "yyqu_cd": analysis["yyqu_cd"],
+        "diagnosis": analysis["diagnosis"],
+        "warnings": analysis["warnings"],
+    })
 
 
-@router.post("/reports", response_model=ReportResponse)
+@router.post("/reports", response_model=ReportResponse, deprecated=True)
 async def create_report(
     file: UploadFile = File(..., description="신규 매출 원본 데이터(csv, sales_estimate.csv와 동일 스키마)"),
     trdar_cd: str = Form(...),
