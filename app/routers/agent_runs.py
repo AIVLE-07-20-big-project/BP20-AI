@@ -63,7 +63,7 @@ def continue_agent_run(thread_id: str, decision: dict) -> dict:
     return _to_response(thread_id, result, interrupt_value)
 
 
-@router.post("/agent-runs")
+@router.post("/agent-runs", deprecated=True)
 def create_agent_run(payload: AgentRunRequest) -> dict:
     initial_state = {
         "trdar_cd": payload.trdar_cd,
@@ -81,8 +81,8 @@ def get_agent_run(thread_id: str) -> dict:
 
 @router.post("/agent-runs/{thread_id}/resume")
 def resume_agent_run(thread_id: str, payload: AgentRunResumeRequest) -> dict:
-    resume_payload = {"결정": payload.결정}
-    if payload.수정_방안 is not None:
-        resume_payload["수정_방안"] = payload.수정_방안
+    resume_payload = {"결정": payload.decision}
+    if payload.modification_plan is not None:
+        resume_payload["수정_방안"] = payload.modification_plan
 
     return continue_agent_run(thread_id, resume_payload)
