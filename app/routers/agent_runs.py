@@ -25,24 +25,17 @@ def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> 
     return payload
 
 
-@router.post("/agent-runs")
-def create_agent_run(payload: AgentRunRequest) -> dict:
+def start_agent_run(initial_state: dict) -> dict:
+    """새 에이전트 실행을 시작하고 승인 대기 상태까지 진행한다."""
     thread_id = str(uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    initial_state = {
-        "trdar_cd": payload.trdar_cd,
-        "svc_induty_cd": payload.svc_induty_cd,
-        "yyqu_cd": payload.yyqu_cd,
-        "warnings": [],
-    }
     result = get_graph().invoke(initial_state, config=config)
     interrupts = result.pop("__interrupt__", None)
     interrupt_value = interrupts[0].value if interrupts else None
     return _to_response(thread_id, result, interrupt_value)
 
 
-@router.get("/agent-runs/{thread_id}")
-def get_agent_run(thread_id: str) -> dict:
+def read_agent_run(thread_id: str) -> dict:
     config = {"configurable": {"thread_id": thread_id}}
     snapshot = get_graph().get_state(config)
     if not snapshot.values:
@@ -56,8 +49,7 @@ def get_agent_run(thread_id: str) -> dict:
     return _to_response(thread_id, snapshot.values, interrupt_value)
 
 
-@router.post("/agent-runs/{thread_id}/resume")
-def resume_agent_run(thread_id: str, payload: AgentRunResumeRequest) -> dict:
+def continue_agent_run(thread_id: str, decision: dict) -> dict:
     config = {"configurable": {"thread_id": thread_id}}
     snapshot = get_graph().get_state(config)
     if not snapshot.values:
@@ -65,11 +57,32 @@ def resume_agent_run(thread_id: str, payload: AgentRunResumeRequest) -> dict:
     if not any(task.interrupts for task in snapshot.tasks):
         raise HTTPException(status_code=409, detail="현재 승인 대기 상태가 아닙니다")
 
+    result = get_graph().invoke(Command(resume=decision), config=config)
+    interrupts = result.pop("__interrupt__", None)
+    interrupt_value = interrupts[0].value if interrupts else None
+    return _to_response(thread_id, result, interrupt_value)
+
+
+@router.post("/agent-runs")
+def create_agent_run(payload: AgentRunRequest) -> dict:
+    initial_state = {
+        "trdar_cd": payload.trdar_cd,
+        "svc_induty_cd": payload.svc_induty_cd,
+        "yyqu_cd": payload.yyqu_cd,
+        "warnings": [],
+    }
+    return start_agent_run(initial_state)
+
+
+@router.get("/agent-runs/{thread_id}")
+def get_agent_run(thread_id: str) -> dict:
+    return read_agent_run(thread_id)
+
+
+@router.post("/agent-runs/{thread_id}/resume")
+def resume_agent_run(thread_id: str, payload: AgentRunResumeRequest) -> dict:
     resume_payload = {"결정": payload.결정}
     if payload.수정_방안 is not None:
         resume_payload["수정_방안"] = payload.수정_방안
 
-    result = get_graph().invoke(Command(resume=resume_payload), config=config)
-    interrupts = result.pop("__interrupt__", None)
-    interrupt_value = interrupts[0].value if interrupts else None
-    return _to_response(thread_id, result, interrupt_value)
+    return continue_agent_run(thread_id, resume_payload)
