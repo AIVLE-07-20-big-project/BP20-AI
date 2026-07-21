@@ -40,7 +40,9 @@ _APPROVAL_STATUS = {"approve": "approved", "edit": "edited", "reject": "rejected
 
 
 def _diagnose(state: RecommendationState) -> dict:
-    diag = Diagnoser().diagnose(state["trdar_cd"], state["svc_induty_cd"], state.get("yyqu_cd"))
+    diag = state.get("diagnosis")
+    if diag is None:
+        diag = Diagnoser().diagnose(state["trdar_cd"], state["svc_induty_cd"], state.get("yyqu_cd"))
     warnings = list(state.get("warnings", []))
 
     if "error" in diag:
