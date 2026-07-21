@@ -35,7 +35,7 @@ def get_setting(name: str) -> str | None:
     if value:
         return value.strip()
 
-    for candidate in (Path(__file__).parent / ".env", Path.cwd() / ".env"):
+    for candidate in (ROOT / ".env", Path.cwd() / ".env"):
         if not candidate.exists():
             continue
         for raw_line in candidate.read_text(encoding="utf-8").splitlines():
