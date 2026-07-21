@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class AgentRunRequest(BaseModel):
@@ -12,8 +12,13 @@ class AgentRunRequest(BaseModel):
 
 
 class AgentRunResumeRequest(BaseModel):
-    결정: Literal["approve", "edit", "reject"]
-    수정_방안: Optional[str] = None
+    decision: Literal["approve", "edit", "reject"] = Field(
+        validation_alias=AliasChoices("decision", "결정"),
+    )
+    modification_plan: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("modificationPlan", "modification_plan", "수정_방안"),
+    )
 
 
 class AgentRunResponse(BaseModel):
