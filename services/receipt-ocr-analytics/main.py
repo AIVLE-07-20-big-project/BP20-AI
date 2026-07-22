@@ -67,10 +67,13 @@ async def warm_up_ocr_engine() -> None:
 def _receipts_to_df(receipts: List[Dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(receipts)
     if df.empty:
-        return pd.DataFrame(columns=[
+        empty_df = pd.DataFrame(columns=[
             "ReceiptID", "StoreID", "VendorName", "TransactionDate", "TransactionTime",
             "PaymentMethod", "Category", "SupplyAmount", "Vat", "TaxFreeAmount", "TotalAmount",
         ])
+        # 비어있어도 datetime 타입을 유지해야 이후 .dt 접근/날짜 비교 연산이 깨지지 않는다.
+        empty_df["TransactionDate"] = pd.to_datetime(empty_df["TransactionDate"])
+        return empty_df
     df = df.rename(columns={
         "receiptId": "ReceiptID", "storeId": "StoreID", "vendorName": "VendorName",
         "transactionDate": "TransactionDate", "transactionTime": "TransactionTime",
