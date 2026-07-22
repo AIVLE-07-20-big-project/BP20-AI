@@ -27,7 +27,8 @@ from scripts.modeling.sales_analysis import AMT, PANEL
 
 CONTEXT_COLS = [f"context_{i}" for i in range(1, 7)]
 SCHEMA_COLUMNS = [
-    "decision_id", "trdar_cd", "svc_induty_cd", "yyqu_cd", "treatment_yyqu_cd", "action_id",
+    "decision_id", "user_id", "store_id", "trdar_cd", "svc_induty_cd", "yyqu_cd",
+    "treatment_yyqu_cd", "action_id",
     *CONTEXT_COLS, "propensity", "policy_version", "executed",
     "revenue_before", "revenue_after", "reward", "데이터_출처",
 ]
@@ -41,6 +42,10 @@ class DecisionNotFound(Exception):
 
 class DecisionNotApproved(Exception):
     """thread_id가 승인 완료 상태가 아니라 campaign-logs를 기록할 수 없음."""
+
+
+class DecisionOwnershipMismatch(Exception):
+    """요청 사용자와 결정 시점의 소유자가 다름."""
 
 
 @contextlib.contextmanager
@@ -95,7 +100,8 @@ def _append_row_atomic(row: dict, campaign_logs: Path) -> None:
 
 
 def append_log(thread_id: str, executed: bool, treatment_yyqu_cd: int,
-                revenue_after: float | None, campaign_logs: Path | None = None) -> dict:
+                revenue_after: float | None, campaign_logs: Path | None = None,
+                user_id: str | None = None) -> dict:
     """thread_id(승인된 agent-run)의 체크포인트에서 결정 시점 값을 읽어 한 행을 기록한다.
 
     `campaign_logs`는 기본 파라미터 바인딩 시점이 아니라 호출 시점에
@@ -111,6 +117,9 @@ def append_log(thread_id: str, executed: bool, treatment_yyqu_cd: int,
         raise DecisionNotFound(f"agent-run을 찾을 수 없음: {thread_id}")
 
     state = snapshot.values
+    owner = state.get("user_id")
+    if owner is not None and owner != user_id:
+        raise DecisionOwnershipMismatch("해당 추천 실행 결과를 기록할 권한이 없습니다")
     if state.get("approval_status") != "approved":
         raise DecisionNotApproved(
             f"승인되지 않은 결정입니다(approval_status={state.get('approval_status')})"
@@ -134,6 +143,7 @@ def append_log(thread_id: str, executed: bool, treatment_yyqu_cd: int,
 
     row = {
         "decision_id": str(uuid.uuid4()),
+        "user_id": state.get("user_id"), "store_id": state.get("store_id"),
         "trdar_cd": trdar_cd, "svc_induty_cd": svc_induty_cd, "yyqu_cd": yyqu_cd,
         "treatment_yyqu_cd": treatment_yyqu_cd, "action_id": action_id,
         **{col: context_vector[i] for i, col in enumerate(CONTEXT_COLS)},
