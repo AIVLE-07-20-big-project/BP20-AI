@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from langgraph.types import Command
 
 from app.schemas.agent_run import AgentRunRequest, AgentRunResumeRequest
@@ -63,9 +63,17 @@ def continue_agent_run(thread_id: str, decision: dict) -> dict:
     return _to_response(thread_id, result, interrupt_value)
 
 
+def _assert_owner(values: dict, user_id: str | None) -> None:
+    owner = values.get("user_id")
+    if owner is not None and owner != user_id:
+        raise HTTPException(status_code=403, detail="해당 에이전트 실행에 접근할 권한이 없습니다")
+
+
 @router.post("/agent-runs", deprecated=True)
 def create_agent_run(payload: AgentRunRequest) -> dict:
     initial_state = {
+        "user_id": payload.user_id,
+        "store_id": payload.store_id,
         "trdar_cd": payload.trdar_cd,
         "svc_induty_cd": payload.svc_induty_cd,
         "yyqu_cd": payload.yyqu_cd,
@@ -75,12 +83,19 @@ def create_agent_run(payload: AgentRunRequest) -> dict:
 
 
 @router.get("/agent-runs/{thread_id}")
-def get_agent_run(thread_id: str) -> dict:
-    return read_agent_run(thread_id)
+def get_agent_run(thread_id: str, x_user_id: str | None = Header(None, alias="X-User-Id")) -> dict:
+    result = read_agent_run(thread_id)
+    _assert_owner(result, x_user_id)
+    return result
 
 
 @router.post("/agent-runs/{thread_id}/resume")
-def resume_agent_run(thread_id: str, payload: AgentRunResumeRequest) -> dict:
+def resume_agent_run(
+    thread_id: str, payload: AgentRunResumeRequest,
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+) -> dict:
+    current = read_agent_run(thread_id)
+    _assert_owner(current, x_user_id)
     resume_payload = {"결정": payload.decision}
     if payload.modification_plan is not None:
         resume_payload["수정_방안"] = payload.modification_plan
