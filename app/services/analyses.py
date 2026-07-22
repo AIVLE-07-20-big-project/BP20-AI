@@ -30,6 +30,11 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(analyses)")}
+    if "user_id" not in columns:
+        connection.execute("ALTER TABLE analyses ADD COLUMN user_id TEXT")
+    if "store_id" not in columns:
+        connection.execute("ALTER TABLE analyses ADD COLUMN store_id TEXT")
     return connection
 
 
@@ -45,6 +50,8 @@ def create_analysis(
     report: dict,
     diagnosis: dict,
     warnings: list[str],
+    user_id: str | None = None,
+    store_id: str | None = None,
 ) -> dict:
     analysis_id = str(uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -53,12 +60,12 @@ def create_analysis(
             """
             INSERT INTO analyses (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                report_json, diagnosis_json, warnings_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                report_json, diagnosis_json, warnings_json, created_at, user_id, store_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                _dump(report), _dump(diagnosis), _dump(warnings), created_at,
+                _dump(report), _dump(diagnosis), _dump(warnings), created_at, user_id, store_id,
             ),
         )
     return get_analysis(analysis_id)
@@ -73,6 +80,8 @@ def get_analysis(analysis_id: str) -> dict | None:
         return None
     return {
         "analysis_id": row["analysis_id"],
+        "user_id": row["user_id"],
+        "store_id": row["store_id"],
         "trdar_cd": row["trdar_cd"],
         "svc_induty_cd": row["svc_induty_cd"],
         "yyqu_cd": row["yyqu_cd"],
@@ -81,3 +90,16 @@ def get_analysis(analysis_id: str) -> dict | None:
         "warnings": json.loads(row["warnings_json"]),
         "created_at": row["created_at"],
     }
+
+
+def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
+    """사용자 소유 분석을 최신순으로 반환한다."""
+    query = "SELECT analysis_id FROM analyses WHERE user_id = ?"
+    params: list[object] = [user_id]
+    if store_id is not None:
+        query += " AND store_id = ?"
+        params.append(store_id)
+    query += " ORDER BY created_at DESC"
+    with closing(_connect()) as connection:
+        ids = [row["analysis_id"] for row in connection.execute(query, params).fetchall()]
+    return [analysis for analysis_id in ids if (analysis := get_analysis(analysis_id)) is not None]
