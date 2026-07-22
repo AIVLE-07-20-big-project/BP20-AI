@@ -236,3 +236,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+docs/
+tests/
+*.html
+*.json
