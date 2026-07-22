@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
 from app.schemas.report import ReportResponse
+from app.schemas.recommendation import RecommendationFromAnalysisRequest
 from app.routers.agent_runs import start_agent_run
 from app.services import analyses, ingestion, pipeline
 
@@ -40,6 +41,8 @@ async def create_analysis(
     trdar_cd: str = Form(...),
     svc_induty_cd: str = Form(...),
     yyqu_cd: Optional[int] = Form(None),
+    user_id: Optional[str] = Form(None),
+    store_id: Optional[str] = Form(None),
 ) -> dict:
     """CSV를 반영해 매출만 분석하고 후속 추천에 사용할 결과를 저장한다."""
     report, raw_diag, warnings = await _ingest_and_diagnose(
@@ -52,25 +55,67 @@ async def create_analysis(
         report=report,
         diagnosis=raw_diag,
         warnings=warnings,
+        user_id=user_id,
+        store_id=store_id,
     )
 
 
+def _assert_owner(analysis: dict, user_id: str | None) -> None:
+    owner = analysis.get("user_id")
+    if owner is not None and owner != user_id:
+        raise HTTPException(status_code=403, detail="해당 분석 결과에 접근할 권한이 없습니다")
+
+
+@router.get("/analyses")
+def list_user_analyses(
+    x_user_id: str = Header(..., alias="X-User-Id"),
+    store_id: Optional[str] = None,
+) -> list[dict]:
+    return analyses.list_analyses(x_user_id, store_id)
+
+
+@router.post("/recommendations")
+def create_recommendation_from_analysis(
+    payload: RecommendationFromAnalysisRequest,
+    x_user_id: str = Header(..., alias="X-User-Id"),
+) -> dict:
+    """Spring Boot/MySQL에서 재전달한 분석 결과로 추천 에이전트를 시작한다."""
+    if payload.user_id is not None and payload.user_id != x_user_id:
+        raise HTTPException(status_code=403, detail="요청 사용자와 분석 결과의 소유자가 다릅니다")
+    return start_agent_run({
+        "analysis_id": payload.analysis_id,
+        "user_id": x_user_id,
+        "store_id": payload.store_id,
+        "trdar_cd": payload.trdar_cd,
+        "svc_induty_cd": payload.svc_induty_cd,
+        "yyqu_cd": payload.yyqu_cd,
+        "diagnosis": payload.diagnosis,
+        "warnings": payload.warnings,
+    })
+
+
 @router.get("/analyses/{analysis_id}")
-def get_analysis(analysis_id: str) -> dict:
+def get_analysis(analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id")) -> dict:
     analysis = analyses.get_analysis(analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")
+    _assert_owner(analysis, x_user_id)
     return analysis
 
 
 @router.post("/analyses/{analysis_id}/recommendations")
-def create_analysis_recommendation(analysis_id: str) -> dict:
+def create_analysis_recommendation(
+    analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+) -> dict:
     """저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다."""
     analysis = analyses.get_analysis(analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")
+    _assert_owner(analysis, x_user_id)
     return start_agent_run({
         "analysis_id": analysis_id,
+        "user_id": analysis.get("user_id"),
+        "store_id": analysis.get("store_id"),
         "trdar_cd": analysis["trdar_cd"],
         "svc_induty_cd": analysis["svc_induty_cd"],
         "yyqu_cd": analysis["yyqu_cd"],
