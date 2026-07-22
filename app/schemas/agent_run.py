@@ -6,6 +6,8 @@ from pydantic import AliasChoices, BaseModel, Field
 
 
 class AgentRunRequest(BaseModel):
+    user_id: Optional[str] = None
+    store_id: Optional[str] = None
     trdar_cd: str
     svc_induty_cd: str
     yyqu_cd: Optional[int] = None
