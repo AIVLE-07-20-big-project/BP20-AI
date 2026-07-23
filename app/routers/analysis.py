@@ -8,18 +8,28 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from app.schemas.report import ReportResponse
 from app.schemas.recommendation import RecommendationFromAnalysisRequest
 from app.routers.agent_runs import start_agent_run
+from app.core.uploads import (
+    CSV_CONTENT_TYPES,
+    CSV_EXTENSIONS,
+    MAX_CSV_UPLOAD_BYTES,
+    read_upload_limited,
+    validate_upload_type,
+)
 from app.services import analyses, ingestion, pipeline
 
-router = APIRouter()
+router = APIRouter(tags=["매출 분석"])
 
 
 async def _ingest_and_diagnose(
     file: UploadFile, trdar_cd: str, svc_induty_cd: str, yyqu_cd: Optional[int],
 ) -> tuple[dict, dict, list[str]]:
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=415, detail="현재는 CSV 파일만 지원합니다")
-
-    raw_bytes = await file.read()
+    validate_upload_type(
+        file,
+        extensions=CSV_EXTENSIONS,
+        content_types=CSV_CONTENT_TYPES,
+        type_name="CSV",
+    )
+    raw_bytes = await read_upload_limited(file, MAX_CSV_UPLOAD_BYTES)
     try:
         new_rows = ingestion.read_upload(raw_bytes)
     except ingestion.IngestionSchemaError as exc:
@@ -76,7 +86,7 @@ def list_user_analyses(
 
 
 # Spring Boot/MySQL에서 재전달한 분석 결과로 추천 에이전트를 시작한다
-@router.post("/recommendations")
+@router.post("/recommendations", tags=["전략 추천"])
 def create_recommendation_from_analysis(
     payload: RecommendationFromAnalysisRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
@@ -106,7 +116,7 @@ def get_analysis(analysis_id: str, x_user_id: Optional[str] = Header(None, alias
 
 
 # 저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다
-@router.post("/analyses/{analysis_id}/recommendations")
+@router.post("/analyses/{analysis_id}/recommendations", tags=["전략 추천"])
 def create_analysis_recommendation(
     analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ) -> dict:
