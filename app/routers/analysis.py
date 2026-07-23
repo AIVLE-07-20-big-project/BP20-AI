@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.report import ReportResponse
 from app.schemas.recommendation import RecommendationFromAnalysisRequest
@@ -12,24 +13,19 @@ from app.core.uploads import (
     CSV_CONTENT_TYPES,
     CSV_EXTENSIONS,
     MAX_CSV_UPLOAD_BYTES,
+    MAX_POS_UPLOAD_BYTES,
     read_upload_limited,
     validate_upload_type,
 )
-from app.services import analyses, ingestion, pipeline
+from app.services import analyses, detailed_sales, ingestion, pipeline
+from scripts.modeling.detailed_sales_external_analysis import DetailedSalesDataError
 
 router = APIRouter(tags=["매출 분석"])
 
 
 async def _ingest_and_diagnose(
-    file: UploadFile, trdar_cd: str, svc_induty_cd: str, yyqu_cd: Optional[int],
+    raw_bytes: bytes, trdar_cd: str, svc_induty_cd: str, yyqu_cd: Optional[int],
 ) -> tuple[dict, dict, list[str]]:
-    validate_upload_type(
-        file,
-        extensions=CSV_EXTENSIONS,
-        content_types=CSV_CONTENT_TYPES,
-        type_name="CSV",
-    )
-    raw_bytes = await read_upload_limited(file, MAX_CSV_UPLOAD_BYTES)
     try:
         new_rows = ingestion.read_upload(raw_bytes)
     except ingestion.IngestionSchemaError as exc:
@@ -45,19 +41,64 @@ async def _ingest_and_diagnose(
     return report, raw_diag, ingestion_warnings + pipeline_warnings
 
 
+def _analyze_market(
+    trdar_cd: str,
+    svc_induty_cd: str,
+    yyqu_cd: Optional[int],
+) -> tuple[dict, dict, list[str]]:
+    try:
+        return pipeline.run_pipeline(
+            trdar_cd,
+            svc_induty_cd,
+            yyqu_cd,
+            ingestion.get_base_merged(),
+        )
+    except pipeline.CellNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 # CSV를 반영해 매출만 분석하고 후속 추천에 사용할 결과를 저장한다
-@router.post("/analyses")
+@router.post(
+    "/analyses",
+    summary="기본·상세 매출 분석 실행",
+    description=(
+        "업로드한 POS CSV의 내부 원인 분해와 "
+        "서울 날씨·달력·유동인구·행사·지하철 외부요인 검증 결과를 "
+        "detailed_analysis에 함께 반환합니다."
+    ),
+)
 async def create_analysis(
-    file: UploadFile = File(..., description="분석할 신규 매출 원본 CSV"),
-    trdar_cd: str = Form(...),
-    svc_induty_cd: str = Form(...),
+    file: UploadFile = File(
+        ...,
+        description="coffee_sample.csv와 동일한 컬럼을 가진 POS 거래 CSV",
+    ),
+    trdar_cd: str = Form(..., description="기본 상권 분석 대상 상권 코드"),
+    svc_induty_cd: str = Form(..., description="기본 상권 분석 대상 업종 코드"),
     yyqu_cd: Optional[int] = Form(None),
     user_id: Optional[str] = Form(None),
     store_id: Optional[str] = Form(None),
 ) -> dict:
+    validate_upload_type(
+        file,
+        extensions=CSV_EXTENSIONS,
+        content_types=CSV_CONTENT_TYPES,
+        type_name="CSV",
+    )
+    raw_bytes = await read_upload_limited(file, MAX_POS_UPLOAD_BYTES)
+    try:
+        detailed_analysis = await run_in_threadpool(
+            detailed_sales.analyze_uploaded_sales,
+            raw_bytes,
+            trdar_cd,
+        )
+    except DetailedSalesDataError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    report, raw_diag, warnings = await _ingest_and_diagnose(
-        file, trdar_cd, svc_induty_cd, yyqu_cd,
+    report, raw_diag, warnings = await run_in_threadpool(
+        _analyze_market,
+        trdar_cd,
+        svc_induty_cd,
+        yyqu_cd,
     )
     return analyses.create_analysis(
         trdar_cd=trdar_cd,
@@ -65,6 +106,7 @@ async def create_analysis(
         yyqu_cd=yyqu_cd,
         report=report,
         diagnosis=raw_diag,
+        detailed_analysis=detailed_analysis,
         warnings=warnings,
         user_id=user_id,
         store_id=store_id,
@@ -144,8 +186,15 @@ async def create_report(
     svc_induty_cd: str = Form(...),
     yyqu_cd: Optional[int] = Form(None),
 ) -> dict:
+    validate_upload_type(
+        file,
+        extensions=CSV_EXTENSIONS,
+        content_types=CSV_CONTENT_TYPES,
+        type_name="CSV",
+    )
+    raw_bytes = await read_upload_limited(file, MAX_CSV_UPLOAD_BYTES)
     report, _raw_diag, warnings = await _ingest_and_diagnose(
-        file, trdar_cd, svc_induty_cd, yyqu_cd,
+        raw_bytes, trdar_cd, svc_induty_cd, yyqu_cd,
     )
     report["경고"] = warnings
     return report

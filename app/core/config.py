@@ -21,3 +21,7 @@ RESIDENT_POPULATION = SOURCE_DATA / "resident_population.csv"
 WORKPLACE_POPULATION = SOURCE_DATA / "workplace_population.csv"
 WEATHER_QUARTERLY = SOURCE_DATA / "weather_seoul_quarterly.csv"
 MERGED_SALES_ANALYSIS = PROCESSED_DATA / "merged_sales_analysis.csv"
+
+SEOUL_WEATHER_MONTHLY = SOURCE_DATA / "weather_seoul_monthly_raw.csv"
+SEOUL_EVENT_EXPOSURE = PROCESSED_DATA / "event_exposure_quarterly.csv"
+SEOUL_SUBWAY_EXPOSURE = PROCESSED_DATA / "subway_exposure_quarterly.csv"

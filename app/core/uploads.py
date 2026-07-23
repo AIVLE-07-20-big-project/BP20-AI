@@ -9,6 +9,7 @@ from app.core.errors import api_error
 
 MIB = 1024 * 1024
 MAX_CSV_UPLOAD_BYTES = 10 * MIB
+MAX_POS_UPLOAD_BYTES = 25 * MIB
 MAX_IMAGE_UPLOAD_BYTES = 10 * MIB
 
 CSV_EXTENSIONS = {".csv"}

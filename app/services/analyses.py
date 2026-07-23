@@ -35,6 +35,8 @@ def _connect() -> sqlite3.Connection:
         connection.execute("ALTER TABLE analyses ADD COLUMN user_id TEXT")
     if "store_id" not in columns:
         connection.execute("ALTER TABLE analyses ADD COLUMN store_id TEXT")
+    if "detailed_analysis_json" not in columns:
+        connection.execute("ALTER TABLE analyses ADD COLUMN detailed_analysis_json TEXT")
     return connection
 
 
@@ -50,6 +52,7 @@ def create_analysis(
     report: dict,
     diagnosis: dict,
     warnings: list[str],
+    detailed_analysis: dict | None = None,
     user_id: str | None = None,
     store_id: str | None = None,
 ) -> dict:
@@ -60,12 +63,14 @@ def create_analysis(
             """
             INSERT INTO analyses (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                report_json, diagnosis_json, warnings_json, created_at, user_id, store_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                report_json, diagnosis_json, detailed_analysis_json,
+                warnings_json, created_at, user_id, store_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                _dump(report), _dump(diagnosis), _dump(warnings), created_at, user_id, store_id,
+                _dump(report), _dump(diagnosis), _dump(detailed_analysis),
+                _dump(warnings), created_at, user_id, store_id,
             ),
         )
     return get_analysis(analysis_id)
@@ -87,6 +92,11 @@ def get_analysis(analysis_id: str) -> dict | None:
         "yyqu_cd": row["yyqu_cd"],
         "report": json.loads(row["report_json"]),
         "diagnosis": json.loads(row["diagnosis_json"]),
+        "detailed_analysis": (
+            json.loads(row["detailed_analysis_json"])
+            if row["detailed_analysis_json"] is not None
+            else None
+        ),
         "warnings": json.loads(row["warnings_json"]),
         "created_at": row["created_at"],
     }
