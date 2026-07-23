@@ -9,7 +9,7 @@ from langgraph.types import Command
 from app.schemas.agent_run import AgentRunRequest, AgentRunResumeRequest
 from app.services.response.graph import get_graph
 
-router = APIRouter()
+router = APIRouter(tags=["전략 추천"])
 
 
 def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> dict:
