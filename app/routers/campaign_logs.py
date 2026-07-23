@@ -8,7 +8,7 @@ from app.services.response.campaign_logs import (
     DecisionNotApproved, DecisionNotFound, DecisionOwnershipMismatch, append_log, validate_logs,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["캠페인 학습"])
 
 
 @router.post("/campaign-logs")
