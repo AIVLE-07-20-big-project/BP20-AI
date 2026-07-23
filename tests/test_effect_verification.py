@@ -2,7 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas.effect_verification_schema import (
+from app.schemas.effect_verification import (
     EffectVerificationRequest,
     PeriodMetrics,
     RecommendationType,
@@ -10,7 +10,7 @@ from app.schemas.effect_verification_schema import (
     SalesMetrics,
     VerificationCondition,
 )
-from app.services.effect_verification_service import determine_verdict, verify_effect
+from app.services.effect_verification import determine_verdict, verify_effect
 
 
 class EffectVerificationServiceTests(unittest.TestCase):

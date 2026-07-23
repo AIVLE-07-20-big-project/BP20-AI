@@ -1,4 +1,4 @@
-from app.schemas.effect_verification_schema import (
+from app.schemas.effect_verification import (
     EffectVerificationRequest,
     EffectVerificationResponse,
     MetricResult,
