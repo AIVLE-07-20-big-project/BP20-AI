@@ -207,3 +207,8 @@ tests/ocr/                 OCR 전용 테스트와 샘플 이미지
 requirements-ocr.txt       OCR 런타임 의존성
 requirements-ocr-dev.txt   OCR 개발·테스트 의존성
 ```
+
+## 관련 개발 계획
+
+실제 모델 정확도 검증, 동시 요청 처리, 비동기 작업 계획은 `../../docs/development_plan.md`의
+4~5단계를 따른다.
