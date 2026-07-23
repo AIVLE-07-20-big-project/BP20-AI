@@ -1,18 +1,4 @@
-"""agent-runs LangGraph 그래프 (계획 §4).
-
-범위: diagnose -> recommend -> estimate/evidence(병렬) -> validate -> await_approval ->
-(approve: generate_report / edit: estimate+evidence 재계산 후 다시 await_approval / reject: 종료).
-
-`generate_report`의 수치 재대조·재생성(최대 1회)은 `rag.generator.generate_report()` 내부의
-evidence_gate 재생성 루프로 구현한다(계획 §4 상태도의 `generate_report -> generate_report`
-자기루프와 동일한 것 — 별도 외부 루프를 그래프 레벨에 중복으로 두지 않는다). 실패해도
-그래프를 에러로 끝내지 않고 경고와 함께 종료한다(정직한 낮은 신뢰도 > 거짓 확신, 계획 §3).
-
-`validate`(OPE)가 기준정책보다 낮은 정책가치를 감지하면 `recommend`로 되돌리는 재시도 로직은
-`_route_after_validate` -> `reject_candidate` -> `recommend`로 구현돼 있다. campaign_logs.csv에
-실 로그가 쌓여 `evaluate_policy()`가 "사용가능" 판정을 낼 때만 트리거되며(그 전까지는 "판정불가"/
-"탐색적"이라 재시도하지 않음), 무한루프 방지를 위해 `retry_count < 2`로 재시도 횟수를 제한한다.
-"""
+# agent-runs LangGraph 그래프 (계획 §4)
 from __future__ import annotations
 
 import sqlite3

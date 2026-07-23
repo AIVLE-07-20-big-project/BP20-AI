@@ -1,11 +1,4 @@
-"""RAG 검색 모듈 (VSCode / Windows 앱용).
-
-Colab에서 만든 export 산출물(embeddings.npy, chunks.jsonl, manifest.json)을 읽어
-티어/축 필터가 가능한 2트랙 검색을 제공한다.
-
-빌드 모델과 서빙 모델이 다르면 검색 품질이 조용히 무너지므로,
-manifest.json의 model 이름으로 임베딩 모델을 로드한다.
-"""
+# RAG 검색 모듈 (VSCode / Windows 앱용)
 from __future__ import annotations
 
 import json
@@ -27,9 +20,10 @@ TIER_LABEL = {
 }
 
 
+# 임베딩 행렬 + 청크 메타를 담은 검색 인덱스
 @dataclass
 class RagIndex:
-    """임베딩 행렬 + 청크 메타를 담은 검색 인덱스."""
+
 
     embeddings: np.ndarray
     chunks: list[dict[str, Any]]
@@ -48,9 +42,10 @@ class RagIndex:
             raise ValueError(f"임베딩 행 수({emb.shape[0]})와 청크 수({len(chunks)})가 다릅니다. 빌드 산출물을 확인하세요.")
         return cls(embeddings=emb, chunks=chunks, manifest=manifest)
 
+    # 임베딩 모델 지연 로딩(최초 호출 시 1회)
     @property
     def model(self):
-        """임베딩 모델 지연 로딩(최초 호출 시 1회)."""
+
         if self._model_error is not None:
             raise RuntimeError(self._model_error)
         if self._model is None:
@@ -72,8 +67,9 @@ class RagIndex:
     def _tokens(text: str) -> set[str]:
         return {t for t in re.findall(r"[가-힣A-Za-z0-9]+", text.lower()) if len(t) >= 2}
 
+    # Offline fail-safe used when the query embedding model is unavailable
     def _lexical_search(self, query: str, idxs: np.ndarray, k: int) -> list[tuple[float, dict]]:
-        """Offline fail-safe used when the query embedding model is unavailable."""
+
         query_tokens = self._tokens(query)
         scored = []
         for i in idxs:
@@ -94,6 +90,7 @@ class RagIndex:
             mask &= np.array([c["contains_stat"] for c in self.chunks])
         return mask
 
+    # 필터를 먼저 적용한 뒤 상위 k개를 반환(정확 검색)
     def search(
         self,
         query: str,
@@ -102,7 +99,7 @@ class RagIndex:
         axis: str | None = None,
         require_stat: bool = False,
     ) -> list[tuple[float, dict]]:
-        """필터를 먼저 적용한 뒤 상위 k개를 반환(정확 검색)."""
+
         idxs = np.where(self._mask(tier, axis, require_stat))[0]
         if idxs.size == 0:
             return []
@@ -114,6 +111,7 @@ class RagIndex:
         order = idxs[np.argsort(-sims[idxs])][:k]
         return [(float(sims[i]), self.chunks[i]) for i in order]
 
+    # 방향성(academic) + 수치(vendor)를 분리 수집
     def build_evidence(
         self,
         query: str,
@@ -122,14 +120,14 @@ class RagIndex:
         n_magnitude: int = 3,
         window: int = 1,
     ) -> dict[str, Any]:
-        """방향성(academic) + 수치(vendor)를 분리 수집.
 
-        수치는 원문 맥락과 결박해서 반환한다. 맥락 없이 숫자만 넘기면
-        설정 파라미터가 효과 수치로 둔갑할 수 있기 때문이다.
 
-        tier="official"(전체의 77%, HANDOFF.md §6-⑥)은 의도적으로 검색하지 않는다 —
-        배경·앵커 용도로 태깅만 해뒀을 뿐 아직 리포트에 연결되지 않은 미사용 데이터다.
-        """
+
+
+
+
+
+
         direction = self.search(query, k=n_direction, tier="academic", axis=axis)
         magnitude = self.search(query, k=n_magnitude, tier="vendor", axis=axis, require_stat=True)
 
@@ -179,8 +177,9 @@ def split_sentences(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+# 숫자에 앞뒤 window개 문장을 묶어 반환(귀속 보존)
 def extract_stat_contexts(chunk: dict, window: int = 1) -> list[dict]:
-    """숫자에 앞뒤 window개 문장을 묶어 반환(귀속 보존)."""
+
     sents = split_sentences(chunk["text"])
     out, seen = [], set()
     for i, s in enumerate(sents):
@@ -193,8 +192,9 @@ def extract_stat_contexts(chunk: dict, window: int = 1) -> list[dict]:
     return out
 
 
+# 같은 값이 여러 청크에서 나오면 가장 긴 맥락 하나만 남긴다
 def dedup_numbers(allowed: list[dict]) -> list[dict]:
-    """같은 값이 여러 청크에서 나오면 가장 긴 맥락 하나만 남긴다."""
+
     best: dict[str, dict] = {}
     for a in allowed:
         cur = best.get(a["value"])
@@ -203,9 +203,10 @@ def dedup_numbers(allowed: list[dict]) -> list[dict]:
     return list(best.values())
 
 
+# 앱 전역에서 재사용할 인덱스 싱글턴
 @lru_cache(maxsize=1)
 def get_index(export_dir: str | Path = RAG_INDEX_EXPORT) -> RagIndex:
-    """앱 전역에서 재사용할 인덱스 싱글턴."""
+
     return RagIndex.load(export_dir)
 
 

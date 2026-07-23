@@ -1,11 +1,12 @@
-"""프로젝트 `.env`를 앱 시작 시 한 번 읽는다."""
+# 프로젝트 `.env`를 앱 시작 시 한 번 읽는다
 import os
 
 from app.core.config import ROOT
 
 
+# Load the project .env without overwriting process-level configuration
 def _load_env_file() -> None:
-    """Load the project .env without overwriting process-level configuration."""
+
     path = ROOT / ".env"
     if not path.exists():
         return

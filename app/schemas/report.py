@@ -1,4 +1,4 @@
-"""응답 shape 문서화용 — 내부 필드는 기존 report/recommend dict 구조를 그대로 감싼다."""
+# 응답 shape 문서화용 — 내부 필드는 기존 report/recommend dict 구조를 그대로 감싼다
 from __future__ import annotations
 
 from typing import Any

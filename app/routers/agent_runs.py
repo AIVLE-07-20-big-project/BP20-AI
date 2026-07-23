@@ -1,9 +1,4 @@
-"""POST /api/v1/agent-runs, GET /api/v1/agent-runs/{thread_id}, POST .../resume
-
-계획 §7 — diagnose→recommend→estimate/evidence→validate까지 실행하고 await_approval에서
-정지한다. resume은 approve(→generate_report)/edit(→estimate+evidence 재계산 후 다시
-await_approval)/reject(→종료)로 재개한다(계획 §4 라우팅 규칙표).
-"""
+# POST /api/v1/agent-runs, GET /api/v1/agent-runs/{thread_id}, POST .../resume
 from __future__ import annotations
 
 from uuid import uuid4
@@ -25,8 +20,9 @@ def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> 
     return payload
 
 
+# 새 에이전트 실행을 시작하고 승인 대기 상태까지 진행한다
 def start_agent_run(initial_state: dict) -> dict:
-    """새 에이전트 실행을 시작하고 승인 대기 상태까지 진행한다."""
+
     thread_id = str(uuid4())
     config = {"configurable": {"thread_id": thread_id}}
     result = get_graph().invoke(initial_state, config=config)

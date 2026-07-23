@@ -1,19 +1,4 @@
-"""
-매출 분석 — 상권 x 업종 진단
-
-모델 예측에 의존하지 않는다. 전부 관측값 기반.
-(LightGBM 잔차는 전체의 71%가 ±20% 밖으로 빗나가 판정 근거로 쓸 수 없었다)
-
-의존성
-    필수: pandas, numpy
-    선택: lifelines  (없으면 위험도 블록만 빠지고 나머지는 그대로 동작)
-
-사용
-    python sales_analysis.py build                              # 패널 구축
-    python sales_analysis.py build-neighbors                    # 인접상권 비교 피처 구축
-    python sales_analysis.py fit-risk                           # Cox 위험도 적합
-    python sales_analysis.py diagnose 3001491 CS100003 [20261]  # 진단 (기준분기 선택)
-"""
+# 매출 분석 — 상권 x 업종 진단
 from __future__ import annotations
 
 import json
@@ -100,11 +85,12 @@ RATES = {"개업률", "폐업률"}
 COVS = ["매출_하락률", "폐업률", "개업률", "유동인구_변화", "log_점포수"]
 
 
+# merged가 경로면 CSV로 읽고, 이미 로드된 DataFrame이면 그대로 쓴다(FastAPI에서
 def build_panel(merged=MERGED, out=PANEL) -> pd.DataFrame:
-    """merged가 경로면 CSV로 읽고, 이미 로드된 DataFrame이면 그대로 쓴다(FastAPI에서
-    업로드 신규 행을 메모리상으로 합친 DataFrame을 디스크에 쓰지 않고 바로 넘기기 위함).
-    out=None이면 디스크에 쓰지 않고 DataFrame만 반환한다.
-    """
+
+
+
+
     df = pd.read_csv(merged) if isinstance(merged, (str, Path)) else merged.copy()
     df = df[df[CO] >= MIN_CO].sort_values(["TRDAR_CD", "SVC_INDUTY_CD", "STDR_YYQU_CD"])
 
@@ -128,14 +114,15 @@ def build_panel(merged=MERGED, out=PANEL) -> pd.DataFrame:
     return panel
 
 
+# 상권x분기별 '상권 전체(업종 무관) 매출' 전분기 대비 변화율과, 반경
 def build_neighbor_features(panel_path=PANEL, area_path=AREA_COORDS,
                              out_path=NEIGHBOR_FEATURES) -> pd.DataFrame:
-    """상권x분기별 '상권 전체(업종 무관) 매출' 전분기 대비 변화율과, 반경
-    NEIGHBOR_RADIUS_M 안 이웃 상권들의 같은 변화율 중앙값을 계산한다.
 
-    동일 상권유형(TRDAR_SE_CD_NM) 중앙값 비교와 달리 지리적으로 실제 가까운 상권만
-    본다 — 지금까지 없던 축. 대상 상권 자신은 이웃에서 제외한다.
-    """
+
+
+
+
+
     panel = pd.read_csv(panel_path, usecols=["TRDAR_CD", "STDR_YYQU_CD", "TRDAR_AMT"])
     area_amt = panel.drop_duplicates(["TRDAR_CD", "STDR_YYQU_CD"]).sort_values(
         ["TRDAR_CD", "STDR_YYQU_CD"]).reset_index(drop=True)
@@ -179,14 +166,15 @@ def build_neighbor_features(panel_path=PANEL, area_path=AREA_COORDS,
     return result
 
 
+# Theil–Sen 기울기 (로그 스케일) → 분기당 변화율
 def slope(y) -> float:
-    """Theil–Sen 기울기 (로그 스케일) → 분기당 변화율.
 
-    ★ 계절조정을 하지 않는다. 관측이 9분기(2.25주기)뿐이라 계절성과 노이즈를
-      분리할 수 없다. 실제로 계절조정을 시도하면, 매끄럽게 하락하던 2024년에
-      2025년 노이즈에서 뽑은 가짜 계절지수가 적용되어 없던 지그재그가 생긴다.
-      대신 이상치에 강건한 Theil–Sen(쌍별 기울기의 중앙값)을 쓴다.
-    """
+
+
+
+
+
+
     ly = np.log1p(np.asarray(y, dtype=float))
     n = len(ly)
     if n < 2:
@@ -195,15 +183,17 @@ def slope(y) -> float:
     return float(np.expm1(np.median(sl)))
 
 
+# 분기 전환 중 하락한 비율. 연속 하락보다 노이즈에 강건하다
 def decline_ratio(y) -> float:
-    """분기 전환 중 하락한 비율. 연속 하락보다 노이즈에 강건하다.
-    (이태원 일식: 8번 중 7번 하락 = 0.875)"""
+
+
     d = np.diff(np.asarray(y, dtype=float))
     return round(float((d < 0).mean()), 3) if len(d) else 0.0
 
 
+# 말단부터 연속 하락 구간 수. 노이즈에 약하므로 보조 지표로만 쓴다
 def consec_decline(y) -> int:
-    """말단부터 연속 하락 구간 수. 노이즈에 약하므로 보조 지표로만 쓴다."""
+
     y = np.asarray(y, dtype=float)
     n = 0
     for i in range(len(y) - 1, 0, -1):
@@ -214,15 +204,17 @@ def consec_decline(y) -> int:
     return n
 
 
+# YYYYQ 형식의 분기 코드를 offset만큼 이동한다
 def shift_quarter(yyqu_cd: int, offset: int) -> int:
-    """YYYYQ 형식의 분기 코드를 offset만큼 이동한다."""
+
     year, quarter = divmod(int(yyqu_cd), 10)
     serial = year * PERIOD + quarter - 1 + offset
     return (serial // PERIOD) * 10 + serial % PERIOD + 1
 
 
+# 행 위치가 아니라 실제 분기 코드를 기준으로 증감률을 계산한다
 def pct_change(s: pd.Series, periods: int):
-    """행 위치가 아니라 실제 분기 코드를 기준으로 증감률을 계산한다."""
+
     if s.empty:
         return None
     current_q = int(s.index[-1])
@@ -233,8 +225,9 @@ def pct_change(s: pd.Series, periods: int):
     return round(float((b - a) / a), 4) if a else None
 
 
+# 총매출·점포수·점포당매출의 장기 변화를 함께 판정한다
 def classify_market_state(sales_change, store_change, per_store_change) -> str:
-    """총매출·점포수·점포당매출의 장기 변화를 함께 판정한다."""
+
     values = (sales_change, store_change, per_store_change)
     if any(pd.isna(v) for v in values):
         return "판정불가"
@@ -270,23 +263,24 @@ MARKET_STATE_EXPLANATION = {
 }
 
 
+# 상주인구(거주자)·유동인구(방문객 전체)·직장인구(근무자) 변화를 비교해 매출 하락의
 def classify_traffic_source(repop_change, flpop_change, workpop_change=None) -> str:
-    """상주인구(거주자)·유동인구(방문객 전체)·직장인구(근무자) 변화를 비교해 매출 하락의
-    성격을 구분한다.
 
-    세 변수 조합을 전부 나열하지 않는다(8가지 다 판정하면 오히려 해석이 흐려진다) —
-    실제로 서로 다른 대응이 필요한 경우만 우선순위대로 판정하고 나머지는 판정불가로
-    남긴다. workpop_change 를 안 주면(기존 호출부 호환) 상주인구·유동인구 2축 판정만
-    한다.
 
-    상주인구는 갱신 주기가 길어(연 1회 미만) 변화율이 정확히 0에 가까우면 "안정적"이
-    아니라 "이번 구간엔 갱신이 없었다"는 뜻이다 — 그런 경우 거주자가 안정적이라고
-    확신하는 판정(외부_유입_감소류)에는 쓰지 않는다. 직장인구는 그런 신선도 문제가
-    상대적으로 덜하고 이미 STRUCT 주석에 별도 설명이 있어 여기서는 그대로 취급한다.
 
-    관측된 동반 변화를 서술할 뿐이며 인과관계를 의미하지 않는다 — 다른 판정 함수들과
-    동일한 원칙.
-    """
+
+
+
+
+
+
+
+
+
+
+
+
+
     if pd.isna(repop_change) or pd.isna(flpop_change):
         return "판정불가"
 
@@ -329,13 +323,14 @@ def classify_traffic_source(repop_change, flpop_change, workpop_change=None) -> 
     return "판정불가"
 
 
+# 상권 전체(업종 무관) 매출의 전분기 대비 변화가 인접 상권들과 동조화되는지 판정
 def classify_regional_pattern(target_change, neighbor_change, neighbor_count) -> str:
-    """상권 전체(업종 무관) 매출의 전분기 대비 변화가 인접 상권들과 동조화되는지 판정.
 
-    동일 상권유형(TRDAR_SE_CD_NM) 중앙값 비교와 달리 지리적으로 실제 가까운 상권만
-    본다. 관측된 동반 변화이며 인과관계를 의미하지 않는다 — 다른 판정 함수들과 동일한
-    원칙.
-    """
+
+
+
+
+
     if (neighbor_count < MIN_NEIGHBORS or pd.isna(target_change) or pd.isna(neighbor_change)):
         return "판정불가"
 
@@ -370,9 +365,10 @@ def _covariates(panel: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# 이벤트 = 점포수 최고점 대비 -20% (실제 폐업으로 시장이 축소)
 def fit_risk(panel=PANEL, out=COX, thr: float = 0.20):
-    """이벤트 = 점포수 최고점 대비 -20% (실제 폐업으로 시장이 축소).
-    산출 = 각 위험인자의 위험비(HR). 손으로 정한 임계값을 데이터로 대체한다."""
+
+
     from lifelines import CoxTimeVaryingFitter
 
     df = _covariates(pd.read_csv(panel))
@@ -416,8 +412,9 @@ def fit_risk(panel=PANEL, out=COX, thr: float = 0.20):
     print("⚠ 2024Q1 이전부터 쇠퇴 중이던 셀은 식별 불가(좌측절단) → 위험 과소추정 가능")
 
 
+# (모델, 셀별 위험도 테이블). 실패 시 (None, None) → 위험도 블록 생략
 def load_risk(panel: pd.DataFrame):
-    """(모델, 셀별 위험도 테이블). 실패 시 (None, None) → 위험도 블록 생략."""
+
     try:
         with open(COX, "rb") as f:
             b = pickle.load(f)
@@ -458,12 +455,13 @@ class Diagnoser:
                                axis=1)
         self.model, self.risk = load_risk(self.p)
 
+    # 동업종 분포 대비 z-score. 강점(살릴 것)과 약점(메울 것)을 가른다
     def _axes(self, row) -> dict:
-        """동업종 분포 대비 z-score. 강점(살릴 것)과 약점(메울 것)을 가른다.
 
-        상위 3개씩만 남긴다. 목록이 길면 처방이 흐려진다 —
-        "약한 축 8개를 다 살리세요"는 아무것도 하지 말라는 말과 같다.
-        """
+
+
+
+
         out = {}
         peers = self.p[
             (self.p["STDR_YYQU_CD"] == row["STDR_YYQU_CD"])
@@ -708,9 +706,10 @@ class Diagnoser:
             "매출_추이": {int(q): int(v) for q, v in s.items()},
         }
 
+    # 관측 패턴으로 효과를 단정하지 않고 다음 확인 과제만 제시한다
     @staticmethod
     def _prescribe(state, sev, st, axes) -> dict:
-        """관측 패턴으로 효과를 단정하지 않고 다음 확인 과제만 제시한다."""
+
         ax = axes or {}
 
         def g(a, k):

@@ -1,24 +1,4 @@
-"""
-Synthetic Control — 대응방안 효과의 사전/사후 검증
-
-실제 랜덤화 실험 로그 없이, 실제 매출 패널(trend_panel.csv)만으로 반사실 매출 추이를
-합성한다. 가짜 캠페인 데이터를 새로 만들지 않는다.
-
-trend_panel.csv에는 "어떤 셀이 언제 어떤 대응방안을 적용했는지" 기록이 없다 — 그래서 두
-함수로 나눈다(2026-07-18 결정, 배경: docs/response_recommendation_agent_plan.md §5.2):
-
-    counterfactual_baseline()  대상 셀의 "개입 없을 시" 반사실 매출 추이. 패널 데이터만
-                               있으면 항상 계산 가능.
-    measured_effect()          실제 대응방안 시행 사례(data/campaign_logs.csv)가 있어야
-                               계산됨. 사례가 없으면(현재 상태) 판정불가를 반환한다 —
-                               anchor_facility usable=False와 동일한 정직성 원칙.
-
-의존성
-    필수: pandas, numpy, scipy (전부 requirements.txt에 이미 있음 — 새 의존성 없음)
-
-사용
-    python -m scripts.response_strategy.synthetic_control baseline 3001491 CS100003 [20261]
-"""
+# Synthetic Control — 대응방안 효과의 사전/사후 검증
 from __future__ import annotations
 
 import json
@@ -62,14 +42,15 @@ def _cell_series(panel: pd.DataFrame, trdar_cd: int, svc_induty_cd: str, col: st
     return c.sort_values("STDR_YYQU_CD").set_index("STDR_YYQU_CD")[col]
 
 
+# 같은 업종 x 대상 셀 제외 x 처치 전 기간(과거~as_of_quarter) 데이터를 가진 상권 목록
 def build_donor_pool(panel: pd.DataFrame, trdar_cd: int, svc_induty_cd: str,
                       as_of_quarter: int) -> list[int]:
-    """같은 업종 x 대상 셀 제외 x 처치 전 기간(과거~as_of_quarter) 데이터를 가진 상권 목록.
 
-    Diagnoser의 MIN_PEERS 패턴과 같은 취지로, 같은 상권유형(TRDAR_SE_CD_NM)으로 좁혀도
-    MIN_PEERS 이상 남으면 좁힌다 — 발달상권과 골목상권을 섞으면 스케일이 달라 적합도가
-    나빠진다.
-    """
+
+
+
+
+
     target_rows = panel[(panel["TRDAR_CD"] == trdar_cd) & (panel["SVC_INDUTY_CD"] == svc_induty_cd)]
     pool = panel[
         (panel["SVC_INDUTY_CD"] == svc_induty_cd)
@@ -87,9 +68,10 @@ def build_donor_pool(panel: pd.DataFrame, trdar_cd: int, svc_induty_cd: str,
     return counts[counts >= MIN_Q].index.tolist()
 
 
+# 도너 수가 max_donors보다 많으면, pre-period 로그매출 궤적과의 상관계수 상위
 def _restrict_to_most_similar(target: pd.Series, donors: pd.DataFrame, max_donors: int) -> pd.DataFrame:
-    """도너 수가 max_donors보다 많으면, pre-period 로그매출 궤적과의 상관계수 상위
-    max_donors만 남긴다(과적합 방지 — MAX_DONORS 주석 참고)."""
+
+
     if donors.shape[1] <= max_donors:
         return donors
     log_target = np.log1p(target.to_numpy(dtype=float))
@@ -102,12 +84,13 @@ def _restrict_to_most_similar(target: pd.Series, donors: pd.DataFrame, max_donor
     return donors.iloc[:, top_idx]
 
 
+# convex combination(합=1, 비음수) 가중치를 pre-period 로그 RMSE 최소화로 구한다
 def fit_weights(target: pd.Series, donors: pd.DataFrame) -> tuple[np.ndarray, float]:
-    """convex combination(합=1, 비음수) 가중치를 pre-period 로그 RMSE 최소화로 구한다.
 
-    로그 스케일을 쓰는 이유는 sales_analysis.slope()와 동일 — 상권 규모 편차가 커서 절대
-    오차가 아니라 비율 오차를 맞춰야 큰 도너 하나가 최적화를 지배하지 않는다.
-    """
+
+
+
+
     y = np.log1p(target.to_numpy(dtype=float))
     X = np.log1p(donors.to_numpy(dtype=float))
     n = X.shape[1]
@@ -124,11 +107,12 @@ def fit_weights(target: pd.Series, donors: pd.DataFrame) -> tuple[np.ndarray, fl
     return w, rmse
 
 
+# 대상 셀의 '개입 없을 시' 다음 분기 예상 매출. 패널 데이터만 있으면 항상 계산된다
 def counterfactual_baseline(trdar_cd, svc_induty_cd, yyqu_cd=None, panel=PANEL) -> dict:
-    """대상 셀의 '개입 없을 시' 다음 분기 예상 매출. 패널 데이터만 있으면 항상 계산된다.
 
-    특정 대응방안의 효과가 아니다 — 실측 효과는 measured_effect()가 담당한다.
-    """
+
+
+
     p = pd.read_csv(panel) if isinstance(panel, (str, Path)) else panel.copy()
     trdar_cd = int(trdar_cd)
 
@@ -186,13 +170,14 @@ def counterfactual_baseline(trdar_cd, svc_induty_cd, yyqu_cd=None, panel=PANEL) 
     }
 
 
+# 연령대별 매출 비중에 counterfactual_baseline()과 같은 가중치를 적용한 참고치
 def segment_baseline(trdar_cd, svc_induty_cd, yyqu_cd=None, panel=PANEL) -> dict:
-    """연령대별 매출 비중에 counterfactual_baseline()과 같은 가중치를 적용한 참고치.
 
-    별도로 세그먼트마다 가중치를 다시 최적화하지 않는다 — 표본이 얇아 세그먼트별로 따로
-    최적화하면 과적합 위험이 크다. "세그먼트별로도 베이스라인이 다르다"는 참고 정보이지
-    세그먼트별 실측 효과가 아니다(실측 효과는 campaign_logs가 쌓여야 measured_effect()로 가능).
-    """
+
+
+
+
+
     base = counterfactual_baseline(trdar_cd, svc_induty_cd, yyqu_cd, panel)
     if base.get("판정") == "판정불가":
         return base
@@ -233,19 +218,20 @@ _LOG_REQUIRED_COLS = {
 }
 
 
+# campaign_logs.csv에서 이 방안(action_id)의 실제 적용 사례를 찾아 사후 효과를 추정한다
 def measured_effect(trdar_cd, svc_induty_cd, action_id, campaign_logs=CAMPAIGN_LOGS,
                      panel=PANEL, n_bootstrap: int = 500, seed: int = 0) -> dict:
-    """campaign_logs.csv에서 이 방안(action_id)의 실제 적용 사례를 찾아 사후 효과를 추정한다.
 
-    각 사례의 효과는 (실측 revenue_after - counterfactual_baseline 반사실 예상매출)로
-    계산한다 — revenue_before와의 나이브 전후 비교가 아니다(시장 전체 추세를 방안의 효과로
-    착각하는 걸 막기 위해 기존 SCM 도너풀 로직을 그대로 재사용). 같은 상권(trdar_cd) 사례가
-    있으면 그것만 쓰고, 없으면 같은 업종(svc_induty_cd) 전체 사례로 넓혀서(프랜차이즈 여러
-    지점의 실측을 일반화) "적용범위"에 그 사실을 명시한다.
 
-    사례가 없거나(현재 상태) 반사실을 계산할 수 있는 사례가 하나도 없으면 억지로 수치를
-    만들지 않고 판정불가를 반환한다 — anchor_facility usable=False와 동일한 정직성 원칙.
-    """
+
+
+
+
+
+
+
+
+
     path = Path(campaign_logs)
     if not path.exists():
         return {"판정": "판정불가", "사유": "실제 시행 사례 없음 (campaign_logs.csv 없음)",

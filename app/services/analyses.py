@@ -1,4 +1,4 @@
-"""업로드한 매출 분석 결과를 후속 추천 실행에 재사용하기 위한 저장소."""
+# 업로드한 매출 분석 결과를 후속 추천 실행에 재사용하기 위한 저장소
 from __future__ import annotations
 
 import json
@@ -92,8 +92,9 @@ def get_analysis(analysis_id: str) -> dict | None:
     }
 
 
+# 사용자 소유 분석을 최신순으로 반환한다
 def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
-    """사용자 소유 분석을 최신순으로 반환한다."""
+
     query = "SELECT analysis_id FROM analyses WHERE user_id = ?"
     params: list[object] = [user_id]
     if store_id is not None:

@@ -1,11 +1,4 @@
-"""
-실행:
-    python run_collect.py --test   # 소량 샘플만 호출해서 필드명/키 확인
-    python run_collect.py --full   # 전체 수집 (2021Q1~2026Q1)
-
-사전 설치:
-    pip install httpx pandas
-"""
+# 실행:
 import argparse
 import asyncio
 import os
@@ -67,8 +60,9 @@ def load_keys() -> tuple[str, str, str, str, str, str, str, str]:
         get_api_key("SEOUL_API_KEY_BIGDATA_FLATFORM_SUBWAY"),
     )
 
+# 분기 파라미터를 쓰는 4개 API를 최신 분기(20254) 소량으로 테스트
 async def run_test():
-    """분기 파라미터를 쓰는 4개 API를 최신 분기(20254) 소량으로 테스트."""
+
     (api_key_sales, api_key_store, api_key_foot_traffic, api_key_resident_pop,
      api_key_work, api_key_event, api_key_big_store, api_key_subway) = load_keys()
     async with httpx.AsyncClient() as client:

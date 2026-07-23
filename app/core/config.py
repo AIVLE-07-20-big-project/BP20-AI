@@ -1,4 +1,4 @@
-"""경로 상수 — scripts/modeling/sales_analysis.py의 ROOT/DATA/MODEL 정의와 동일하게 유지."""
+# 경로 상수 — scripts/modeling/sales_analysis.py의 ROOT/DATA/MODEL 정의와 동일하게 유지
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -1,18 +1,4 @@
-"""Survival(Cox 시변모형) 평가 보강 — 위험 5분위별 Kaplan-Meier 생존곡선 + C-index.
-
-새 모델을 만들지 않는다. sales_analysis.py의 fit_risk()가 이미 정의한 이벤트(점포수
-최고점 대비 -20%)·공변량(_covariates())·학습된 모형(model/cox_risk.pkl)을 그대로 재사용해
-평가 지표만 보강한다.
-
-*** Schoenfeld 잔차(비례위험 가정) 검증에 관하여 ***
-lifelines의 check_assumptions()는 정적 CoxPHFitter 전용이고, 시변 공변량을 쓰는
-CoxTimeVaryingFitter에는 그 기능이 없다. 시변 모형을 다시 정적 스냅샷으로 근사해 검증하려면
-또 다른 모형을 새로 적합해야 하므로, "기존 모형 평가지표 보강"이라는 이번 범위에서는
-생략하고 리포트에 한계로 명시한다.
-
-사용:
-    python survival_eval.py evaluate
-"""
+# Survival(Cox 시변모형) 평가 보강 — 위험 5분위별 Kaplan-Meier 생존곡선 + C-index
 from __future__ import annotations
 
 import json
@@ -38,8 +24,9 @@ PH_LIMITATION = (
 )
 
 
+# fit_risk()와 동일한 이벤트/구간 구성 — 새 정의를 만들지 않고 그대로 재사용
 def _event_frame(panel: Path = PANEL, thr: float = EVENT_THRESHOLD) -> pd.DataFrame:
-    """fit_risk()와 동일한 이벤트/구간 구성 — 새 정의를 만들지 않고 그대로 재사용."""
+
     df = _covariates(pd.read_csv(panel))
     df = df[df.groupby("cell")["cell"].transform("size") >= MIN_Q]
 

@@ -1,16 +1,11 @@
-"""
-서울 열린데이터광장 OpenAPI collectors
-- 추정매출(상권): VwsmTrdarSelngQq
-- 점포(서울시): VwsmMegaStorW
-- 길단위인구(자치구): VwsmSignguFlpopW
-- 문화행사 정보: culturalEventInfo
-"""
+# 서울 열린데이터광장 OpenAPI collectors
 import httpx
 import pandas as pd
 
 
+# 공통 페이징/호출 로직
 class SeoulOpenApiCollector:
-    """공통 페이징/호출 로직"""
+
 
     BASE_URL = "http://openapi.seoul.go.kr:8088"
     SERVICE_NAME: str = ""
@@ -50,8 +45,9 @@ class SeoulOpenApiCollector:
         return pd.DataFrame(rows)
 
 
+# 추정매출(상권) - 분기 파라미터 지원
 class SalesEstimateCollector(SeoulOpenApiCollector):
-    """추정매출(상권) - 분기 파라미터 지원"""
+
 
     SERVICE_NAME = "VwsmTrdarSelngQq"
 
@@ -67,8 +63,9 @@ class SalesEstimateCollector(SeoulOpenApiCollector):
             start += page_size
         return pd.DataFrame(rows)
 
+    # 예: ['20211','20212',...,'20261'] 21개 분기 전체 수집
     async def fetch_quarters(self, yyqu_codes: list[str]) -> pd.DataFrame:
-        """예: ['20211','20212',...,'20261'] 21개 분기 전체 수집"""
+
         frames = []
         async with httpx.AsyncClient() as client:
             for yyqu in yyqu_codes:
@@ -77,8 +74,9 @@ class SalesEstimateCollector(SeoulOpenApiCollector):
         return pd.concat(frames, ignore_index=True)
 
 
+# 점포(상권) - TRDAR_CD + SVC_INDUTY_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능
 class StoreStatsCollector(SeoulOpenApiCollector):
-    """점포(상권) - TRDAR_CD + SVC_INDUTY_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능."""
+
 
     SERVICE_NAME = "VwsmTrdarStorQq"
 
@@ -103,8 +101,9 @@ class StoreStatsCollector(SeoulOpenApiCollector):
         return pd.concat(frames, ignore_index=True)
 
 
+# 길단위인구(상권) - TRDAR_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능
 class FootTrafficCollector(SeoulOpenApiCollector):
-    """길단위인구(상권) - TRDAR_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능."""
+
 
     SERVICE_NAME = "VwsmTrdarFlpopQq"
 
@@ -129,45 +128,49 @@ class FootTrafficCollector(SeoulOpenApiCollector):
         return pd.concat(frames, ignore_index=True)
 
 
+# 상주인구(상권) - TRDAR_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능
 class ResidentPopulationCollector(SeoulOpenApiCollector):
-    """상주인구(상권) - TRDAR_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능.
-    업종과 무관한 상권 단위 지표라 SVC_INDUTY_CD 없이 조인한다.
 
-    ★ 이 API는 다른 상권분석서비스 API(매출/점포/유동인구)와 달리 분기 extra_path를
-      무시하고 매 호출마다 전체 이력(2021~현재)을 통째로 반환한다. 그래서
-      FootTrafficCollector처럼 분기별로 반복 호출하면 같은 데이터가 분기 수만큼
-      중복된다 — CulturalEventCollector처럼 fetch_all()로 한 번만 호출해야 한다.
-    """
+
+
+
+
+
+
+
 
     SERVICE_NAME = "VwsmTrdarRepopQq"
 
 
+# 직장인구(상권) - TRDAR_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능
 class WorkplacePopulationCollector(SeoulOpenApiCollector):
-    """직장인구(상권) - TRDAR_CD + STDR_YYQU_CD 기준. 매출 데이터와 직접 join 가능.
-    업종과 무관한 상권 단위 지표라 SVC_INDUTY_CD 없이 조인한다.
 
-    ★ ResidentPopulationCollector와 동일하게 분기 extra_path를 무시하고 매 호출마다
-      전체 이력을 통째로 반환하는 API라 fetch_all()로 한 번만 호출해야 한다(실측 확인함).
-      또한 직장인구는 4분기에 한 번만 갱신되고 다음 해 1~3분기 값이 동일하게 채워지는
-      원자료 특성이 있다 — 분기별 세밀한 변화 해석 시 주의.
-    """
+
+
+
+
+
+
+
 
     SERVICE_NAME = "VwsmTrdarWrcPopltnQq"
 
 
+# 문화행사 정보 - 축제/행사 데이터
 class CulturalEventCollector(SeoulOpenApiCollector):
-    """문화행사 정보 - 축제/행사 데이터"""
+
 
     SERVICE_NAME = "culturalEventInfo"
 
 
+# 지하철역 좌표(서울교통빅데이터플랫폼 t-data.seoul.go.kr) - 대규모점포와 달리
 class SubwayStationGeomCollector:
-    """지하철역 좌표(서울교통빅데이터플랫폼 t-data.seoul.go.kr) - 대규모점포와 달리
-    openapi.seoul.go.kr 계열이 아니라 응답 구조가 다르다(SERVICE_NAME으로 감싸지 않은
-    raw JSON 배열, 인증키를 URL 경로가 아니라 쿼리파라미터 apikey로 전달, HTTP는
-    HTTPS로 리다이렉트됨) - SeoulOpenApiCollector를 상속하지 않는다.
-    실측 확인: 784개 역, 좌표(convX=경도, convY=위도, WGS84) 전부 채워짐.
-    """
+
+
+
+
+
+
 
     BASE_URL = "https://t-data.seoul.go.kr/apig/apiman-gateway/tapi/TaimsKsccDvSubwayStationGeom/1.0"
 
@@ -185,12 +188,13 @@ class SubwayStationGeomCollector:
             return pd.DataFrame(res.json())
 
 
+# 대규모점포(백화점/대형마트/쇼핑센터 등) 인허가 정보 - 지방행정 인허가데이터
 class BigStoreCollector(SeoulOpenApiCollector):
-    """대규모점포(백화점/대형마트/쇼핑센터 등) 인허가 정보 - 지방행정 인허가데이터.
-    TRDAR_CD/STDR_YYQU_CD 기준이 아니라 개별 시설(사업장) 단위 + 좌표(X, Y)로 나오므로,
-    상권과의 결합은 공간 조인(사업장 좌표 ↔ 상권 경계/중심점)으로 해야 한다.
-    영업상태명(TRDSTATENM)·인허가일자(APVPERMYMD)·폐업일자(DCBYMD)로 개폐업 시점 판정.
-    """
+
+
+
+
+
 
     SERVICE_NAME = "LOCALDATA_082501"
 

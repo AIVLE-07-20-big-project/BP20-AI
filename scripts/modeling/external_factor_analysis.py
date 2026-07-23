@@ -1,15 +1,4 @@
-"""날씨·문화행사 등 외부요인의 매출 연관성 분석.
-
-분기 매출로 개별 행사의 인과효과를 확정하지 않는다. 상권별 행사 노출 변화와
-매출 변화의 연관성을 추정하고, 데이터 품질·표본·위약 검정을 통과한 결과만
-보고한다. 서울 단일 관측소 분기 날씨는 분기 효과와 분리되지 않아 자동 차단한다.
-
-사용:
-    python external_factor_analysis.py build-events
-    python external_factor_analysis.py build-subway
-    python external_factor_analysis.py fit
-    python external_factor_analysis.py analyze 3120153 CS300008 [20261]
-"""
+# 날씨·문화행사 등 외부요인의 매출 연관성 분석
 from __future__ import annotations
 
 import json
@@ -96,14 +85,15 @@ def audit_weather(path=WEATHER) -> dict:
     }
 
 
+# 동종 상권 대비 문화행사 노출도의 순수 서술적 비교(인과 주장 아님)
 def peer_exposure_percentile(trdar_cd, yyqu_cd, panel_path=PANEL, event_path=EVENT_FEATURES) -> dict:
-    """동종 상권 대비 문화행사 노출도의 순수 서술적 비교(인과 주장 아님).
 
-    행사는 업종과 무관하므로 비교 모집단은 같은 분기의 전체 상권이다.
-    event_exposure_quarterly.csv 는 반경 내 행사가 있는 상권만 행이 있는 희소 파일이라,
-    빠진 상권을 0으로 채우지 않으면 "노출이 있는 상권들끼리만" 비교하게 되어 백분위가
-    왜곡된다 — 반드시 전체 상권 기준으로 0-fill 한 뒤 비교한다.
-    """
+
+
+
+
+
+
     quarter = int(yyqu_cd)
     panel_cells = pd.read_csv(panel_path, usecols=["TRDAR_CD", "STDR_YYQU_CD"])
     peers = panel_cells.loc[panel_cells["STDR_YYQU_CD"] == quarter, ["TRDAR_CD"]].drop_duplicates()
@@ -183,17 +173,18 @@ def build_event_features(
     return result
 
 
+# 대형 앵커시설(대규모점포) 개업/폐업 이벤트의 상권별 공간 노출
 def build_anchor_events(
     raw_path=ANCHOR_RAW, area_path=AREA_COORDS, out_path=ANCHOR_FEATURES,
 ) -> pd.DataFrame:
-    """대형 앵커시설(대규모점포) 개업/폐업 이벤트의 상권별 공간 노출.
 
-    "준대규모점포"(GS THE FRESH 등 SSM 체인)는 유통산업발전법상 소상공인 경쟁자에
-    가까워 앵커가 아니므로 제외한다. 이 함수는 앵커시설이 존재하는 상시 효과가 아니라
-    "그 상권 반경 내에서 개업/폐업이 일어난 분기"만 포착한다(문화행사와 동일하게 단일
-    시점 이벤트의 거리가중 노출로 다룸). X/Y 좌표는 area_coords.csv와 같은 좌표계라
-    변환 없이 그대로 공간조인한다(실측 확인함).
-    """
+
+
+
+
+
+
+
     raw = pd.read_csv(raw_path, dtype=str)
     anchors = raw[raw["JPSENM"].str.strip() == "대규모점포"].copy()
     anchors["X"] = pd.to_numeric(anchors["X"], errors="coerce")
@@ -257,14 +248,15 @@ def build_anchor_events(
     return result
 
 
+# CARD_SUBWAY_MONTH_YYYYMM.csv 전부 로드
 def _load_subway_ridership(raw_dir=SUBWAY_RAW_DIR) -> pd.DataFrame:
-    """CARD_SUBWAY_MONTH_YYYYMM.csv 전부 로드.
 
-    ★ 이 파일들은 헤더가 6개 필드인데 데이터 행 끝에 빈 필드가 하나 더 있어(트레일링
-    콤마), 기본 read_csv로 읽으면 pandas가 첫 컬럼을 인덱스로 착각해 전체 컬럼이
-    밀린다(실측으로 확인함 — 역명 자리에 노선명이 들어가는 식). index_col=False로
-    읽어야 정상이다.
-    """
+
+
+
+
+
+
     frames = []
     for path in sorted(Path(raw_dir).glob("CARD_SUBWAY_MONTH_*.csv")):
 
@@ -281,17 +273,18 @@ def _load_subway_ridership(raw_dir=SUBWAY_RAW_DIR) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
+# 상권x분기별 지하철 승하차인원 노출(거리가중)
 def build_subway_exposure(raw_dir=SUBWAY_RAW_DIR, station_path=SUBWAY_STATIONS,
                            area_path=AREA_COORDS, out_path=SUBWAY_FEATURES) -> pd.DataFrame:
-    """상권x분기별 지하철 승하차인원 노출(거리가중).
 
-    라이브 승하차 API(CardSubwayStatsNew)는 최근 ~4개월치만 롤링 보관해 매출 패널
-    (20241~20261)과 겹치지 않는다는 걸 실측으로 확인했다 — 대신 파일 탭의 월별
-    벌크 CSV(일별 원본 그대로, 인증키 불필요)를 사용자가 수동으로 확보해
-    data/subway_data/에 넣었다. 역명이 같으면 호선이 달라도 합산한다(환승역이
-    호선별로 별도 행이라서). 좌표 매칭이 안 되는 역(실측 1.9%, 괄호 부기명 표기 차이
-    등)은 강제로 보정하지 않고 노출 계산에서 자연히 빠진다.
-    """
+
+
+
+
+
+
+
+
     out_columns = ["TRDAR_CD", "STDR_YYQU_CD", "subway_exposure",
                    "subway_station_count", "subway_nearest_m"]
     ridership = _load_subway_ridership(raw_dir)
@@ -424,13 +417,14 @@ def _fit_ols(data: pd.DataFrame, event_col="d_event_exposure"):
     return _fit_ols_multi(data, [event_col])
 
 
+# 개업/폐업 노출을 한 모델에 동시에 넣어 서로 교란 없이 각각의 계수를 추정한다
 def _fit_anchor(data: pd.DataFrame) -> dict:
-    """개업/폐업 노출을 한 모델에 동시에 넣어 서로 교란 없이 각각의 계수를 추정한다.
 
-    문화행사 회귀와 동일한 위약검정(미래로 1분기 shift)·부호안정성(분기별 leave-one-out)
-    기준을 그대로 적용한다. 앵커시설의 상시 존재 효과(누적 재고형 신호)는 다루지
-    않는다 — "개업/폐업이 일어난 그 분기"의 동반 변화만 검증한다.
-    """
+
+
+
+
+
     cols = ["d_anchor_open_exposure", "d_anchor_close_exposure"]
     data = data.dropna(subset=cols).copy()
     label = {"d_anchor_open_exposure": "개업", "d_anchor_close_exposure": "폐업"}
@@ -482,11 +476,12 @@ def _fit_anchor(data: pd.DataFrame) -> dict:
     return result
 
 
+# 지하철 승하차 노출 변화와 매출 변화의 연관성을 문화행사와 동일한 방식(위약검정
 def _fit_subway(data: pd.DataFrame) -> dict:
-    """지하철 승하차 노출 변화와 매출 변화의 연관성을 문화행사와 동일한 방식(위약검정
-    + 부호안정성)으로 검증한다. 유동인구(TOT_FLPOP_CO)와 개념적으로 겹칠 수 있어
-    d_log_traffic을 통제변수로 이미 포함한 상태에서 그 위에 남는 설명력만 본다.
-    """
+
+
+
+
     col = "d_log_subway_exposure"
     data = data.dropna(subset=[col]).copy()
     if len(data) < 1_000:

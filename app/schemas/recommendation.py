@@ -1,4 +1,4 @@
-"""Spring Boot가 MySQL에 저장한 분석 결과를 재전달하는 요청 계약."""
+# Spring Boot가 MySQL에 저장한 분석 결과를 재전달하는 요청 계약
 from __future__ import annotations
 
 from typing import Any

@@ -1,8 +1,4 @@
-"""POST /api/v1/campaign-logs, GET /api/v1/campaign-logs/quality
-
-계획 §1단계 — 승인된 agent-run(thread_id)의 체크포인트에서 결정 시점 값을 자동으로 읽어
-실행 결과를 기록한다. 스키마·데이터 계약 검증은 app/services/response/campaign_logs.py 참고.
-"""
+# POST /api/v1/campaign-logs, GET /api/v1/campaign-logs/quality
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException

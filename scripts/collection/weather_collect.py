@@ -1,15 +1,4 @@
-"""
-기상청 날씨 수집기
-
-서울 관측소 기준 월별 기상 요약을 수집하고, 분기 단위로 집계한다.
-
-사용
-    python weather_collect.py --station 108 --start-year 2024 --start-month 1 --end-year 2026 --end-month 1
-
-산출물
-    data/weather_seoul_monthly_raw.csv
-    data/weather_seoul_quarterly.csv
-"""
+# 기상청 날씨 수집기
 from __future__ import annotations
 
 import argparse

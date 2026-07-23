@@ -1,4 +1,4 @@
-"""매출 분석을 저장하고, 선택한 분석에만 대응방안 추천을 실행한다."""
+# 매출 분석을 저장하고, 선택한 분석에만 대응방안 추천을 실행한다
 from __future__ import annotations
 
 from typing import Optional
@@ -35,6 +35,7 @@ async def _ingest_and_diagnose(
     return report, raw_diag, ingestion_warnings + pipeline_warnings
 
 
+# CSV를 반영해 매출만 분석하고 후속 추천에 사용할 결과를 저장한다
 @router.post("/analyses")
 async def create_analysis(
     file: UploadFile = File(..., description="분석할 신규 매출 원본 CSV"),
@@ -44,7 +45,7 @@ async def create_analysis(
     user_id: Optional[str] = Form(None),
     store_id: Optional[str] = Form(None),
 ) -> dict:
-    """CSV를 반영해 매출만 분석하고 후속 추천에 사용할 결과를 저장한다."""
+
     report, raw_diag, warnings = await _ingest_and_diagnose(
         file, trdar_cd, svc_induty_cd, yyqu_cd,
     )
@@ -74,12 +75,13 @@ def list_user_analyses(
     return analyses.list_analyses(x_user_id, store_id)
 
 
+# Spring Boot/MySQL에서 재전달한 분석 결과로 추천 에이전트를 시작한다
 @router.post("/recommendations")
 def create_recommendation_from_analysis(
     payload: RecommendationFromAnalysisRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
 ) -> dict:
-    """Spring Boot/MySQL에서 재전달한 분석 결과로 추천 에이전트를 시작한다."""
+
     if payload.user_id is not None and payload.user_id != x_user_id:
         raise HTTPException(status_code=403, detail="요청 사용자와 분석 결과의 소유자가 다릅니다")
     return start_agent_run({
@@ -103,11 +105,12 @@ def get_analysis(analysis_id: str, x_user_id: Optional[str] = Header(None, alias
     return analysis
 
 
+# 저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다
 @router.post("/analyses/{analysis_id}/recommendations")
 def create_analysis_recommendation(
     analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ) -> dict:
-    """저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다."""
+
     analysis = analyses.get_analysis(analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")

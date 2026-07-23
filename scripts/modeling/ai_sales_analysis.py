@@ -1,12 +1,4 @@
-"""입력된 현재 매출을 진단하는 비지도 ML 분석기.
-
-매출을 예측하지 않는다. 현재 매출과 함께 관측된 점포수, 거래건수,
-유동인구 및 동종 상권 분포를 사용해 이상성과 구조적 특징만 분석한다.
-
-사용:
-    python ai_sales_analysis.py train
-    python ai_sales_analysis.py analyze 3120153 CS300008 [20261] [매출액]
-"""
+# 입력된 현재 매출을 진단하는 비지도 ML 분석기
 from __future__ import annotations
 
 import json
@@ -55,8 +47,9 @@ def _safe_change(current: pd.Series, previous: pd.Series) -> pd.Series:
     return ((current - previous) / previous.replace(0, np.nan)).clip(-3, 3)
 
 
+# 각 분기 관측값만 사용해 분석용 효율·변화 특성을 만든다
 def make_features(panel: pd.DataFrame) -> pd.DataFrame:
-    """각 분기 관측값만 사용해 분석용 효율·변화 특성을 만든다."""
+
     df = panel.copy().sort_values(["TRDAR_CD", "SVC_INDUTY_CD", "STDR_YYQU_CD"])
     df = df[df[CO] >= MIN_CO].copy()
     group = df.groupby(["TRDAR_CD", "SVC_INDUTY_CD"], sort=False)

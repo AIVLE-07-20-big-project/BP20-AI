@@ -1,13 +1,4 @@
-"""Diagnoser -> AISalesAnalyzer(선택) -> ExternalFactorAnalyzer(선택) 순서로 기존
-스크립트 로직을 그대로 호출한다. 새 계산 로직은 만들지 않는다 —
-scripts/modeling/generate_sales_report.py가 CLI에서 하던 조합을, 고정 CSV 대신
-ingestion.build_combined_panel()이 만든 in-memory 패널을 대상으로 수행할 뿐이다.
-
-AI_분석/외부환경_참고는 기존 on-disk 모델·결과 파일(model/ai_sales_model.pkl,
-model/external_factor_analysis.json)을 그대로 참조하므로, 방금 업로드된 분기가 그 학습
-데이터에는 아직 없을 수 있다 — 이 경우 해당 블록은 에러 없이 생략되고 경고로만 남는다
-(진단 자체는 in-memory 패널을 쓰므로 업로드 반영됨. AI/외부환경 블록만 best-effort).
-"""
+# Diagnoser -> AISalesAnalyzer(선택) -> ExternalFactorAnalyzer(선택) 순서로 기존
 from __future__ import annotations
 
 import pandas as pd
@@ -21,13 +12,15 @@ AI_MODEL_PATH = MODEL / "ai_sales_model.pkl"
 EXTERNAL_RESULT_PATH = MODEL / "external_factor_analysis.json"
 
 
+# 대상 상권x업종x분기 조합을 패널에서 찾을 수 없을 때
 class CellNotFoundError(Exception):
-    """대상 상권x업종x분기 조합을 패널에서 찾을 수 없을 때."""
+    pass
 
 
+# 반환: (report, raw_diag, 경고목록)
 def run_pipeline(trdar_cd: str, svc_induty_cd: str, yyqu_cd: int | None,
                   combined_df: pd.DataFrame) -> tuple[dict, dict, list[str]]:
-    """반환: (report, raw_diag, 경고목록)"""
+
     warnings: list[str] = []
     trdar_int = int(trdar_cd)
 

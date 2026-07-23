@@ -1,12 +1,4 @@
-"""RAG 리포트 생성 모듈 (VSCode / Windows 앱용).
-
-evidence_gate: 검색된 근거 밖의 수치가 리포트에 등장하지 못하게 막는다.
-흐름은 build_prompt -> LLM 호출 -> verify_output -> (위반 시) 1회 재생성.
-
-핵심 원칙(계획 §6):
-  - vendor 수치는 '실측'이 아니라 문헌 참고값이므로 신뢰도 라벨을 낮춰 인용한다.
-  - 근거가 없으면 숫자를 만들지 말고 방향성만 서술한다. 정직한 낮은 신뢰도 > 거짓 확신.
-"""
+# RAG 리포트 생성 모듈 (VSCode / Windows 앱용)
 from __future__ import annotations
 
 import os
@@ -35,8 +27,9 @@ class VerifyResult:
     disclaimer_present: bool
     numbers_found: list[str]
 
+    # 재생성 시 LLM에 돌려줄 교정 지시문
     def as_feedback(self) -> str:
-        """재생성 시 LLM에 돌려줄 교정 지시문."""
+
         msgs = []
         if self.violations:
             bad = ", ".join(f"'{v['value']}'" for v in self.violations)
@@ -49,8 +42,9 @@ class VerifyResult:
         return " ".join(msgs)
 
 
+# 검색 결과(evidence)를 규칙이 박힌 프롬프트로 변환
 def build_prompt(evidence: dict[str, Any], action_name: str, shop_context: str = "") -> str:
-    """검색 결과(evidence)를 규칙이 박힌 프롬프트로 변환."""
+
     lines: list[str] = []
     lines.append("아래 규칙을 반드시 지켜 대응방안 리포트를 작성하라.\n")
     lines.append("[규칙]")
@@ -82,8 +76,9 @@ def build_prompt(evidence: dict[str, Any], action_name: str, shop_context: str =
     return "\n".join(lines)
 
 
+# 생성문의 모든 수치가 허용 목록 안에 있는지, disclaimer가 있는지 검사
 def verify_output(text: str, evidence: dict[str, Any]) -> VerifyResult:
-    """생성문의 모든 수치가 허용 목록 안에 있는지, disclaimer가 있는지 검사."""
+
     allowed = {a["value"].replace(" ", "") for a in evidence.get("allowed_numbers", [])}
     found: list[str] = []
     violations: list[dict] = []
@@ -106,8 +101,9 @@ def verify_output(text: str, evidence: dict[str, Any]) -> VerifyResult:
     )
 
 
+# OpenAI 호출. 키는 환경변수 OPENAI_API_KEY 사용
 def _call_openai(prompt: str, model: str = "gpt-4.1", temperature: float = 0.2) -> str:
-    """OpenAI 호출. 키는 환경변수 OPENAI_API_KEY 사용."""
+
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -122,6 +118,7 @@ def _call_openai(prompt: str, model: str = "gpt-4.1", temperature: float = 0.2) 
     return resp.choices[0].message.content or ""
 
 
+# 리포트 생성 + 검증 + 1회 재생성(Evaluator-Optimizer)
 def generate_report(
     evidence: dict[str, Any],
     action_name: str,
@@ -129,11 +126,11 @@ def generate_report(
     llm=None,
     max_retry: int = 1,
 ) -> dict[str, Any]:
-    """리포트 생성 + 검증 + 1회 재생성(Evaluator-Optimizer).
 
-    llm: prompt(str) -> str 형태의 호출자. 미지정 시 OpenAI 사용.
-         테스트에서는 가짜 함수를 주입할 수 있다.
-    """
+
+
+
+
     llm = llm or _call_openai
     prompt = build_prompt(evidence, action_name, shop_context)
 

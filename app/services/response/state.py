@@ -1,8 +1,4 @@
-"""agent-runs LangGraph 그래프의 공유 상태 (계획 §4).
-
-§11(고객군 세그먼트 확장)은 아직 채택 전 검토 단계라, 지금은 단일 셀
-(trdar_cd x svc_induty_cd x yyqu_cd) 기준의 원안 스키마로 구현한다.
-"""
+# agent-runs LangGraph 그래프의 공유 상태 (계획 §4)
 from __future__ import annotations
 
 from typing import Literal, TypedDict
