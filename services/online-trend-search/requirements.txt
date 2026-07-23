@@ -1,0 +1,13 @@
+# === 지금 당장 필요 (STEP 1: API 호출 테스트) ===
+requests
+python-dotenv
+
+# === 곧 필요 (STEP 3: 데이터 전처리 / 시각화) ===
+pandas
+numpy
+matplotlib
+
+# === 이후 필요 (STEP 4: 예측 모델 고도화 단계, 지금은 설치 안 해도 됨) ===
+# prophet
+# xgboost
+# lightgbm
