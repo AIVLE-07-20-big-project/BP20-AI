@@ -9,7 +9,7 @@ class ABSAService:
         self.tokenizer = tokenizer
         self.device = device
 
-    def predict(self, review_text: str) -> List[AspectSentiment]:
+    def analyze(self, review_text: str) -> List[AspectSentiment]:
         inputs = self.tokenizer(
             [review_text] * len(settings.ASPECTS),
             settings.ASPECTS,
