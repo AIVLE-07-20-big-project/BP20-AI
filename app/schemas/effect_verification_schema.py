@@ -1,3 +1,5 @@
+"""Request and response schemas for effect verification."""
+
 from enum import Enum
 from typing import Optional
 

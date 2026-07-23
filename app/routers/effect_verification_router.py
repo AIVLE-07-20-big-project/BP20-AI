@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 
-from app.schemas.effect_verification import (
+from app.schemas.effect_verification_schema import (
     EffectVerificationRequest,
     EffectVerificationResponse,
 )
-from app.services.effect_verification import verify_effect
+from app.services.effect_verification_service import verify_effect
 
 
 router = APIRouter(
