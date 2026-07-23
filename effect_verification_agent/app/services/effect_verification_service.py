@@ -468,7 +468,9 @@ def verify_effect(
     final_summary = (
         f"{verdict_message} "
         f"종합 효과 점수는 {effect_score}점입니다. "
-        f"{summary}"
+        f"{summary} "
+        "본 결과는 추천 실행 전후의 관찰된 변화를 비교한 것으로, "
+        "추천으로 인한 인과효과를 확정하지 않습니다."
     )
 
     return EffectVerificationResponse(

@@ -10,7 +10,7 @@ from app.schemas.effect_verification_schema import (
     SalesMetrics,
     VerificationCondition,
 )
-from app.services.effect_verification_service import verify_effect
+from app.services.effect_verification_service import determine_verdict, verify_effect
 
 
 class EffectVerificationServiceTests(unittest.TestCase):
@@ -41,6 +41,7 @@ class EffectVerificationServiceTests(unittest.TestCase):
         self.assertEqual(response.verdict, "EFFECTIVE")
         self.assertGreaterEqual(response.effect_score, 70)
         self.assertEqual(len(response.metric_results), 8)
+        self.assertIn("인과효과를 확정하지 않습니다", response.summary)
 
     def test_review_verification_supports_improvement_scenario(self):
         request = EffectVerificationRequest(
@@ -74,6 +75,27 @@ class EffectVerificationServiceTests(unittest.TestCase):
         self.assertEqual(response.verdict, "EFFECTIVE")
         self.assertGreaterEqual(response.effect_score, 70)
         self.assertEqual(len(response.metric_results), 8)
+
+    def test_sales_verification_returns_not_effective_when_metrics_decline(self):
+        request = EffectVerificationRequest(
+            store_id=1,
+            recommendation_id=105,
+            recommendation_type=RecommendationType.SALES,
+            condition=VerificationCondition(period_days=14),
+            before=PeriodMetrics(sales=self.sales_metrics(1_000_000, 5_000_000)),
+            after=PeriodMetrics(sales=self.sales_metrics(800_000, 4_500_000)),
+        )
+
+        response = verify_effect(request)
+
+        self.assertEqual(response.verdict, "NOT_EFFECTIVE")
+        self.assertLess(response.effect_score, 40)
+
+    def test_verdict_boundaries(self):
+        self.assertEqual(determine_verdict(70), "EFFECTIVE")
+        self.assertEqual(determine_verdict(69.99), "PARTIALLY_EFFECTIVE")
+        self.assertEqual(determine_verdict(40), "PARTIALLY_EFFECTIVE")
+        self.assertEqual(determine_verdict(39.99), "NOT_EFFECTIVE")
 
     def test_zero_baseline_does_not_divide_by_zero(self):
         before = self.sales_metrics(0, 0)
