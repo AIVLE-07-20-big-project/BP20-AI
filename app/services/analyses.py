@@ -76,13 +76,7 @@ def create_analysis(
     return get_analysis(analysis_id)
 
 
-def get_analysis(analysis_id: str) -> dict | None:
-    with closing(_connect()) as connection:
-        row = connection.execute(
-            "SELECT * FROM analyses WHERE analysis_id = ?", (analysis_id,),
-        ).fetchone()
-    if row is None:
-        return None
+def _row_to_dict(row: sqlite3.Row) -> dict:
     return {
         "analysis_id": row["analysis_id"],
         "user_id": row["user_id"],
@@ -102,15 +96,23 @@ def get_analysis(analysis_id: str) -> dict | None:
     }
 
 
+def get_analysis(analysis_id: str) -> dict | None:
+    with closing(_connect()) as connection:
+        row = connection.execute(
+            "SELECT * FROM analyses WHERE analysis_id = ?", (analysis_id,),
+        ).fetchone()
+    return _row_to_dict(row) if row is not None else None
+
+
 # 사용자 소유 분석을 최신순으로 반환한다
 def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
 
-    query = "SELECT analysis_id FROM analyses WHERE user_id = ?"
+    query = "SELECT * FROM analyses WHERE user_id = ?"
     params: list[object] = [user_id]
     if store_id is not None:
         query += " AND store_id = ?"
         params.append(store_id)
     query += " ORDER BY created_at DESC"
     with closing(_connect()) as connection:
-        ids = [row["analysis_id"] for row in connection.execute(query, params).fetchall()]
-    return [analysis for analysis_id in ids if (analysis := get_analysis(analysis_id)) is not None]
+        rows = connection.execute(query, params).fetchall()
+    return [_row_to_dict(row) for row in rows]
