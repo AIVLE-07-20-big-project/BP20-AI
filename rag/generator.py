@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from rag.retriever import STAT_RE
+
 DISCLAIMER = (
     "본 수치는 유사 사례 문헌에 근거한 참고값이며, 해당 매장의 실측 효과가 아닙니다. "
     "실제 결과는 상권·메뉴·시기에 따라 달라질 수 있습니다."
@@ -13,11 +15,7 @@ DISCLAIMER = (
 
 SYSTEM_PROMPT = "당신은 프랜차이즈·체인 기업의 지점/상권별 대응방안 리포트를 작성하는 분석가다. 주어진 근거 밖의 사실이나 수치를 결코 만들어내지 않는다."
 
-_EXEMPT = re.compile(r"(19|20)\d{2}\s*년")
-_NUM_RE = re.compile(
-    r"[+\-]?\d[\d,]*(?:\.\d+)?\s?(?:%|퍼센트|원)"
-    r"|[+\-]?\d[\d,]*(?:\.\d+)?배(?![달란])"
-)
+# 수치 검증은 retriever.STAT_RE(허용 수치 추출과 동일 정규식)를 그대로 재사용한다.
 # build_prompt()의 [규칙] 3번이 요구하는 "(문서ID p페이지)" 인용 형식과 짝을 이룬다
 _CITATION_RE = re.compile(r"\(([^\s()]+)\s+p(\d+)")
 
@@ -121,10 +119,8 @@ def verify_output(text: str, evidence: dict[str, Any]) -> VerifyResult:
     found: list[str] = []
     violations: list[dict] = []
 
-    for m in _NUM_RE.finditer(text):
+    for m in STAT_RE.finditer(text):
         ctx = text[max(0, m.start() - 12) : m.end() + 4]
-        if _EXEMPT.search(ctx):
-            continue
         v = m.group(0).replace(" ", "")
         found.append(v)
         if v not in allowed:
@@ -181,6 +177,17 @@ def generate_report(
 
     llm = llm or _call_openai
     prompt = build_prompt(evidence, action_name, shop_context)
+    # 근거 출처는 LLM 성공 여부와 무관하게 evidence만으로 결정되므로 모든 반환 경로에서 동일하게 채운다
+    evidence_refs = [
+        {
+            "doc_id": a["doc_id"],
+            "page": a["page"],
+            "value": a["value"],
+            "source_url": a.get("source_url"),
+            "tier_label": a["tier_label"],
+        }
+        for a in evidence.get("allowed_numbers", [])
+    ]
 
     try:
         text = llm(prompt)
@@ -193,7 +200,7 @@ def generate_report(
             "missing_sections": [],
             "unauthorized_sources": [],
             "attempts": 1,
-            "evidence_refs": [],
+            "evidence_refs": evidence_refs,
             "has_magnitude": evidence.get("has_magnitude", False),
             "error": f"LLM 리포트 생성 실패: {type(exc).__name__}: {exc}",
         }
@@ -212,7 +219,7 @@ def generate_report(
                 "missing_sections": result.missing_sections,
                 "unauthorized_sources": result.unauthorized_sources,
                 "attempts": attempts + 1,
-                "evidence_refs": [],
+                "evidence_refs": evidence_refs,
                 "has_magnitude": evidence.get("has_magnitude", False),
                 "error": f"LLM 리포트 재생성 실패: {type(exc).__name__}: {exc}",
             }
@@ -227,16 +234,7 @@ def generate_report(
         "missing_sections": result.missing_sections,
         "unauthorized_sources": result.unauthorized_sources,
         "attempts": attempts,
-        "evidence_refs": [
-            {
-                "doc_id": a["doc_id"],
-                "page": a["page"],
-                "value": a["value"],
-                "source_url": a.get("source_url"),
-                "tier_label": a["tier_label"],
-            }
-            for a in evidence.get("allowed_numbers", [])
-        ],
+        "evidence_refs": evidence_refs,
         "has_magnitude": evidence.get("has_magnitude", False),
     }
 
