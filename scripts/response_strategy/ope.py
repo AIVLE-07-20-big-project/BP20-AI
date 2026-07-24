@@ -137,14 +137,16 @@ def _importance_weights(batch: LoggedBatch, target_action_fn: Callable[[np.ndarr
     return match / batch.propensities
 
 
-# 기준정책 = 같은 후보군에서 매번 무작위로 골랐을 때의 기대 정책가치
+# 기준정책 = 같은 후보군에서 매번 무작위로 골랐을 때의 기대 정책가치.
+# 타깃 정책가치(evaluate_policy의 est_dr)와 같은 DR 추정량으로 맞춰, 두 값을 뺀
+# '기준정책_대비_차이'가 DR-vs-DM 추정량 혼용으로 편향되지 않도록 한다.
 def uniform_random_baseline(batch: LoggedBatch, arms: list[str], alpha: float = 0.1) -> float:
 
 
 
 
 
-    values = [direct_method(batch, target_action_fn=lambda _c, a=arm: a, arms=arms, alpha=alpha)
+    values = [doubly_robust(batch, target_action_fn=lambda _c, a=arm: a, arms=arms, alpha=alpha)
               for arm in arms]
     return float(np.mean(values))
 
@@ -167,7 +169,10 @@ def _bootstrap_ci(batch: LoggedBatch, target_action_fn, arms: list[str],
     return float(lo), float(hi)
 
 
-# 실 로그(data/campaign_logs.csv)로 실제 정책가치를 평가한다
+# 실 로그(data/campaign_logs.csv)로 실제 정책가치를 평가한다.
+# 주의: trdar_cd는 호출부 시그니처 호환을 위해 받지만 필터에는 쓰지 않는다 —
+# 상권 단위로 좁히면 표본이 급감해 대부분 '판정불가'가 되므로, 의도적으로 동일
+# 업종(svc_induty_cd) 로그 전체를 풀링해 정책가치를 추정한다.
 def evaluate_policy(trdar_cd, svc_induty_cd, target_action_fn, campaign_logs=CAMPAIGN_LOGS,
                      baseline_fn=uniform_random_baseline, min_reliable_samples: int = MIN_RELIABLE_SAMPLES,
                      n_bootstrap: int = 200, seed: int = 0) -> dict:
