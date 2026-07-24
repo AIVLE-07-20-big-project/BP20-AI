@@ -160,6 +160,8 @@ class NeuralContextualBandit:
 
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        # 저장 중에 select_arm의 load가 겹쳐도 부분 파일을 읽지 않도록 원자적으로 교체한다
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
         torch.save({
             "context_dim": self.context_dim,
             "encoding_dim": self.encoding_dim,
@@ -173,7 +175,8 @@ class NeuralContextualBandit:
             "A": self.A,
             "b": self.b,
             "buffer": self.buffer,
-        }, path)
+        }, tmp_path)
+        tmp_path.replace(path)
 
     @classmethod
     def _from_payload(cls, payload: dict) -> "NeuralContextualBandit":
