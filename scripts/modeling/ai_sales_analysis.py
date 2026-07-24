@@ -256,14 +256,15 @@ class AISalesAnalyzer:
             selected = _recalculate_sales_features(selected)
             prev = cell[cell["STDR_YYQU_CD"] == shift_quarter(target_q, -1)]
             year = cell[cell["STDR_YYQU_CD"] == shift_quarter(target_q, -4)]
-            selected["sales_qoq"] = (
-                (float(sales_value) - float(prev[AMT].iloc[0])) / float(prev[AMT].iloc[0])
-                if not prev.empty and float(prev[AMT].iloc[0]) else np.nan
-            )
-            selected["sales_yoy"] = (
-                (float(sales_value) - float(year[AMT].iloc[0])) / float(year[AMT].iloc[0])
-                if not year.empty and float(year[AMT].iloc[0]) else np.nan
-            )
+
+            def _clipped_change(reference: pd.DataFrame) -> float:
+                if reference.empty or not float(reference[AMT].iloc[0]):
+                    return np.nan
+                base = float(reference[AMT].iloc[0])
+                return float(np.clip((float(sales_value) - base) / base, -3, 3))
+
+            selected["sales_qoq"] = _clipped_change(prev)
+            selected["sales_yoy"] = _clipped_change(year)
         row = selected.iloc[0]
 
         peers = self.table[
