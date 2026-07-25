@@ -1,6 +1,8 @@
 # Diagnoser -> AISalesAnalyzer(선택) -> ExternalFactorAnalyzer(선택) 순서로 기존
 from __future__ import annotations
 
+import threading
+
 import pandas as pd
 
 from app.core.config import MODEL
@@ -10,6 +12,23 @@ from scripts.modeling.sales_report_renderer import build_simple_report
 
 AI_MODEL_PATH = MODEL / "ai_sales_model.pkl"
 EXTERNAL_RESULT_PATH = MODEL / "external_factor_analysis.json"
+
+# AISalesAnalyzer 생성은 모델 pickle 로드 + 패널 CSV 읽기로 약 1초가 걸린다.
+# 생성 후에는 읽기 전용이라 프로세스당 한 번만 만들어 재사용한다(ingestion.get_base_merged와 같은 방식).
+_ai_analyzer = None
+_ai_analyzer_lock = threading.Lock()
+
+
+def get_ai_analyzer():
+    global _ai_analyzer
+    if _ai_analyzer is None:
+        from scripts.modeling.ai_sales_analysis import AISalesAnalyzer
+
+        # 동시 요청이 몰린 상태로 처음 호출되면 스레드마다 패널을 로드해 메모리가 급증한다.
+        with _ai_analyzer_lock:
+            if _ai_analyzer is None:  # 락을 기다리는 사이 다른 스레드가 만들었을 수 있다
+                _ai_analyzer = AISalesAnalyzer()
+    return _ai_analyzer
 
 
 # 대상 상권x업종x분기 조합을 패널에서 찾을 수 없을 때
@@ -64,8 +83,7 @@ def run_pipeline(trdar_cd: str, svc_induty_cd: str, yyqu_cd: int | None,
     ai_result = None
     if AI_MODEL_PATH.exists():
         try:
-            from scripts.modeling.ai_sales_analysis import AISalesAnalyzer
-            candidate = AISalesAnalyzer().analyze(trdar_cd, svc_induty_cd, target_q)
+            candidate = get_ai_analyzer().analyze(trdar_cd, svc_induty_cd, target_q)
             if "error" not in candidate:
                 ai_result = candidate
                 report["AI_분석"] = ai_result
