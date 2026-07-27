@@ -1,7 +1,8 @@
-# 비동기 전환 전 동기 baseline 측정 스크립트.
 # POST /api/v1/analyses 엔드투엔드 지연을 워밍업 후 반복 측정해 p50/p95/p99·오류율을 집계한다.
 # --concurrency로 동시 요청 수준을 바꿔가며 처리량(req/min)과 꼬리지연도 함께 측정한다.
-# 결과 해석은 docs/speed/async-baseline-measurement.md 참고.
+# 이름은 "동기 baseline"이지만 6단계 이후로는 기본 응답이 202(job_id)인 비동기 경로를
+# 그대로 잰다 — 성공 판정에 200과 202를 모두 허용한다. 동기 경로를 재려면 --url에
+# "?sync=true"를 붙인다. 결과 해석은 docs/speed/async-baseline-measurement.md 참고.
 from __future__ import annotations
 
 import argparse
@@ -14,7 +15,7 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CSV = ROOT / "samples" / "sample_pos_upload.csv"
+DEFAULT_CSV = ROOT / "samples" / "sample_cafe_pos_omnichannel_weather_2026Q2.csv"
 DEFAULT_OUT = ROOT / "docs" / "speed" / "sync_baseline_result.json"
 FORM = {"trdar_cd": "3120189", "svc_induty_cd": "CS100010"}
 
@@ -75,7 +76,7 @@ def run_level(
         for i in range(runs):
             e, s = one_call(client, url, csv_path, timeout)
             latencies.append(e)
-            if s != 200:
+            if s not in (200, 202):
                 errors += 1
             print(f"    run {i + 1}/{runs}: {e:.1f}ms status={s}", flush=True)
     else:
@@ -84,7 +85,7 @@ def run_level(
             for i, fut in enumerate(futures):
                 e, s = fut.result()
                 latencies.append(e)
-                if s != 200:
+                if s not in (200, 202):
                     errors += 1
                 print(f"    run {i + 1}/{runs}: {e:.1f}ms status={s}", flush=True)
     wall_s = time.perf_counter() - t0
