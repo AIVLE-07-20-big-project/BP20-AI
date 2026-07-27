@@ -1,23 +1,28 @@
 # 매출 분석을 저장하고, 선택한 분석에만 대응방안 추천을 실행한다
 from __future__ import annotations
 
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.schemas.report import ReportResponse
 from app.schemas.recommendation import RecommendationFromAnalysisRequest
 from app.routers.agent_runs import start_agent_run
+from app.core.errors import api_error
 from app.core.uploads import (
     CSV_CONTENT_TYPES,
     CSV_EXTENSIONS,
     MAX_CSV_UPLOAD_BYTES,
     MAX_POS_UPLOAD_BYTES,
+    delete_job_upload,
     read_upload_limited,
+    save_job_upload,
     validate_upload_type,
 )
-from app.services import analyses, detailed_sales, ingestion, pipeline
+from app.services import analyses, detailed_sales, ingestion, jobs, pipeline
+from app.tasks.analysis import run_analysis_task
 from scripts.modeling.detailed_sales_external_analysis import DetailedSalesDataError
 
 router = APIRouter(tags=["매출 분석"])
@@ -62,12 +67,14 @@ def _analyze_market(
     "/analyses",
     summary="기본·상세 매출 분석 실행",
     description=(
-        "업로드한 POS CSV의 내부 원인 분해와 "
-        "서울 날씨·달력·유동인구·행사·지하철 외부요인 검증 결과를 "
-        "detailed_analysis에 함께 반환합니다."
+        "기본은 비동기 처리다 — 즉시 202 + job_id를 반환하고, 상태는 "
+        "GET /jobs/{job_id}, 완료 후 결과는 GET /analyses/{analysis_id}로 조회한다. "
+        "`sync=true`를 주면 기존처럼 완료까지 대기해 결과를 그대로 반환한다"
+        "(전환 기간 동안만 유지, docs/speed/celery-async-development-plan.md §3)."
     ),
 )
 async def create_analysis(
+    response: Response,
     file: UploadFile = File(
         ...,
         description="coffee_sample.csv와 동일한 컬럼을 가진 POS 거래 CSV",
@@ -77,6 +84,7 @@ async def create_analysis(
     yyqu_cd: Optional[int] = Form(None),
     user_id: Optional[str] = Form(None),
     store_id: Optional[str] = Form(None),
+    sync: bool = Query(False, description="true면 기존 동기 방식(완료까지 대기)으로 처리한다"),
 ) -> dict:
     validate_upload_type(
         file,
@@ -85,6 +93,43 @@ async def create_analysis(
         type_name="CSV",
     )
     raw_bytes = await read_upload_limited(file, MAX_POS_UPLOAD_BYTES)
+
+    if sync:
+        return await _create_analysis_sync(
+            raw_bytes, trdar_cd, svc_induty_cd, yyqu_cd, user_id, store_id,
+        )
+
+    job_id = str(uuid.uuid4())
+    save_job_upload(job_id, raw_bytes)
+    jobs.create_job(job_id, user_id=user_id)
+    try:
+        result = run_analysis_task.delay(
+            job_id, trdar_cd, svc_induty_cd, yyqu_cd, user_id=user_id, store_id=store_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — 브로커 연결 실패의 구체 타입은 전송 계층마다 달라
+        # 큐 등록 자체가 실패한 경우다. 잡을 failed로 정리하고 재현용으로 남기지 않는다
+        # (분석이 시작조차 안 했으므로 원본을 보존할 이유가 없다).
+        jobs.mark_failed(job_id, "ENQUEUE_FAILED", str(exc))
+        delete_job_upload(job_id)
+        raise api_error(
+            503,
+            "ENQUEUE_FAILED",
+            "분석 작업을 큐에 등록하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        ) from exc
+
+    jobs.set_celery_task_id(job_id, result.id)
+    response.status_code = 202
+    return {"job_id": job_id, "status": "queued"}
+
+
+async def _create_analysis_sync(
+    raw_bytes: bytes,
+    trdar_cd: str,
+    svc_induty_cd: str,
+    yyqu_cd: Optional[int],
+    user_id: Optional[str],
+    store_id: Optional[str],
+) -> dict:
     try:
         detailed_analysis = await run_in_threadpool(
             detailed_sales.analyze_uploaded_sales,
