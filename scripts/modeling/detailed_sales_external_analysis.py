@@ -599,6 +599,36 @@ def _driver_sentence(driver: dict[str, Any]) -> str:
     )
 
 
+def _deduplicate_external_drivers(
+    drivers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    temperature_factors = {
+        "temperature_c",
+        "temperature_min_c",
+        "temperature_max_c",
+        "temperature_min_c_monthly",
+        "temperature_max_c_monthly",
+    }
+    ranked = sorted(
+        drivers,
+        key=lambda item: (
+            item.get("confidence") == "high",
+            float(item.get("validationGainPct") or 0),
+            abs(float(item.get("estimatedContributionAmount") or 0)),
+        ),
+        reverse=True,
+    )
+    selected = []
+    temperature_selected = False
+    for item in ranked:
+        is_temperature = item.get("factor") in temperature_factors
+        if is_temperature and temperature_selected:
+            continue
+        selected.append(item)
+        temperature_selected = temperature_selected or is_temperature
+    return selected
+
+
 def build_root_cause_analysis(
     internal: dict[str, Any],
     external_drivers: list[dict[str, Any]],
@@ -628,11 +658,11 @@ def build_root_cause_analysis(
         "average_order_value": "객단가",
     }[primary_formula["factor"]]
 
-    reliable_external = [
+    reliable_external = _deduplicate_external_drivers([
         item for item in external_drivers
         if item["confidence"] in {"high", "medium"}
         and item["direction"] == aligned_direction
-    ]
+    ])
     excluded_external = [
         {
             "factor": item["factor"],
@@ -651,35 +681,66 @@ def build_root_cause_analysis(
         "hour": lambda value: f"{value}시 시간대",
         "category": lambda value: f"{value} 카테고리",
     }
+    materiality_threshold = abs(change) * 0.05
     for dimension, drivers in internal.get("dimensionDrivers", {}).items():
-        aligned = next(
-            (
-                item for item in drivers
-                if (item["contributionAmount"] > 0) == (change > 0)
-            ),
-            None,
+        if dimension == "store" and len(drivers) <= 1:
+            continue
+        aligned_drivers = [
+            driver
+            for driver in drivers
+            if (float(driver["contributionAmount"]) > 0) == (change > 0)
+        ]
+        aligned_total = sum(
+            abs(float(driver["contributionAmount"])) for driver in aligned_drivers
         )
-        if aligned:
+        for aligned in aligned_drivers:
+            contribution = abs(float(aligned["contributionAmount"]))
+            dimension_share = (
+                round(contribution / aligned_total * 100.0, 2)
+                if aligned_total
+                else 0.0
+            )
+            if contribution < materiality_threshold or dimension_share < 10.0:
+                continue
             detailed_internal.append({
                 **aligned,
                 "dimension": dimension,
+                "dimensionSharePct": dimension_share,
                 "label": detail_labels[dimension](aligned["value"]),
             })
+    detailed_internal.sort(
+        key=lambda item: abs(float(item["contributionAmount"])),
+        reverse=True,
+    )
 
+    period = internal.get("period", {})
+    if {
+        "baselineStart",
+        "baselineEnd",
+        "currentStart",
+        "currentEnd",
+    }.issubset(period):
+        period_comparison = (
+            f"{period['currentStart']}~{period['currentEnd']} 매출은 "
+            f"{period['baselineStart']}~{period['baselineEnd']}보다"
+        )
+    else:
+        period_comparison = "분석 기간 매출은 비교 기간보다"
     narrative = (
-        f"분석 기간 매출은 비교 기간보다 {abs(summary['revenueChangePct']):.1f}% "
-        f"{direction_ko}했습니다. {internal_label} 변화가 매출 {direction_ko}분에서 "
-        f"가장 큰 내부 요인으로 확인됐습니다."
+        f"{period_comparison} {abs(summary['revenueChangePct']):.1f}% "
+        f"{direction_ko}했습니다. 가장 큰 원인은 {internal_label} 변화입니다."
     )
     if detailed_internal:
-        detail_text = ", ".join(item["label"] for item in detailed_internal[:3])
-        narrative += f" 세부적으로는 {detail_text}의 변화가 같은 방향으로 기여했습니다."
+        detail_text = ", ".join(item["label"] for item in detailed_internal)
+        narrative += f" 세부 원인으로 {detail_text}이 확인됐습니다."
     if reliable_external:
-        narrative += " " + " ".join(_driver_sentence(item) for item in reliable_external[:2])
+        external_text = ", ".join(item["label"] for item in reliable_external)
+        narrative += (
+            f" 외부 요인으로는 {external_text} 변화가 매출 {direction_ko}과 "
+            "관련된 것으로 보입니다."
+        )
     else:
-        narrative += " 품질과 다중검정 기준을 통과한 외부 원인은 확인되지 않았습니다."
-    if data_warnings:
-        narrative += " 일부 외부 데이터는 품질이 낮아 사용자 설명에서 제외했습니다."
+        narrative += " 유의미한 외부 원인은 확인되지 않았습니다."
 
     return {
         "change": {

@@ -77,7 +77,7 @@ async def create_analysis(
     response: Response,
     file: UploadFile = File(
         ...,
-        description="coffee_sample.csv와 동일한 컬럼을 가진 POS 거래 CSV",
+        description="거래 일시·수량·단가·결제금액을 포함한 POS 거래 CSV",
     ),
     trdar_cd: str = Form(..., description="기본 상권 분석 대상 상권 코드"),
     svc_induty_cd: str = Form(..., description="기본 상권 분석 대상 업종 코드"),
@@ -143,6 +143,9 @@ async def _create_analysis_sync(
         svc_induty_cd,
         yyqu_cd,
     )
+    from app.services.sales_summary import attach_sales_summary
+
+    await run_in_threadpool(attach_sales_summary, report, detailed_analysis)
     return analyses.create_analysis(
         trdar_cd=trdar_cd,
         svc_induty_cd=svc_induty_cd,

@@ -23,6 +23,7 @@ def run_analysis_task(
     """업로드 CSV를 분석하고 job_id를 analysis_id로 사용해 저장한다."""
     from app.core import uploads
     from app.services import analyses, detailed_sales, ingestion, jobs, pipeline
+    from app.services.sales_summary import attach_sales_summary
     from app.services.pipeline import CellNotFoundError
     from scripts.modeling.detailed_sales_external_analysis import DetailedSalesDataError
 
@@ -35,6 +36,7 @@ def run_analysis_task(
         report, raw_diag, warnings = pipeline.run_pipeline(
             trdar_cd, svc_induty_cd, yyqu_cd, ingestion.get_base_merged(),
         )
+        attach_sales_summary(report, detailed_analysis)
         analysis = analyses.create_analysis(
             trdar_cd=trdar_cd,
             svc_induty_cd=svc_induty_cd,
