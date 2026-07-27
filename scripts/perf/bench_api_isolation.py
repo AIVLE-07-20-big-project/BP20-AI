@@ -1,7 +1,4 @@
-# 무거운 분석 요청이 도는 동안 '가벼운 조회 요청'이 얼마나 느려지는지 측정한다.
-# 동기 구조에서는 분석이 API 프로세스를 점유해 조회까지 같이 느려진다.
-# 비동기(Celery) 전환 후 같은 스크립트로 재측정하면 '격리' 효과를 정량화할 수 있다.
-# 결과 해석은 docs/speed/async-baseline-measurement.md 참고.
+# 분석 요청 중 조회 API의 지연을 측정해 Celery 프로세스 격리 효과를 확인한다.
 from __future__ import annotations
 
 import argparse
@@ -18,9 +15,7 @@ DEFAULT_CSV = ROOT / "samples" / "sample_pos_upload.csv"
 DEFAULT_OUT = ROOT / "docs" / "speed" / "api_isolation_result.json"
 FORM = {"trdar_cd": "3120189", "svc_induty_cd": "CS100010"}
 
-# 부하용과 조회용 사용자를 분리한다.
-# 같은 user_id를 쓰면 측정 중 부하 요청이 만든 행이 조회 응답에 쌓여, 조회 비용이 스스로
-# 커진다(측정의 자기 오염). 분리하면 조회 대상은 워밍업이 만든 1건으로 고정된다.
+# 조회 데이터 증가가 측정에 영향을 주지 않도록 부하용과 조회용 사용자를 분리한다.
 LOAD_USER = "bench-load"
 PROBE_USER = "bench-probe"
 
@@ -85,7 +80,7 @@ def main() -> None:
     csv_path = Path(args.csv)
 
     with httpx.Client() as client:
-        # 워밍업 1회만 PROBE_USER로 저장해, 조회 응답이 항상 정확히 1건을 반환하게 한다.
+        # 조회 데이터 한 건을 미리 만든다.
         print("[워밍업] 분석 1회 — 콜드 로드 제외 및 조회용 데이터 1건 생성", flush=True)
         heavy_call(client, args.base, csv_path, args.timeout, user=PROBE_USER)
 
@@ -100,7 +95,7 @@ def main() -> None:
         ]
         for t in threads:
             t.start()
-        time.sleep(1.0)  # 부하가 실제로 걸릴 때까지 잠깐 대기
+        time.sleep(1.0)  # 부하 시작 대기
         loaded = sample_light(client, args.base, args.samples, args.gap, args.timeout)
         for t in threads:
             t.join()

@@ -1,8 +1,5 @@
-# POST /api/v1/analyses 엔드투엔드 지연을 워밍업 후 반복 측정해 p50/p95/p99·오류율을 집계한다.
-# --concurrency로 동시 요청 수준을 바꿔가며 처리량(req/min)과 꼬리지연도 함께 측정한다.
-# 이름은 "동기 baseline"이지만 6단계 이후로는 기본 응답이 202(job_id)인 비동기 경로를
-# 그대로 잰다 — 성공 판정에 200과 202를 모두 허용한다. 동기 경로를 재려면 --url에
-# "?sync=true"를 붙인다. 결과 해석은 docs/speed/async-baseline-measurement.md 참고.
+# POST /api/v1/analyses 지연을 반복 측정해 p50/p95/p99·오류율·처리량을 집계한다.
+# 성공 판정은 200/202이며, 동기 경로는 URL에 ?sync=true를 붙인다.
 from __future__ import annotations
 
 import argparse
@@ -48,7 +45,7 @@ def summarize(latencies: list[float], errors: int, wall_s: float, concurrency: i
         "동시성": concurrency,
         "요청수": n,
         "소요_s": round(wall_s, 2),
-        # 처리량: 배치 전체를 처리하는 데 걸린 벽시계 시간 기준
+        # 전체 배치의 벽시계 시간으로 처리량을 계산한다.
         "처리량_req_per_min": round(n / wall_s * 60, 1) if wall_s > 0 else None,
         "지연_ms": {
             "min": round(min(latencies), 2),
@@ -64,7 +61,7 @@ def summarize(latencies: list[float], errors: int, wall_s: float, concurrency: i
     }
 
 
-# 동시성 수준 하나를 측정한다. runs개 요청을 최대 concurrency개씩 동시에 던진다.
+# runs개 요청을 최대 concurrency개씩 동시에 보낸다.
 def run_level(
     client: httpx.Client, url: str, csv_path: Path, runs: int, concurrency: int, timeout: float,
 ) -> dict:
@@ -115,7 +112,7 @@ def main() -> None:
     csv_path = Path(args.csv)
 
     with httpx.Client() as client:
-        # 워밍업은 한 번만. 기준 데이터 콜드 로드(약 3.1s)를 측정에서 제외한다.
+        # 최초 데이터 로딩 시간을 제외하기 위해 한 번 워밍업한다.
         print(f"[워밍업 {args.warmup}회]", flush=True)
         for i in range(args.warmup):
             e, s = one_call(client, args.url, csv_path, args.timeout)

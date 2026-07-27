@@ -1,9 +1,4 @@
-"""잡 정리 태스크 — celery beat가 주기 호출한다.
-
-docs/speed/celery-async-development-plan.md §2.1b.
-enqueue 보상(§2.1) 자체가 실패하면 잡이 영원히 queued로 남을 수 있어, 정체된 잡을
-주기적으로 청소하는 마지막 안전망이다.
-"""
+"""Celery beat가 호출하는 정체 작업 정리 태스크."""
 from __future__ import annotations
 
 from app.celery_app import celery_app

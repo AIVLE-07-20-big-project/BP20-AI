@@ -16,11 +16,7 @@ from app.core.config import (
     SEOUL_WEATHER_MONTHLY,
 )
 
-# Celery 워커(Windows, `celery -A app.celery_app worker`)로 이 모듈이 지연 임포트될 때
-# "ModuleNotFoundError: No module named 'scripts'"가 난다. Celery의 cwd_in_path()가
-# 앱 로딩 시점에만 cwd를 sys.path에 임시로 넣었다가 빼기 때문에(celery/utils/imports.py),
-# 이 모듈처럼 그 이후 지연 로딩되는 임포트는 그 혜택을 못 받는다. cwd 문자열 매칭에
-# 의존하지 않도록, 이미 정상 해석된 app.core.config.ROOT를 이 시점에 직접 넣는다.
+# Celery 워커의 지연 임포트에서도 scripts.*를 찾도록 프로젝트 루트를 추가한다.
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -315,7 +311,7 @@ def _attach_cafe_delivery_weather_reference(
     factors: pd.DataFrame,
     is_delivery_sales: bool | None = None,
 ) -> None:
-    """Attach the historical study as a hypothesis, never as a causal estimate."""
+    """과거 연구를 인과효과가 아닌 참고 가설로 추가한다."""
     root_cause = result["rootCauseAnalysis"]
     root_cause["possibleExternalDrivers"] = []
     current_temperature_drivers = [

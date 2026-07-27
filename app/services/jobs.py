@@ -1,5 +1,4 @@
-# 비동기 분석 잡 상태 저장소 — analysis_jobs 테이블이 API가 제공하는 공식 상태다.
-# docs/speed/celery-async-development-plan.md §2.2
+# 비동기 분석 작업 상태 저장소
 from __future__ import annotations
 
 import sqlite3
@@ -63,7 +62,7 @@ def get_job(job_id: str) -> dict | None:
 
 
 def set_celery_task_id(job_id: str, celery_task_id: str) -> None:
-    """디버깅·상관관계 추적용 메타데이터 기록. 상태 전이가 아니므로 조건부 UPDATE가 아니다."""
+    """디버깅과 작업 추적에 사용할 Celery 태스크 ID를 기록한다."""
     with closing(_connect()) as connection, connection:
         connection.execute(
             "UPDATE analysis_jobs SET celery_task_id=? WHERE job_id=?",
@@ -72,8 +71,7 @@ def set_celery_task_id(job_id: str, celery_task_id: str) -> None:
 
 
 def mark_running(job_id: str) -> bool:
-    """queued 또는 running -> running. running도 허용해 재배달된 잡이 이전 시도의
-    running을 만나 실행 불가가 되는 것을 막는다(계획 §2.2)."""
+    """queued 또는 running 상태를 running으로 전환한다."""
     with closing(_connect()) as connection, connection:
         cursor = connection.execute(
             """
@@ -86,7 +84,7 @@ def mark_running(job_id: str) -> bool:
 
 
 def mark_completed(job_id: str, analysis_id: str) -> bool:
-    """running -> completed. 0행이면(취소·재배달 경합에서 짐) 결과를 쓰지 않는다."""
+    """running 상태를 completed로 전환하고 성공 여부를 반환한다."""
     with closing(_connect()) as connection, connection:
         cursor = connection.execute(
             """
@@ -99,7 +97,7 @@ def mark_completed(job_id: str, analysis_id: str) -> bool:
 
 
 def mark_failed(job_id: str, error_code: str, error_message: str) -> bool:
-    """queued 또는 running -> failed. 이미 completed/failed면 아무것도 하지 않는다."""
+    """미완료 작업을 failed로 전환하고 성공 여부를 반환한다."""
     with closing(_connect()) as connection, connection:
         cursor = connection.execute(
             """
@@ -112,12 +110,7 @@ def mark_failed(job_id: str, error_code: str, error_message: str) -> bool:
 
 
 def cleanup_stale_queued(max_age_minutes: int = 5) -> list[str]:
-    """N분 이상 queued로 정체된 잡을 failed(STALE_JOB)로 정리하고 job_id 목록을 반환한다.
-
-    enqueue 보상(§2.1) 자체가 실패했을 때의 마지막 안전망 — celery beat가 주기 호출한다
-    (§2.1b). 파일 정리는 호출자(태스크)가 반환된 job_id로 uploads.delete_job_upload를
-    부른다 — 이 함수는 DB 상태 전이만 책임진다.
-    """
+    """오래 정체된 queued 작업을 실패 처리하고 ID 목록을 반환한다."""
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)).isoformat()
     with closing(_connect()) as connection:
         stale_ids = [

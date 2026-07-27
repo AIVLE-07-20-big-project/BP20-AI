@@ -57,13 +57,7 @@ def create_analysis(
     store_id: str | None = None,
     analysis_id: str | None = None,
 ) -> dict:
-    """analysis_id를 넘기면 멱등하게 저장한다(INSERT OR IGNORE) — 같은 analysis_id로
-
-    두 번 호출해도 결과 행은 하나만 남고, 두 번째 호출의 report 등은 버려진다(첫 저장이
-    이긴다). 비동기 태스크(app/tasks/analysis.py)가 job_id를 그대로 넘겨써서, 재시도로
-    같은 잡이 두 번 실행돼도 analyses 테이블에 중복 행이 생기지 않는다
-    (계획 문서 §2.4). 동기 라우터는 지정하지 않아 기존처럼 매번 새 id를 받는다.
-    """
+    """지정한 analysis_id는 첫 결과만 저장하고, 없으면 새 ID를 생성한다."""
     analysis_id = analysis_id or str(uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     with closing(_connect()) as connection, connection:

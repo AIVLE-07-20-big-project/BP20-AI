@@ -106,9 +106,7 @@ async def create_analysis(
         result = run_analysis_task.delay(
             job_id, trdar_cd, svc_induty_cd, yyqu_cd, user_id=user_id, store_id=store_id,
         )
-    except Exception as exc:  # noqa: BLE001 — 브로커 연결 실패의 구체 타입은 전송 계층마다 달라
-        # 큐 등록 자체가 실패한 경우다. 잡을 failed로 정리하고 재현용으로 남기지 않는다
-        # (분석이 시작조차 안 했으므로 원본을 보존할 이유가 없다).
+    except Exception as exc:  # noqa: BLE001 - 브로커 오류 형식은 전송 계층마다 다르다.
         jobs.mark_failed(job_id, "ENQUEUE_FAILED", str(exc))
         delete_job_upload(job_id)
         raise api_error(

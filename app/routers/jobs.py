@@ -1,4 +1,4 @@
-# 비동기 분석 잡의 상태 조회 — job_id 폴링용(계획 문서 §3)
+# 비동기 분석 작업 상태 조회
 from __future__ import annotations
 
 from typing import Optional
