@@ -4,6 +4,7 @@ uvicorn[standard]>=0.30
 python-multipart>=0.0.9
 pandas>=2.2
 lightgbm>=4.3
+xgboost>=3.3
 scikit-learn>=1.4
 numpy>=1.26
 pyproj>=3.6
