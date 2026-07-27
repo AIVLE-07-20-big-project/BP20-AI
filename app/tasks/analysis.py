@@ -1,16 +1,14 @@
 """매출 분석 비동기 태스크.
 
-docs/speed/celery-async-development-plan.md의 1·3단계를 반영했다:
+docs/speed/celery-async-development-plan.md의 1·3·6단계를 반영했다:
   - ping: 브로커·워커 연결을 실제로 검증할 수 있는 헬스 태스크.
   - run_analysis_task: 업로드 원본을 저장소에서 읽어 분석하고 결과 참조만 반환한다.
+    잡 상태(analysis_jobs)를 running -> completed/failed로 전이시켜 GET /jobs/{job_id}
+    폴링이 실제로 의미를 갖게 한다.
 
-라우터 비동기화(라우터에서 .delay() 호출 + job_id 202 반환)는 아직 하지 않았다(6단계).
-기존 동기 엔드포인트는 그대로 두고, 이 태스크가 워커에서 도는지부터 검증한 뒤 연결한다.
-
-미구현(라우터 연결 전 필요):
-  - 오류 → error_code 매핑 — DetailedSalesDataError/CellNotFoundError를 잡지 않아
-    지금은 원인 구분이 불가능한 FAILURE가 된다(계획 문서 7단계).
-  - 잡 상태 조건부 전이 — 결과 저장 직전 잡 상태를 확인해야 한다(계획 문서 4단계).
+미구현(7단계): 오류 -> error_code 세분화. 지금은 모든 예외를 INTERNAL_ERROR로 기록한다
+(DetailedSalesDataError/CellNotFoundError도 구분 없이 INTERNAL_ERROR). 동기 라우터의
+422/404 매핑을 재현하는 건 7단계에서 한다.
 """
 from __future__ import annotations
 
@@ -53,26 +51,34 @@ def run_analysis_task(
     무거운 서비스 모듈은 함수 안에서 import해 워커 기동 시간을 줄인다.
     """
     from app.core import uploads
-    from app.services import analyses, detailed_sales, ingestion, pipeline
+    from app.services import analyses, detailed_sales, ingestion, jobs, pipeline
 
-    raw_bytes = uploads.read_job_upload(job_id)
+    if not jobs.mark_running(job_id):
+        # 이미 completed/failed로 정리된 잡(예: beat의 stale 청소) — 이 시도는 중단한다.
+        return {"skipped": True}
 
-    detailed_analysis = detailed_sales.analyze_uploaded_sales(raw_bytes, trdar_cd)
-    report, raw_diag, warnings = pipeline.run_pipeline(
-        trdar_cd, svc_induty_cd, yyqu_cd, ingestion.get_base_merged(),
-    )
-    analysis = analyses.create_analysis(
-        trdar_cd=trdar_cd,
-        svc_induty_cd=svc_induty_cd,
-        yyqu_cd=yyqu_cd,
-        report=report,
-        diagnosis=raw_diag,
-        detailed_analysis=detailed_analysis,
-        warnings=warnings,
-        user_id=user_id,
-        store_id=store_id,
-        analysis_id=job_id,
-    )
+    try:
+        raw_bytes = uploads.read_job_upload(job_id)
+        detailed_analysis = detailed_sales.analyze_uploaded_sales(raw_bytes, trdar_cd)
+        report, raw_diag, warnings = pipeline.run_pipeline(
+            trdar_cd, svc_induty_cd, yyqu_cd, ingestion.get_base_merged(),
+        )
+        analysis = analyses.create_analysis(
+            trdar_cd=trdar_cd,
+            svc_induty_cd=svc_induty_cd,
+            yyqu_cd=yyqu_cd,
+            report=report,
+            diagnosis=raw_diag,
+            detailed_analysis=detailed_analysis,
+            warnings=warnings,
+            user_id=user_id,
+            store_id=store_id,
+            analysis_id=job_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — 7단계 전까지는 전부 INTERNAL_ERROR로 기록
+        jobs.mark_failed(job_id, "INTERNAL_ERROR", str(exc))
+        raise
 
+    jobs.mark_completed(job_id, analysis["analysis_id"])
     uploads.delete_job_upload(job_id)
     return {"analysis_id": analysis["analysis_id"]}
