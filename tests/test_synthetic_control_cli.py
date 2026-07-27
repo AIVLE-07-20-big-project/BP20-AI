@@ -1,4 +1,3 @@
-"""Synthetic Control CLI의 최소 회귀 검증."""
 from io import StringIO
 from unittest.mock import patch
 

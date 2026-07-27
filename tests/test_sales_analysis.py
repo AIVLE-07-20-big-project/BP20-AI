@@ -168,9 +168,9 @@ class AnalysisSafetyTests(unittest.TestCase):
         self.assertTrue(any("50배" in x for x in result["6_신뢰도"]["차단사유"]))
 
     def test_large_district_passes_when_peer_group_narrowed_by_district_type(self):
-        """전국 동업종 피어(대부분 소규모 골목상권)와 비교하면 50배 넘어 차단되지만,
-        같은 상권유형(발달상권) 피어 20곳 이상과 비교하면 정상 범위 — 실제 강남역 카페
-        재현: 전국 기준 107배(차단) vs 발달상권 기준 14배(정상)에서 발견된 버그의 회귀 테스트."""
+
+
+
         rows = []
         base = {
             "SVC_INDUTY_CD": "A", "SVC_INDUTY_CD_NM": "업종",
