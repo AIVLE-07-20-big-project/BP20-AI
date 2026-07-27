@@ -1,4 +1,4 @@
-httpx>=0.27
+﻿httpx>=0.27
 fastapi>=0.111
 uvicorn[standard]>=0.30
 python-multipart>=0.0.9
@@ -26,3 +26,9 @@ torch>=2.2
 
 # RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요
 sentence-transformers>=3.0
+
+# AI 상품 이미지 생성(app/product_image)에 필요
+rembg>=2.0
+pillow>=10.0
+requests>=2.31
+python-dotenv>=1.0
