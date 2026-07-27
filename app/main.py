@@ -1,8 +1,17 @@
 from fastapi import FastAPI
+
 from app.core import bootstrap  # noqa: F401
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.ocr import router as ocr
-from app.routers import agent_runs, analysis, campaign_logs, jobs
+from app.online_trend import router as online_trend
+from app.product_image import router as product_image
+from app.routers import (
+    agent_runs,
+    analysis,
+    campaign_logs,
+    effect_verification_router,
+    jobs,
+)
 
 ERROR_RESPONSES = {
     status: {"model": ErrorResponse}
@@ -25,20 +34,14 @@ app = FastAPI(
     responses=ERROR_RESPONSES,
 )
 register_error_handlers(app)
-from app.online_trend import router as online_trend
-from app.product_image import router as product_image
-from app.routers import (
-    agent_runs,
-    analysis,
-    campaign_logs,
-    effect_verification_router,
-)
-app = FastAPI(title="20BG AI 서비스")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(ocr.router)
+app.include_router(effect_verification_router.router)
+app.include_router(online_trend.router)
+app.include_router(product_image.router)
 
 
 # 최초 OCR 요청이 지연되지 않도록 서버 시작 시 PaddleOCR 모델을 미리 로드한다.
@@ -49,6 +52,3 @@ async def warm_up_ocr_engine() -> None:
     print("서버 시작 - PaddleOCR 모델 예열 중...")
     _get_ocr_engine()
     print("PaddleOCR 모델 예열 완료.")
-app.include_router(effect_verification_router.router)
-app.include_router(online_trend.router)
-app.include_router(product_image.router)
