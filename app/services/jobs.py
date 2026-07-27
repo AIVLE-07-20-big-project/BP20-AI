@@ -122,3 +122,21 @@ def cleanup_stale_queued(max_age_minutes: int = 5) -> list[str]:
         ]
     cleaned = [job_id for job_id in stale_ids if mark_failed(job_id, "STALE_JOB", "잡이 queued 상태로 정체되어 자동 정리되었습니다")]
     return cleaned
+
+
+def cleanup_stale_running(max_age_minutes: int = 15) -> list[str]:
+    """오래 정체된 running 작업을 실패 처리하고 ID 목록을 반환한다."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)).isoformat()
+    with closing(_connect()) as connection:
+        stale_ids = [
+            row["job_id"]
+            for row in connection.execute(
+                "SELECT job_id FROM analysis_jobs WHERE status='running' AND started_at < ?",
+                (cutoff,),
+            )
+        ]
+    cleaned = [
+        job_id for job_id in stale_ids
+        if mark_failed(job_id, "WORKER_LOST", "워커가 처리 도중 응답을 멈춰 자동 정리되었습니다")
+    ]
+    return cleaned
