@@ -10,6 +10,8 @@
     uvicorn app.main:app --reload
     # 3) 워커 (별도 프로세스). Windows는 prefork가 불안정하므로 solo 풀:
     celery -A app.celery_app worker --loglevel=info --pool=solo
+    # 4) beat (또 별도 프로세스, 정체된 queued 잡 청소용 — §2.1b):
+    celery -A app.celery_app beat --loglevel=info
     # 연결 확인:
     #   python -c "from app.tasks.analysis import ping; print(ping.delay().get(timeout=10))"
 
@@ -37,7 +39,7 @@ celery_app = Celery(
     "bp20_ai",
     broker=BROKER_URL,
     backend=RESULT_BACKEND,
-    include=["app.tasks.analysis"],  # 태스크 모듈 등록(자동 발견)
+    include=["app.tasks.analysis", "app.tasks.jobs"],  # 태스크 모듈 등록(자동 발견)
 )
 
 celery_app.conf.update(
@@ -51,4 +53,12 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Asia/Seoul",
     enable_utc=True,
+    # 정체된 queued 잡 청소(§2.1b). 하드 타임아웃(10분)보다 훨씬 짧게 잡아 오탐을 줄인다.
+    beat_schedule={
+        "cleanup-stale-queued-jobs": {
+            "task": "jobs.cleanup_stale",
+            "schedule": 60.0,  # 1분마다
+            "kwargs": {"max_age_minutes": 5},
+        },
+    },
 )
