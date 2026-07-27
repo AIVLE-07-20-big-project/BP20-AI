@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import calendar
+import csv
 import os
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
@@ -16,7 +17,15 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data" / "source"
 
-BASE_URL = "https://apihub.kma.go.kr/api/typ02/openApi/SfcMtlyInfoService/getMmSumry2"
+TEMPERATURE_URL = (
+    "https://apihub.kma.go.kr/api/typ02/openApi/"
+    "SfcMtlyInfoService/getMmSumry"
+)
+PRECIPITATION_WIND_URL = (
+    "https://apihub.kma.go.kr/api/typ02/openApi/"
+    "SfcMtlyInfoService/getMmSumry2"
+)
+KMA_DAILY_URL = "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd.php"
 
 
 def get_setting(name: str) -> str | None:
@@ -144,7 +153,13 @@ def normalize_frame(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-async def fetch_monthly_summary(client: httpx.AsyncClient, api_key: str, year: int, month: int) -> pd.DataFrame:
+async def _fetch_monthly_table(
+    client: httpx.AsyncClient,
+    api_key: str,
+    year: int,
+    month: int,
+    url: str,
+) -> pd.DataFrame:
     params = {
         "pageNo": 1,
         "numOfRows": 500,
@@ -153,13 +168,63 @@ async def fetch_monthly_summary(client: httpx.AsyncClient, api_key: str, year: i
         "month": f"{month:02d}",
         "authKey": api_key,
     }
-    res = await client.get(BASE_URL, params=params, timeout=60.0)
-    res.raise_for_status()
+    res = await client.get(url, params=params, timeout=60.0)
+    if res.status_code == 403:
+        return pd.DataFrame()
+    try:
+        res.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise RuntimeError(
+            f"기상청 월요약 요청 실패: HTTP {exc.response.status_code}",
+        ) from None
     rows = parse_rows(res)
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
     return normalize_frame(df)
+
+
+async def fetch_monthly_summary(
+    client: httpx.AsyncClient,
+    api_key: str,
+    year: int,
+    month: int,
+) -> pd.DataFrame:
+    temperature, precipitation_wind = await asyncio.gather(
+        _fetch_monthly_table(
+            client,
+            api_key,
+            year,
+            month,
+            TEMPERATURE_URL,
+        ),
+        _fetch_monthly_table(
+            client,
+            api_key,
+            year,
+            month,
+            PRECIPITATION_WIND_URL,
+        ),
+    )
+    if temperature.empty:
+        return precipitation_wind
+    if precipitation_wind.empty:
+        return temperature
+
+    join_keys = [
+        column
+        for column in ("stnid", "stnko")
+        if column in temperature and column in precipitation_wind
+    ]
+    if not join_keys:
+        raise ValueError("기온·강수 월요약 자료에 공통 관측소 키가 없습니다.")
+    return temperature.merge(
+        precipitation_wind,
+        on=join_keys,
+        how="outer",
+        validate="one_to_one",
+        suffixes=("", "_precip"),
+    )
 
 
 def pick_seoul_station(df: pd.DataFrame, station: int) -> pd.DataFrame:
@@ -290,6 +355,93 @@ async def run(
     print(f"행 수: monthly={len(monthly):,}, quarterly={len(quarterly):,}")
 
 
+async def run_recent_daily(
+    *,
+    station: int,
+    start_date: str,
+    end_date: str,
+) -> None:
+    start = pd.Timestamp(start_date)
+    end = pd.Timestamp(end_date)
+    if start > end:
+        raise ValueError("daily 시작일은 종료일보다 늦을 수 없습니다.")
+
+    api_key = load_api_key()
+    semaphore = asyncio.Semaphore(5)
+
+    async def fetch_one(
+        client: httpx.AsyncClient,
+        date: pd.Timestamp,
+    ) -> dict | None:
+        async with semaphore:
+            response = await client.get(
+                KMA_DAILY_URL,
+                params={
+                    "tm": date.strftime("%Y%m%d"),
+                    "stn": station,
+                    "help": 0,
+                    "authKey": api_key,
+                },
+                timeout=60.0,
+            )
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(
+                f"기상청 일자료 요청 실패({date.date()}): "
+                f"HTTP {exc.response.status_code}",
+            ) from None
+        data_line = next(
+            (
+                line
+                for line in response.text.splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            ),
+            None,
+        )
+        if data_line is None:
+            return None
+        values = next(csv.reader([data_line]))
+        if len(values) < 39:
+            raise RuntimeError(
+                f"기상청 일자료 필드가 부족합니다({date.date()}): {len(values)}",
+            )
+
+        def number(index: int) -> float | None:
+            value = pd.to_numeric(values[index], errors="coerce")
+            if pd.isna(value) or float(value) == -9:
+                return None
+            return float(value)
+
+        return {
+            "date": date.date().isoformat(),
+            "temperature_c": number(10),
+            "temperature_min_c": number(13),
+            "temperature_max_c": number(11),
+            "precipitation_mm": number(38) or 0.0,
+            "wind_speed_ms": number(2),
+            "station_id": station,
+            "provider": "KMA",
+            "source_endpoint": "kma_sfcdd.php",
+            "contains_model_substitution": False,
+        }
+
+    dates = pd.date_range(start, end, freq="D")
+    async with httpx.AsyncClient() as client:
+        rows = await asyncio.gather(
+            *(fetch_one(client, date) for date in dates),
+        )
+    selected = pd.DataFrame(row for row in rows if row is not None)
+    if selected.empty:
+        raise RuntimeError("요청 기간의 기상청 일별 날씨가 없습니다.")
+    output = DATA_DIR / "weather_seoul_daily_recent.csv"
+    selected.to_csv(output, index=False, encoding="utf-8-sig")
+    print(f"저장 완료: {output}")
+    print(f"기간: {selected['date'].min()}~{selected['date'].max()}")
+    print(f"행 수: {len(selected):,}")
+    print(f"출처: 기상청 지상관측 일자료, 지점 {station}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--station", type=int, default=108, help="서울 관측소 번호 (기본 108)")
@@ -297,17 +449,31 @@ def main() -> None:
     parser.add_argument("--start-month", type=int, default=1)
     parser.add_argument("--end-year", type=int, default=2026)
     parser.add_argument("--end-month", type=int, default=1)
+    parser.add_argument("--daily-start")
+    parser.add_argument("--daily-end")
+    parser.add_argument("--daily-station", type=int, default=108)
     args = parser.parse_args()
 
-    asyncio.run(
-        run(
-            station=args.station,
-            start_year=args.start_year,
-            start_month=args.start_month,
-            end_year=args.end_year,
-            end_month=args.end_month,
+    if args.daily_start or args.daily_end:
+        if not args.daily_start or not args.daily_end:
+            parser.error("--daily-start와 --daily-end를 함께 지정해야 합니다.")
+        asyncio.run(
+            run_recent_daily(
+                station=args.daily_station,
+                start_date=args.daily_start,
+                end_date=args.daily_end,
+            ),
         )
-    )
+    else:
+        asyncio.run(
+            run(
+                station=args.station,
+                start_year=args.start_year,
+                start_month=args.start_month,
+                end_year=args.end_year,
+                end_month=args.end_month,
+            ),
+        )
 
 
 if __name__ == "__main__":
