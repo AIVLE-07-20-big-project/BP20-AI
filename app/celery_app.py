@@ -49,8 +49,8 @@ celery_app.conf.update(
     beat_schedule={
         "cleanup-stale-queued-jobs": {
             "task": "jobs.cleanup_stale",
-            "schedule": 60.0,  # 1분마다
-            "kwargs": {"max_age_minutes": 5},
+            "schedule": 60.0,
+            "kwargs": {"queued_max_age_minutes": 5, "running_max_age_minutes": 15},
         },
     },
 )
