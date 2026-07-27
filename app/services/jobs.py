@@ -62,6 +62,15 @@ def get_job(job_id: str) -> dict | None:
     return _row_to_dict(row) if row else None
 
 
+def set_celery_task_id(job_id: str, celery_task_id: str) -> None:
+    """디버깅·상관관계 추적용 메타데이터 기록. 상태 전이가 아니므로 조건부 UPDATE가 아니다."""
+    with closing(_connect()) as connection, connection:
+        connection.execute(
+            "UPDATE analysis_jobs SET celery_task_id=? WHERE job_id=?",
+            (celery_task_id, job_id),
+        )
+
+
 def mark_running(job_id: str) -> bool:
     """queued 또는 running -> running. running도 허용해 재배달된 잡이 이전 시도의
     running을 만나 실행 불가가 되는 것을 막는다(계획 §2.2)."""
