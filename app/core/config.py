@@ -7,6 +7,9 @@ MODEL = ROOT / "model"
 AGENT_DATA = DATA / "agent"
 PROCESSED_DATA = DATA / "processed"
 SOURCE_DATA = DATA / "source"
+# 비동기 분석에서 API와 워커가 공유하는 업로드 원본 저장소
+# (브로커에 원본 바이트를 싣지 않기 위한 것. docs/speed/celery-async-development-plan.md §2)
+UPLOAD_DATA = DATA / "uploads"
 
 AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
 ANALYSES_DB = MODEL / "analyses.sqlite3"
