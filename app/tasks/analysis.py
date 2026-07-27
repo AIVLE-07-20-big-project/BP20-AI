@@ -1,14 +1,12 @@
 """매출 분석 비동기 태스크.
 
-docs/speed/celery-async-development-plan.md의 1·3·6단계를 반영했다:
+docs/speed/celery-async-development-plan.md의 1·3·6·7단계를 반영했다:
   - ping: 브로커·워커 연결을 실제로 검증할 수 있는 헬스 태스크.
   - run_analysis_task: 업로드 원본을 저장소에서 읽어 분석하고 결과 참조만 반환한다.
     잡 상태(analysis_jobs)를 running -> completed/failed로 전이시켜 GET /jobs/{job_id}
-    폴링이 실제로 의미를 갖게 한다.
-
-미구현(7단계): 오류 -> error_code 세분화. 지금은 모든 예외를 INTERNAL_ERROR로 기록한다
-(DetailedSalesDataError/CellNotFoundError도 구분 없이 INTERNAL_ERROR). 동기 라우터의
-422/404 매핑을 재현하는 건 7단계에서 한다.
+    폴링이 실제로 의미를 갖게 한다. 알려진 검증 오류는 동기 라우터의 422/404 매핑에
+    대응하는 error_code로 기록한다(§2.4). 이 두 예외는 재시도 대상이 아니다 — 같은
+    CSV·같은 상권으로는 다시 시도해도 항상 같은 이유로 실패한다.
 """
 from __future__ import annotations
 
@@ -52,6 +50,8 @@ def run_analysis_task(
     """
     from app.core import uploads
     from app.services import analyses, detailed_sales, ingestion, jobs, pipeline
+    from app.services.pipeline import CellNotFoundError
+    from scripts.modeling.detailed_sales_external_analysis import DetailedSalesDataError
 
     if not jobs.mark_running(job_id):
         # 이미 completed/failed로 정리된 잡(예: beat의 stale 청소) — 이 시도는 중단한다.
@@ -75,7 +75,17 @@ def run_analysis_task(
             store_id=store_id,
             analysis_id=job_id,
         )
-    except Exception as exc:  # noqa: BLE001 — 7단계 전까지는 전부 INTERNAL_ERROR로 기록
+    except DetailedSalesDataError as exc:
+        # 동기 라우터의 422(app/routers/analysis.py)에 대응. 업로드 CSV 자체의 문제라
+        # 재시도해도 같은 이유로 또 실패한다.
+        jobs.mark_failed(job_id, "INVALID_POS_DATA", str(exc))
+        raise
+    except CellNotFoundError as exc:
+        # 동기 라우터의 404에 대응. 상권·업종·분기 조합이 데이터에 없는 것이라 재시도로
+        # 해결되지 않는다.
+        jobs.mark_failed(job_id, "MARKET_CELL_NOT_FOUND", str(exc))
+        raise
+    except Exception as exc:  # noqa: BLE001 — 나머지는 원인 불명의 내부 오류로 취급
         jobs.mark_failed(job_id, "INTERNAL_ERROR", str(exc))
         raise
 
