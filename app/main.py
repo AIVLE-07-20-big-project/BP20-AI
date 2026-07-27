@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.core import bootstrap  # noqa: F401
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.ocr import router as ocr
-from app.routers import agent_runs, analysis, campaign_logs
+from app.routers import agent_runs, analysis, campaign_logs, jobs
 
 ERROR_RESPONSES = {
     status: {"model": ErrorResponse}
@@ -14,6 +14,7 @@ OPENAPI_TAGS = [
     {"name": "전략 추천", "description": "대응방안 추천, 상태 조회 및 승인 워크플로우"},
     {"name": "캠페인 학습", "description": "실행 결과 기록과 학습 데이터 품질 확인"},
     {"name": "OCR", "description": "영수증 인식, 비용 분석 및 리포트 생성"},
+    {"name": "작업 상태", "description": "비동기 분석 잡 상태 조회"},
     {"name": "상태 확인", "description": "통합 FastAPI 서비스 상태 확인"},
 ]
 
@@ -28,6 +29,7 @@ register_error_handlers(app)
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
+app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(ocr.router)
 
 
