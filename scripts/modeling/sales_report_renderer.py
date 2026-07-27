@@ -133,6 +133,15 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
     industry_store_mean = float(same_industry["STOR_CO"].median()) if "STOR_CO" in same_industry.columns and not same_industry.empty else None
     area_store_mean = float(same_area_type["STOR_CO"].median()) if "STOR_CO" in same_area_type.columns and not same_area_type.empty else None
 
+    store_count = float(row["STOR_CO"].iloc[0]) if "STOR_CO" in row.columns and pd.notna(row["STOR_CO"].iloc[0]) else None
+    sales_per_store = sales / store_count if sales is not None and store_count else None
+
+    # 동일업종·동일 상권유형 그룹 내 매출 순위. 위경도 기반 "물리적으로 가까운 상권" 데이터가
+    # 없어서, 지리적 인접이 아니라 같은 업종·같은 상권유형 그룹 안에서의 상대 순위로 계산한다.
+    peer_sales = same_area_type[TARGET_AMOUNT].dropna() if TARGET_AMOUNT in same_area_type.columns else pd.Series(dtype=float)
+    peer_rank = int((peer_sales > sales).sum()) + 1 if sales is not None and not peer_sales.empty else None
+    peer_total = int(len(peer_sales)) if not peer_sales.empty else None
+
     explanation_parts = []
     if sales_yoy is not None:
         explanation_parts.append(f"전년동분기 대비 매출은 {_fmt_pct(sales_yoy)} 변했습니다.")
@@ -142,6 +151,13 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
         explanation_parts.append(f"유동인구는 {day_cols[top_day]}과 {hour_cols[top_hour]}에 가장 많이 몰립니다.")
 
     target_hist, area_hist, industry_hist = _comparison_frames(row, df)
+
+    # 대상 상권 자체의 매출 추이 최저·최고(관측된 분기 범위 내). 다른 상권과의 비교가
+    # 아니라 이 상권 스스로의 변동폭을 보여준다.
+    target_sales_series = target_hist[TARGET_AMOUNT].dropna() if TARGET_AMOUNT in target_hist.columns else pd.Series(dtype=float)
+    sales_min = float(target_sales_series.min()) if not target_sales_series.empty else None
+    sales_max = float(target_sales_series.max()) if not target_sales_series.empty else None
+
     current_q = int(row["STDR_YYQU_CD"].iloc[0])
     previous_q = (current_q // 10 - 1) * 10 + 4 if current_q % 10 == 1 else current_q - 1
     def region_value(frame, col, q, target_only=False):
@@ -153,7 +169,10 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
     comparison_summary = {}
     for region, frame, target_only in [
         ("대상 상권", target_hist, True),
+        # 행정구역(구) 단위 그룹핑 컬럼이 데이터에 없어 "구"를 대신해 동일 상권유형
+        # (골목상권/발달상권/전통시장/관광특구) 그룹을 중간 단계로 쓴다.
         ("동일 상권유형 중앙값", area_hist, False),
+        ("서울 동종업종 중앙값", industry_hist, False),
     ]:
         stores_now = region_value(frame, "STOR_CO", current_q, target_only)
         stores_prev = region_value(frame, "STOR_CO", previous_q, target_only)
@@ -163,6 +182,7 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
             "업소수": int(stores_now) if stores_now is not None else None,
             "업소수_전분기대비": _qoq(stores_now, stores_prev),
             "월평균매출": sales_now,
+            "분기총매출": sales_now * 3 if sales_now is not None else None,
             "매출_전분기대비": _qoq(sales_now, sales_prev),
         }
 
@@ -216,6 +236,12 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
             "동일업종·지역유형 중앙값": _fmt_money(area_sales_mean),
             "전년동분기대비": _fmt_pct(sales_yoy),
             "전분기대비": _fmt_pct(sales_qoq),
+            "업소당 평균 매출": _fmt_money(sales_per_store),
+            "매출 최저(관측 추이 내)": _fmt_money(sales_min),
+            "매출 최고(관측 추이 내)": _fmt_money(sales_max),
+            "동일업종·지역유형 내 매출 순위": (
+                f"{peer_rank}/{peer_total}" if peer_rank is not None and peer_total is not None else None
+            ),
         },
         "유동인구 분석": {
             "일 평균 유동인구": int(round(traffic)) if traffic is not None and not pd.isna(traffic) else None,
@@ -716,6 +742,7 @@ def render_html_report(report: dict) -> str:
         '<div class="section-stack">',
         _block("AI 핵심 요약 · GPT-4.1", f'<p class="ai-summary">{html.escape(str(narrative))}</p>') if narrative else '',
         _block("핵심 지표 비교", _metric_cards(report.get("상단비교요약", {})) + f'<div class="strength-card"><strong>상권 특성 요약</strong><br>{html.escape(axis_summary)}</div>'),
+        _block("매출 분석 요약", _kv_table(report.get("매출분석", {}))),
         _trend_section("업소수 추이", trends.get("업소수"), lambda v: f"{v:,.0f}개", structure.get("시장_상태_해설")),
         _trend_section("매출액 추이", trends.get("매출액"), _fmt_money, explanation),
         _trend_section("매출건수 추이", trends.get("매출건수"), lambda v: f"{v:,.0f}건", structure.get("거래건수_해설")),
