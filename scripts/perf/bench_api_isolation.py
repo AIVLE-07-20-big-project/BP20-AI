@@ -11,7 +11,7 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CSV = ROOT / "samples" / "sample_pos_upload.csv"
+DEFAULT_CSV = ROOT / "samples" / "sample_cafe_pos_omnichannel_weather_2026Q2.csv"
 DEFAULT_OUT = ROOT / "docs" / "speed" / "api_isolation_result.json"
 FORM = {"trdar_cd": "3120189", "svc_induty_cd": "CS100010"}
 

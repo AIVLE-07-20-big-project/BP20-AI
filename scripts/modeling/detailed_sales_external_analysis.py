@@ -14,10 +14,7 @@ from sklearn.model_selection import TimeSeriesSplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_POS_PATH = ROOT / "data" / "agent" / "coffee_sample.csv"
-DEFAULT_NOAA_PATH = (
-    ROOT / "data" / "agent" / "2023_lat_39__42__lon_-76__-72_1.1M.csv"
-)
+DEFAULT_POS_PATH = ROOT / "samples" / "sample_cafe_pos_omnichannel_weather_2026Q2.csv"
 NYC_CENTRAL_PARK_STATION = 72505394728
 
 POS_REQUIRED_COLUMNS = {
@@ -68,7 +65,7 @@ def _parse_isd_scaled(
 
 
 def load_noaa_isd_daily(
-    path: str | Path = DEFAULT_NOAA_PATH,
+    path: str | Path,
     *,
     station: int = NYC_CENTRAL_PARK_STATION,
     start_date: str = "2023-01-01",
