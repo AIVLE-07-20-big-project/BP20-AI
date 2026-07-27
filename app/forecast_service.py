@@ -1,6 +1,5 @@
 import math
 
-
 class ForecastService:
 
     def predict_product(self, product, forecast_days, weather) -> dict:
@@ -24,9 +23,7 @@ class ForecastService:
                 * factor
             )
 
-        # -----------------------------
         # Confidence 계산
-        # -----------------------------
         confidence = 0.70
 
         if len(quantities) >= 30:

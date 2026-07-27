@@ -4,7 +4,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core import bootstrap  # noqa: F401
-from app.forecast_service import ForecastService
 from app.ocr import router as ocr
 from app.online_trend import router as online_trend
 from app.product_image import router as product_image
@@ -13,8 +12,8 @@ from app.routers import (
     analysis,
     campaign_logs,
     effect_verification_router,
+    forecast,
 )
-from app.schemas.forecast import ForecastRequest, ForecastResponse
 
 app = FastAPI(title="20BG AI 서비스")
 app.include_router(analysis.router, prefix="/api/v1")
@@ -22,10 +21,9 @@ app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
 app.include_router(ocr.router)
 app.include_router(effect_verification_router.router)
+app.include_router(forecast.router)
 app.include_router(online_trend.router)
 app.include_router(product_image.router)
-
-forecast_service = ForecastService()
 
 
 @app.exception_handler(RequestValidationError)
@@ -41,21 +39,4 @@ async def validation_exception_handler(
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
-    return {"status": "UP"}
-
-
-@app.post("/api/v1/forecasts", response_model=ForecastResponse)
-def forecast(request: ForecastRequest) -> ForecastResponse:
-    forecasts = [
-        forecast_service.predict_product(
-            product,
-            request.forecastDays,
-            request.weather,
-        )
-        for product in request.products
-    ]
-
-    return ForecastResponse(
-        selectedModel="Temporary-Average-Forecast",
-        forecasts=forecasts,
-    )
+    return {"status": "ok"}

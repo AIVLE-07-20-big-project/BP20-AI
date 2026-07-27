@@ -251,8 +251,3 @@ async def analytics_report(body: ReportRequest) -> str:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     return html
-
-
-@router.get("/health")
-async def health() -> Dict[str, str]:
-    return {"status": "ok"}
