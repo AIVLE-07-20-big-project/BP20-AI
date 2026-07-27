@@ -5,11 +5,12 @@ from app.celery_app import celery_app
 
 
 @celery_app.task(name="jobs.cleanup_stale")
-def cleanup_stale_jobs(max_age_minutes: int = 5) -> list[str]:
+def cleanup_stale_jobs(queued_max_age_minutes: int = 5, running_max_age_minutes: int = 15) -> list[str]:
     from app.core import uploads
     from app.services import jobs
 
-    cleaned = jobs.cleanup_stale_queued(max_age_minutes=max_age_minutes)
+    cleaned = jobs.cleanup_stale_queued(max_age_minutes=queued_max_age_minutes)
+    cleaned += jobs.cleanup_stale_running(max_age_minutes=running_max_age_minutes)
     for job_id in cleaned:
         uploads.delete_job_upload(job_id)
     return cleaned
