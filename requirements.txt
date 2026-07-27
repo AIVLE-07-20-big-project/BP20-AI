@@ -35,6 +35,3 @@ torch>=2.2
 
 # RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요
 sentence-transformers>=3.0
-
-# 개발·테스트
-pytest>=8.0
