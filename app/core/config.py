@@ -13,6 +13,9 @@ UPLOAD_DATA = DATA / "uploads"
 
 AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
 ANALYSES_DB = MODEL / "analyses.sqlite3"
+# 비동기 분석 잡 상태의 단일 소스(Celery result backend는 안 씀 — 1시간 후 만료되고
+# 소유권을 표현 못 함). docs/speed/celery-async-development-plan.md §2.2
+JOBS_DB = MODEL / "analysis_jobs.sqlite3"
 BANDIT_MODEL_DIR = MODEL / "bandit"
 CAMPAIGN_LOGS = AGENT_DATA / "campaign_logs.csv"
 RAG_INDEX_EXPORT = MODEL / "rag_index" / "export"
