@@ -8,8 +8,6 @@ docs/speed/celery-async-development-plan.md의 1·3단계를 반영했다:
 기존 동기 엔드포인트는 그대로 두고, 이 태스크가 워커에서 도는지부터 검증한 뒤 연결한다.
 
 미구현(라우터 연결 전 필요):
-  - job_id 기반 멱등성 — 현재 analyses.create_analysis()는 호출마다 uuid4()로
-    analysis_id를 만들어 재실행 시 결과가 중복 생성된다(계획 문서 5단계).
   - 오류 → error_code 매핑 — DetailedSalesDataError/CellNotFoundError를 잡지 않아
     지금은 원인 구분이 불가능한 FAILURE가 된다(계획 문서 7단계).
   - 잡 상태 조건부 전이 — 결과 저장 직전 잡 상태를 확인해야 한다(계획 문서 4단계).
@@ -45,6 +43,10 @@ def run_analysis_task(
     반환값은 `analysis_id` 참조뿐이다. 결과 dict 전체를 반환하면 result backend를 통해
     같은 내용이 SQLite와 Redis에 이중 저장된다.
 
+    `job_id`를 `analysis_id`로 그대로 써서 멱등하게 저장한다(계획 문서 §2.4). 같은 잡이
+    재배달 등으로 두 번 실행돼도 analyses 테이블엔 행이 하나만 남는다 — 두 번째 호출의
+    분석 결과는 버려지고 첫 저장이 이긴다.
+
     성공한 잡의 업로드 원본은 삭제한다. 실패한 잡의 원본은 재현을 위해 남기고
     uploads.purge_expired_uploads()가 보존 기간 경과 후 회수한다.
 
@@ -69,6 +71,7 @@ def run_analysis_task(
         warnings=warnings,
         user_id=user_id,
         store_id=store_id,
+        analysis_id=job_id,
     )
 
     uploads.delete_job_upload(job_id)
