@@ -19,6 +19,9 @@ ACTIONS: dict[str, dict] = {
 
 ACTION_TO_AXIS: dict[str, str] = {name: v["axis"] for name, v in ACTIONS.items()}
 
+# 고비용·비가역적 action은 experiment로 자동 탐색하지 않는다(serve·수동 선택은 가능)
+EXPLORATION_EXCLUDED_ACTIONS: frozenset[str] = frozenset({"매장 리뉴얼"})
+
 ACTION_RULES: dict[str, list[str]] = {
     "고객_회복": ["즉시할인", "쿠폰발행", "타임세일", "세트메뉴 도입", "사이드메뉴 추가", "배달채널 확대"],
     "차별화": ["매장 리뉴얼", "신메뉴 출시", "배달채널 확대"],
