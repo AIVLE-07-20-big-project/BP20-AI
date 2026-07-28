@@ -4,6 +4,7 @@
 #   → [estimate, evidence] → prepare_approval → await_approval → generate_report
 from __future__ import annotations
 
+import logging
 import sqlite3
 from functools import lru_cache
 
@@ -12,8 +13,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from app.core.config import AGENT_RUNS_DB, CAMPAIGN_LOGS_V2
-from app.services.response import action_rules, bandit_store
+from app.core.config import AGENT_RUNS_DB, BANDIT_V2_SHADOW_ENABLED, CAMPAIGN_LOGS_V2
+from app.services.response import action_rules, bandit_store, shadow
 from app.services.response.context import CONTEXT_DIM, CONTEXT_SCHEMA_VERSION, build_context_vector
 from app.services.response.policy import BanditPolicy
 from app.services.response.state import RecommendationState
@@ -29,6 +30,8 @@ MEASURED_EFFECT_BOOTSTRAP_SAMPLES = 500
 
 _APPROVAL_STATUS = {"approve": "approved", "edit": "edited", "reject": "rejected"}
 _SAFETY_VERDICT_TO_STATUS = {"차단": "blocked", "사용가능": "eligible"}
+
+_logger = logging.getLogger(__name__)
 
 
 def _diagnose(state: RecommendationState) -> dict:
@@ -146,6 +149,21 @@ def _route_after_validate_candidates(state: RecommendationState) -> str:
     return "select_action"
 
 
+# v1 active(또는 coldstart)와 최신 v2 candidate를 선택에 영향 없이 비교만 한다(실패해도 흐름은 유지)
+def _build_shadow_report(등급: str, context: np.ndarray, selectable: list[str]) -> dict | None:
+    if not BANDIT_V2_SHADOW_ENABLED:
+        return None
+    candidate_version = bandit_store.latest_candidate_version(등급)
+    if candidate_version is None:
+        return None
+    try:
+        comparison = shadow.compare_candidate_to_active(등급, candidate_version, context, selectable)
+    except Exception:
+        _logger.warning("shadow 비교 실패(등급=%s)", 등급, exc_info=True)
+        return None
+    return comparison.as_dict() if comparison else None
+
+
 # coldstart(학습된 active 모델 없음)면 미학습 모델의 argmax 대신 비즈니스 우선순위
 # 기본값으로 fallback한다(설계 §10). 학습된 모델이 있으면 BanditPolicy로 선택한다.
 def _select_action(state: RecommendationState) -> dict:
@@ -157,6 +175,7 @@ def _select_action(state: RecommendationState) -> dict:
 
     context = np.asarray(state["context_vector"], dtype=np.float32)
     bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+    shadow_report = _build_shadow_report(등급, context, selectable)
 
     if not model_loaded:
         action = action_rules.coldstart_default_action(등급, selectable)
@@ -171,6 +190,7 @@ def _select_action(state: RecommendationState) -> dict:
             "selected_action": selected,
             "decision_source": "policy",
             "selection_source": "business_rule_fallback",
+            "shadow_report": shadow_report,
             "status": "방안 선택 완료(coldstart 기본값)",
             "warnings": warnings,
         }
@@ -187,6 +207,7 @@ def _select_action(state: RecommendationState) -> dict:
         "selected_action": selected,
         "decision_source": "policy",
         "selection_source": "policy",
+        "shadow_report": shadow_report,
         "status": f"방안 선택 완료(policy_mode={decision.mode})",
         "warnings": warnings,
     }
@@ -225,6 +246,7 @@ def _await_approval(state: RecommendationState) -> dict:
         "효과추정": state.get("scm_result"),
         "근거_문헌": state.get("rag_evidence"),
         "정책_사전검증": state.get("ope_result"),
+        "shadow_비교": state.get("shadow_report"),
         "주의사항": state.get("warnings", []),
     })
     결정 = decision.get("결정") if isinstance(decision, dict) else None

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,16 +63,33 @@ def candidate_path(등급: str, version: str) -> Path:
     return BANDIT_MODEL_DIR / 등급 / f"candidate-{version}.pt"
 
 
+def previous_active_path(등급: str) -> Path:
+    return BANDIT_MODEL_DIR / 등급 / "previous-active.pt"
+
+
 def save_candidate(등급: str, bandit: NeuralContextualBandit) -> Path:
     path = candidate_path(등급, bandit.policy_version)
     bandit.save(path)
     return path
 
 
-# check_activation()을 통과해야만 candidate를 active로 승격한다(shadow 전용 버전은 거부)
+# 가장 최근에 저장된 candidate의 버전(shadow 비교·승격 대상 조회용)
+def latest_candidate_version(등급: str) -> str | None:
+    grade_dir = BANDIT_MODEL_DIR / 등급
+    if not grade_dir.exists():
+        return None
+    candidates = sorted(grade_dir.glob("candidate-*.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidates:
+        return None
+    return candidates[0].stem[len("candidate-"):]
+
+
+# check_activation() 통과 + 사람의 명시적 승인(approved_by)이 있어야만 승격한다(기존 active는 rollback용 백업)
 def promote_candidate(
-    등급: str, version: str, criteria: ActivationCriteria = ActivationCriteria(),
+    등급: str, version: str, *, approved_by: str, criteria: ActivationCriteria = ActivationCriteria(),
 ) -> Path:
+    if not approved_by:
+        raise ValueError("approved_by가 필요합니다 — 승인 없이 승격할 수 없습니다")
     if version in LEGACY_SHADOW_ONLY_POLICY_VERSIONS:
         raise ValueError(f"'{version}'은 shadow 전용 모델이라 승격할 수 없습니다")
 
@@ -91,5 +109,19 @@ def promote_candidate(
 
     bandit = NeuralContextualBandit.load_any(src)
     bandit.training_data_cutoff = datetime.now(timezone.utc).isoformat()
-    bandit.save(model_path(등급))
-    return model_path(등급)
+
+    active_path = model_path(등급)
+    if active_path.exists():
+        shutil.copy2(active_path, previous_active_path(등급))
+    bandit.save(active_path)
+    return active_path
+
+
+# 직전 승격 이전의 active 모델로 즉시 되돌린다(계획 §6 "이전 정책으로 즉시 rollback")
+def rollback(등급: str) -> Path:
+    backup = previous_active_path(등급)
+    if not backup.exists():
+        raise FileNotFoundError(f"롤백할 이전 모델이 없음: {backup}")
+    active_path = model_path(등급)
+    shutil.copy2(backup, active_path)
+    return active_path

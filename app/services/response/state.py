@@ -41,6 +41,7 @@ class RecommendationState(TypedDict, total=False):
     scm_result: dict | None
     rag_evidence: dict | None
     ope_result: dict | None
+    shadow_report: dict | None
     final_report: dict | None
 
     approval_status: Literal["pending", "approved", "edited", "rejected"] | None

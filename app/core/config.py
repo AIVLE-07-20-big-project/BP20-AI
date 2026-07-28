@@ -1,4 +1,5 @@
 # 경로 상수 — scripts/modeling/sales_analysis.py의 ROOT/DATA/MODEL 정의와 동일하게 유지
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,3 +31,15 @@ SEOUL_WEATHER_MONTHLY = SOURCE_DATA / "weather_seoul_monthly_raw.csv"
 SEOUL_WEATHER_DAILY = SOURCE_DATA / "weather_seoul_daily_recent.csv"
 SEOUL_EVENT_EXPOSURE = PROCESSED_DATA / "event_exposure_quarterly.csv"
 SEOUL_SUBWAY_EXPOSURE = PROCESSED_DATA / "subway_exposure_quarterly.csv"
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    return default if value is None else value.strip().lower() in ("1", "true", "yes", "on")
+
+
+# Bandit v2 feature flag(계획 §6) — 매장 rollout은 범위 밖이라 기본값은 전부 보수적으로 둔다
+BANDIT_POLICY_V2_ENABLED = _bool_env("BANDIT_POLICY_V2_ENABLED", False)
+BANDIT_V2_SHADOW_ENABLED = _bool_env("BANDIT_V2_SHADOW_ENABLED", True)
+BANDIT_EXPERIMENT_ENABLED = _bool_env("BANDIT_EXPERIMENT_ENABLED", False)
+BANDIT_EXPERIMENT_EPSILON = float(os.environ.get("BANDIT_EXPERIMENT_EPSILON", "0.10"))
