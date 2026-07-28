@@ -527,60 +527,64 @@ def render_purchase_price_index_section(receipts: pd.DataFrame, items: pd.DataFr
 
 CSS = """
 :root {
-  --paper: #E7EDE0;
-  --rule: #A9BFA0;
-  --ink: #16211B;
-  --ink-soft: #4A5A4E;
-  --red: #B23A2E;
-  --brass: #6B4226;
-  --card: #FAF8F1;
+  /* BP20-FE(프론트엔드) 디자인 토큰과 동일하게 맞춤 (src/shared/styles/theme.css 참고) */
+  --canvas: #F4F7FB;
+  --card: #FFFFFF;
+  --foreground: #101828;
+  --muted-foreground: #667085;
+  --border: #DDE3EC;
+  --primary: #246BFD;
+  --primary-hover: #1D4ED8;
+  --primary-light: #EAF2FF;
+  --accent: #8B5CF6;
+  --positive: #0E9F6E;
+  --warning: #D97706;
+  --negative: #D92D20;
+  --radius: 1rem;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  background: var(--paper);
-  background-image:
-    repeating-linear-gradient(var(--paper), var(--paper) 27px, var(--rule) 28px);
-  color: var(--ink);
-  font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
-  padding: 48px 20px 80px;
+  background: var(--canvas);
+  color: var(--foreground);
+  font-family: 'Noto Sans KR', 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
+  padding: 32px 20px 64px;
 }
 .masthead {
   max-width: 880px;
-  margin: 0 auto 32px;
-  padding-bottom: 20px;
-  border-bottom: 3px double var(--ink);
+  margin: 0 auto 20px;
+  padding-bottom: 16px;
 }
 .masthead__eyebrow {
-  font-family: 'Special Elite', monospace;
-  font-size: 13px;
-  letter-spacing: 0.12em;
-  color: var(--brass);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--primary);
   text-transform: uppercase;
 }
 .masthead h1 {
-  font-family: 'Special Elite', monospace;
-  font-size: 32px;
-  margin: 6px 0 4px;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 4px 0 4px;
+  color: var(--foreground);
 }
 .masthead__meta {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
-  color: var(--ink-soft);
+  color: var(--muted-foreground);
 }
 .docket {
   max-width: 880px;
-  margin: 0 auto 40px;
+  margin: 0 auto 24px;
   background: var(--card);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   display: flex;
-  box-shadow: 3px 3px 0 rgba(22,33,27,0.08);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
 }
 .docket__item {
   flex: 1;
   padding: 20px 24px;
-  border-right: 1px dashed var(--rule);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -588,42 +592,45 @@ body {
 .docket__item:last-child { border-right: none; }
 .docket__label {
   font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
 }
 .docket__figure {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 26px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.figure--loss { color: var(--red); }
+.figure--loss { color: var(--negative); }
 .ledger-section {
   max-width: 880px;
-  margin: 0 auto 36px;
+  margin: 0 auto 20px;
   background: var(--card);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 24px 28px 20px;
-  box-shadow: 3px 3px 0 rgba(22,33,27,0.06);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
 }
 .ledger-section h2 {
-  font-family: 'Special Elite', monospace;
-  font-size: 20px;
+  font-size: 17px;
+  font-weight: 700;
   margin: 0 0 6px;
   display: flex;
   align-items: baseline;
   gap: 10px;
+  color: var(--foreground);
 }
 .eyebrow {
-  font-size: 13px;
-  color: var(--brass);
-  border: 1px solid var(--brass);
-  padding: 1px 7px;
-  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 .section-note {
   font-size: 13px;
-  color: var(--ink-soft);
+  color: var(--muted-foreground);
   margin: 0 0 16px;
 }
 .ledger-table {
@@ -634,67 +641,67 @@ body {
 .ledger-table th {
   text-align: left;
   font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--ink-soft);
-  border-bottom: 1px solid var(--ink);
-  padding: 6px 8px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
 }
 .ledger-table td {
-  padding: 9px 8px;
-  border-bottom: 1px dashed var(--rule);
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
-.ledger-table .num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+.ledger-table .num { font-variant-numeric: tabular-nums; text-align: right; }
 .empty-row, .muted-note {
-  color: var(--ink-soft);
-  font-style: italic;
+  color: var(--muted-foreground);
   text-align: center;
 }
-.row--muted td { color: var(--ink-soft); }
+.row--muted td { color: var(--muted-foreground); }
 .stamp {
   display: inline-block;
-  font-family: 'Special Elite', monospace;
   font-size: 11px;
+  font-weight: 700;
   padding: 2px 8px;
-  border: 2px solid var(--red);
-  color: var(--red);
-  border-radius: 3px;
-  transform: rotate(-4deg);
+  background: #FEF3F2;
+  color: var(--negative);
+  border-radius: 999px;
   margin-left: 6px;
   white-space: nowrap;
 }
-.stamp--drop { border-color: var(--brass); color: var(--brass); }
-.stamp--over { border-color: var(--red); color: var(--red); }
+.stamp--drop { background: #FFFBEB; color: var(--warning); }
+.stamp--over { background: #FEF3F2; color: var(--negative); }
 .bar-track {
   display: inline-block;
   width: 110px;
   height: 8px;
-  background: var(--rule);
+  background: var(--border);
   border-radius: 4px;
   overflow: hidden;
   vertical-align: middle;
 }
 .bar-fill {
   height: 100%;
-  background: var(--brass);
+  background: var(--positive);
 }
-.bar-fill--mid { background: #C08A3E; }
-.bar-fill--high { background: var(--red); }
+.bar-fill--mid { background: var(--warning); }
+.bar-fill--high { background: var(--negative); }
 .rate-label {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   margin-left: 8px;
+  color: var(--muted-foreground);
 }
 footer {
   max-width: 880px;
-  margin: 24px auto 0;
+  margin: 20px auto 0;
   font-size: 12px;
-  color: var(--ink-soft);
+  color: var(--muted-foreground);
   text-align: center;
 }
 @media (max-width: 640px) {
   .docket { flex-direction: column; }
-  .docket__item { border-right: none; border-bottom: 1px dashed var(--rule); }
+  .docket__item { border-right: none; border-bottom: 1px solid var(--border); }
   .ledger-table { font-size: 12px; }
   .bar-track { width: 70px; }
 }
@@ -805,7 +812,7 @@ def build_html_from_frames(receipts: pd.DataFrame, budget: pd.DataFrame, items: 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{store_name} 가계부 · 원가 리포트</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{CSS}</style>
 </head>
 <body>
