@@ -1,25 +1,36 @@
 # 매출 분석을 저장하고, 선택한 분석에만 대응방안 추천을 실행한다
 from __future__ import annotations
 
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Response, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.report import ReportResponse
 from app.schemas.recommendation import RecommendationFromAnalysisRequest
 from app.routers.agent_runs import start_agent_run
-from app.services import analyses, ingestion, pipeline
+from app.core.errors import api_error
+from app.core.uploads import (
+    CSV_CONTENT_TYPES,
+    CSV_EXTENSIONS,
+    MAX_CSV_UPLOAD_BYTES,
+    MAX_POS_UPLOAD_BYTES,
+    delete_job_upload,
+    read_upload_limited,
+    save_job_upload,
+    validate_upload_type,
+)
+from app.services import analyses, detailed_sales, ingestion, jobs, pipeline
+from app.tasks.analysis import run_analysis_task
+from scripts.modeling.detailed_sales_external_analysis import DetailedSalesDataError
 
-router = APIRouter()
+router = APIRouter(tags=["매출 분석"])
 
 
 async def _ingest_and_diagnose(
-    file: UploadFile, trdar_cd: str, svc_induty_cd: str, yyqu_cd: Optional[int],
+    raw_bytes: bytes, trdar_cd: str, svc_induty_cd: str, yyqu_cd: Optional[int],
 ) -> tuple[dict, dict, list[str]]:
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=415, detail="현재는 CSV 파일만 지원합니다")
-
-    raw_bytes = await file.read()
     try:
         new_rows = ingestion.read_upload(raw_bytes)
     except ingestion.IngestionSchemaError as exc:
@@ -35,26 +46,113 @@ async def _ingest_and_diagnose(
     return report, raw_diag, ingestion_warnings + pipeline_warnings
 
 
+def _analyze_market(
+    trdar_cd: str,
+    svc_induty_cd: str,
+    yyqu_cd: Optional[int],
+) -> tuple[dict, dict, list[str]]:
+    try:
+        return pipeline.run_pipeline(
+            trdar_cd,
+            svc_induty_cd,
+            yyqu_cd,
+            ingestion.get_base_merged(),
+        )
+    except pipeline.CellNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 # CSV를 반영해 매출만 분석하고 후속 추천에 사용할 결과를 저장한다
-@router.post("/analyses")
+@router.post(
+    "/analyses",
+    summary="기본·상세 매출 분석 실행",
+    description=(
+        "기본은 비동기 처리다 — 즉시 202 + job_id를 반환하고, 상태는 "
+        "GET /jobs/{job_id}, 완료 후 결과는 GET /analyses/{analysis_id}로 조회한다. "
+        "`sync=true`를 주면 기존처럼 완료까지 대기해 결과를 그대로 반환한다"
+        "(전환 기간 동안만 유지, docs/speed/celery-async-development-plan.md §3)."
+    ),
+)
 async def create_analysis(
-    file: UploadFile = File(..., description="분석할 신규 매출 원본 CSV"),
-    trdar_cd: str = Form(...),
-    svc_induty_cd: str = Form(...),
+    response: Response,
+    file: UploadFile = File(
+        ...,
+        description="거래 일시·수량·단가·결제금액을 포함한 POS 거래 CSV",
+    ),
+    trdar_cd: str = Form(..., description="기본 상권 분석 대상 상권 코드"),
+    svc_induty_cd: str = Form(..., description="기본 상권 분석 대상 업종 코드"),
     yyqu_cd: Optional[int] = Form(None),
     user_id: Optional[str] = Form(None),
     store_id: Optional[str] = Form(None),
+    sync: bool = Query(False, description="true면 기존 동기 방식(완료까지 대기)으로 처리한다"),
 ) -> dict:
-
-    report, raw_diag, warnings = await _ingest_and_diagnose(
-        file, trdar_cd, svc_induty_cd, yyqu_cd,
+    validate_upload_type(
+        file,
+        extensions=CSV_EXTENSIONS,
+        content_types=CSV_CONTENT_TYPES,
+        type_name="CSV",
     )
+    raw_bytes = await read_upload_limited(file, MAX_POS_UPLOAD_BYTES)
+
+    if sync:
+        return await _create_analysis_sync(
+            raw_bytes, trdar_cd, svc_induty_cd, yyqu_cd, user_id, store_id,
+        )
+
+    job_id = str(uuid.uuid4())
+    save_job_upload(job_id, raw_bytes)
+    jobs.create_job(job_id, user_id=user_id)
+    try:
+        result = run_analysis_task.delay(
+            job_id, trdar_cd, svc_induty_cd, yyqu_cd, user_id=user_id, store_id=store_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - 브로커 오류 형식은 전송 계층마다 다르다.
+        jobs.mark_failed(job_id, "ENQUEUE_FAILED", str(exc))
+        delete_job_upload(job_id)
+        raise api_error(
+            503,
+            "ENQUEUE_FAILED",
+            "분석 작업을 큐에 등록하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        ) from exc
+
+    jobs.set_celery_task_id(job_id, result.id)
+    response.status_code = 202
+    return {"job_id": job_id, "status": "queued"}
+
+
+async def _create_analysis_sync(
+    raw_bytes: bytes,
+    trdar_cd: str,
+    svc_induty_cd: str,
+    yyqu_cd: Optional[int],
+    user_id: Optional[str],
+    store_id: Optional[str],
+) -> dict:
+    try:
+        detailed_analysis = await run_in_threadpool(
+            detailed_sales.analyze_uploaded_sales,
+            raw_bytes,
+            trdar_cd,
+        )
+    except DetailedSalesDataError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    report, raw_diag, warnings = await run_in_threadpool(
+        _analyze_market,
+        trdar_cd,
+        svc_induty_cd,
+        yyqu_cd,
+    )
+    from app.services.sales_summary import attach_sales_summary
+
+    await run_in_threadpool(attach_sales_summary, report, detailed_analysis)
     return analyses.create_analysis(
         trdar_cd=trdar_cd,
         svc_induty_cd=svc_induty_cd,
         yyqu_cd=yyqu_cd,
         report=report,
         diagnosis=raw_diag,
+        detailed_analysis=detailed_analysis,
         warnings=warnings,
         user_id=user_id,
         store_id=store_id,
@@ -76,7 +174,7 @@ def list_user_analyses(
 
 
 # Spring Boot/MySQL에서 재전달한 분석 결과로 추천 에이전트를 시작한다
-@router.post("/recommendations")
+@router.post("/recommendations", tags=["전략 추천"])
 def create_recommendation_from_analysis(
     payload: RecommendationFromAnalysisRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
@@ -106,7 +204,7 @@ def get_analysis(analysis_id: str, x_user_id: Optional[str] = Header(None, alias
 
 
 # 저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다
-@router.post("/analyses/{analysis_id}/recommendations")
+@router.post("/analyses/{analysis_id}/recommendations", tags=["전략 추천"])
 def create_analysis_recommendation(
     analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ) -> dict:
@@ -134,8 +232,15 @@ async def create_report(
     svc_induty_cd: str = Form(...),
     yyqu_cd: Optional[int] = Form(None),
 ) -> dict:
+    validate_upload_type(
+        file,
+        extensions=CSV_EXTENSIONS,
+        content_types=CSV_CONTENT_TYPES,
+        type_name="CSV",
+    )
+    raw_bytes = await read_upload_limited(file, MAX_CSV_UPLOAD_BYTES)
     report, _raw_diag, warnings = await _ingest_and_diagnose(
-        file, trdar_cd, svc_induty_cd, yyqu_cd,
+        raw_bytes, trdar_cd, svc_induty_cd, yyqu_cd,
     )
     report["경고"] = warnings
     return report

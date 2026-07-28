@@ -1,7 +1,6 @@
 # 영수증 OCR, 비용 분석, 리포트 API
 
 import os
-import shutil
 import tempfile
 from datetime import date
 from typing import Any, Dict, List, Optional
@@ -14,6 +13,13 @@ from pydantic import BaseModel
 from app.ocr.expense_analysis import check_budget_overage, detect_expense_anomalies
 from app.ocr.cost_analysis import calculate_cost_rates, detect_price_changes
 from app.ocr.report import build_html_from_frames
+from app.core.uploads import (
+    IMAGE_CONTENT_TYPES,
+    IMAGE_EXTENSIONS,
+    MAX_IMAGE_UPLOAD_BYTES,
+    read_upload_limited,
+    validate_upload_type,
+)
 
 router = APIRouter(tags=["OCR"])
 
@@ -99,9 +105,16 @@ def _orders_to_df(orders: List[Dict[str, Any]]) -> pd.DataFrame:
 @router.post("/api/v1/receipts/parse")
 async def parse_receipt(file: UploadFile = File(...)) -> Dict[str, Any]:
     # 영수증 이미지를 업로드하면 OCR + 좌표기반 추출 + 검증까지 마친
+    validate_upload_type(
+        file,
+        extensions=IMAGE_EXTENSIONS,
+        content_types=IMAGE_CONTENT_TYPES,
+        type_name="이미지",
+    )
+    image_bytes = await read_upload_limited(file, MAX_IMAGE_UPLOAD_BYTES)
     suffix = os.path.splitext(file.filename or "")[1] or ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
+        tmp.write(image_bytes)
         tmp_path = tmp.name
 
     try:
@@ -253,6 +266,6 @@ async def analytics_report(body: ReportRequest) -> str:
     return html
 
 
-@router.get("/health")
+@router.get("/health", tags=["상태 확인"])
 async def health() -> Dict[str, str]:
     return {"status": "ok"}

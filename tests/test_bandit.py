@@ -91,7 +91,7 @@ class PropensityTests(unittest.TestCase):
         self.assertGreater(result["propensity"], 0.0)
 
     def test_top_arm_choice_unaffected_by_temperature(self):
-        """propensity 계산(softmax)이 top-1 선택 로직(argmax) 자체를 바꾸면 안 된다."""
+
         ctx = np.array([0.1, 0.2, -0.1, 0.3])
         low_temp = NeuralContextualBandit(context_dim=4, arms=ARMS, alpha=1.0, temperature=0.1)
         high_temp = NeuralContextualBandit(context_dim=4, arms=ARMS, alpha=1.0, temperature=10.0)

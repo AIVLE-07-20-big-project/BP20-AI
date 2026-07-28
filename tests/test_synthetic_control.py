@@ -127,10 +127,10 @@ class CounterfactualBaselineTests(unittest.TestCase):
 
 class DonorPoolSizeCapTests(unittest.TestCase):
     def test_large_donor_pool_is_capped_and_weights_stay_meaningful(self):
-        """도너가 관측 분기수보다 훨씬 많으면(예: 1,400곳) 볼록조합 최적화가 과적합돼
-        가중치가 흩어진다 — 실제 데이터(3001491/CS100001, 도너 1,400곳)에서 발견된 문제의
-        회귀 테스트. 대상 셀과 거의 동일한 도너 2곳 + 무관한 도너 다수를 섞어, 유사도 상위
-        MAX_DONORS로 추리면 그 2곳이 큰 가중치를 가져가는지 확인한다."""
+
+
+
+
         rng = np.random.default_rng(1)
         target_amt = [1000, 1050, 1100, 1080, 1150, 1200, 1180, 1250]
         rows = [_row(1, "A", q, target_amt[i]) for i, q in enumerate(QUARTERS)]

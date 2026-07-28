@@ -12,7 +12,7 @@ from scripts.modeling.survival_eval import _event_frame, evaluate
 
 
 def _synthetic_survival_panel(path: Path, n_cells: int = 40, n_quarters: int = 8, seed: int = 0):
-    """절반은 점포수가 꾸준히 줄어(이벤트), 절반은 유지되는(중도절단) 합성 패널."""
+
     rng = np.random.default_rng(seed)
     quarters = list(range(20241, 20241 + n_quarters))
     rows = []

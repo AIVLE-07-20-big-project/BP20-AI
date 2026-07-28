@@ -168,9 +168,18 @@ def _update_bandit_online(state: dict, action_id: str, context_vector: list,
     if not 등급 or action_id not in arms:
         return
     try:
-        bandit, _ = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
-        bandit.update(np.asarray(context_vector, dtype=float), arms.index(action_id), reward)
-        bandit_store.save(등급, bandit)
+        model_file = bandit_store.model_path(등급)
+        # 동시 승인 시 load-update-save 경합으로 reward가 유실되지 않도록 직렬화한다
+        with _file_lock(model_file):
+            bandit, loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+            if not loaded and model_file.exists():
+                # 저장된 모델과 arm 집합이 달라 콜드스타트된 경우 — 학습된 모델을 덮어쓰지 않는다
+                _logger.warning(
+                    "Bandit 온라인 update 건너뜀 — 저장된 모델과 arm 집합 불일치(등급=%s)", 등급,
+                )
+                return
+            bandit.update(np.asarray(context_vector, dtype=float), arms.index(action_id), reward)
+            bandit_store.save(등급, bandit)
     except Exception:
         _logger.warning("Bandit 온라인 update 실패(등급=%s, action_id=%s)", 등급, action_id, exc_info=True)
 
@@ -200,6 +209,7 @@ def validate_logs(campaign_logs: Path | None = None) -> dict:
         ("decision_id 중복", logs["decision_id"].duplicated(keep="first")),
         ("알 수 없는 action_id", ~logs["action_id"].isin(action_rules.ACTIONS.keys())),
         ("propensity 범위(0,1] 벗어남", ~logs["propensity"].between(0, 1, inclusive="right")),
+        ("yyqu_cd 또는 treatment_yyqu_cd 결측", logs["yyqu_cd"].isna() | logs["treatment_yyqu_cd"].isna()),
         ("treatment_yyqu_cd가 yyqu_cd 이후가 아님", logs["treatment_yyqu_cd"] <= logs["yyqu_cd"]),
         ("executed=True인데 reward 없음", logs["executed"].astype(bool) & logs["reward"].isna()),
         ("reward 재계산 불일치", reward_mismatch),

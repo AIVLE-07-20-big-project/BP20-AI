@@ -9,9 +9,11 @@ MODEL = ROOT / "model"
 AGENT_DATA = DATA / "agent"
 PROCESSED_DATA = DATA / "processed"
 SOURCE_DATA = DATA / "source"
+UPLOAD_DATA = DATA / "uploads"  # API와 워커가 공유하는 업로드 저장소
 
 AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
 ANALYSES_DB = MODEL / "analyses.sqlite3"
+JOBS_DB = MODEL / "analysis_jobs.sqlite3"  # 비동기 작업 상태 저장소
 BANDIT_MODEL_DIR = MODEL / "bandit"
 CAMPAIGN_LOGS = AGENT_DATA / "campaign_logs.csv"
 RAG_INDEX_EXPORT = MODEL / "rag_index" / "export"
@@ -23,6 +25,10 @@ RESIDENT_POPULATION = SOURCE_DATA / "resident_population.csv"
 WORKPLACE_POPULATION = SOURCE_DATA / "workplace_population.csv"
 WEATHER_QUARTERLY = SOURCE_DATA / "weather_seoul_quarterly.csv"
 MERGED_SALES_ANALYSIS = PROCESSED_DATA / "merged_sales_analysis.csv"
+SEOUL_WEATHER_MONTHLY = SOURCE_DATA / "weather_seoul_monthly_raw.csv"
+SEOUL_WEATHER_DAILY = SOURCE_DATA / "weather_seoul_daily_recent.csv"
+SEOUL_EVENT_EXPOSURE = PROCESSED_DATA / "event_exposure_quarterly.csv"
+SEOUL_SUBWAY_EXPOSURE = PROCESSED_DATA / "subway_exposure_quarterly.csv"
 
 class ABSASettings:    
     MODEL_PATH: str = str(ROOT / "roberta_absa_best_4class")

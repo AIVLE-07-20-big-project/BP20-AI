@@ -35,6 +35,8 @@ def _connect() -> sqlite3.Connection:
         connection.execute("ALTER TABLE analyses ADD COLUMN user_id TEXT")
     if "store_id" not in columns:
         connection.execute("ALTER TABLE analyses ADD COLUMN store_id TEXT")
+    if "detailed_analysis_json" not in columns:
+        connection.execute("ALTER TABLE analyses ADD COLUMN detailed_analysis_json TEXT")
     return connection
 
 
@@ -50,34 +52,33 @@ def create_analysis(
     report: dict,
     diagnosis: dict,
     warnings: list[str],
+    detailed_analysis: dict | None = None,
     user_id: str | None = None,
     store_id: str | None = None,
+    analysis_id: str | None = None,
 ) -> dict:
-    analysis_id = str(uuid4())
+    """지정한 analysis_id는 첫 결과만 저장하고, 없으면 새 ID를 생성한다."""
+    analysis_id = analysis_id or str(uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     with closing(_connect()) as connection, connection:
         connection.execute(
             """
-            INSERT INTO analyses (
+            INSERT OR IGNORE INTO analyses (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                report_json, diagnosis_json, warnings_json, created_at, user_id, store_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                report_json, diagnosis_json, detailed_analysis_json,
+                warnings_json, created_at, user_id, store_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                _dump(report), _dump(diagnosis), _dump(warnings), created_at, user_id, store_id,
+                _dump(report), _dump(diagnosis), _dump(detailed_analysis),
+                _dump(warnings), created_at, user_id, store_id,
             ),
         )
     return get_analysis(analysis_id)
 
 
-def get_analysis(analysis_id: str) -> dict | None:
-    with closing(_connect()) as connection:
-        row = connection.execute(
-            "SELECT * FROM analyses WHERE analysis_id = ?", (analysis_id,),
-        ).fetchone()
-    if row is None:
-        return None
+def _row_to_dict(row: sqlite3.Row) -> dict:
     return {
         "analysis_id": row["analysis_id"],
         "user_id": row["user_id"],
@@ -87,20 +88,33 @@ def get_analysis(analysis_id: str) -> dict | None:
         "yyqu_cd": row["yyqu_cd"],
         "report": json.loads(row["report_json"]),
         "diagnosis": json.loads(row["diagnosis_json"]),
+        "detailed_analysis": (
+            json.loads(row["detailed_analysis_json"])
+            if row["detailed_analysis_json"] is not None
+            else None
+        ),
         "warnings": json.loads(row["warnings_json"]),
         "created_at": row["created_at"],
     }
 
 
+def get_analysis(analysis_id: str) -> dict | None:
+    with closing(_connect()) as connection:
+        row = connection.execute(
+            "SELECT * FROM analyses WHERE analysis_id = ?", (analysis_id,),
+        ).fetchone()
+    return _row_to_dict(row) if row is not None else None
+
+
 # 사용자 소유 분석을 최신순으로 반환한다
 def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
 
-    query = "SELECT analysis_id FROM analyses WHERE user_id = ?"
+    query = "SELECT * FROM analyses WHERE user_id = ?"
     params: list[object] = [user_id]
     if store_id is not None:
         query += " AND store_id = ?"
         params.append(store_id)
     query += " ORDER BY created_at DESC"
     with closing(_connect()) as connection:
-        ids = [row["analysis_id"] for row in connection.execute(query, params).fetchall()]
-    return [analysis for analysis_id in ids if (analysis := get_analysis(analysis_id)) is not None]
+        rows = connection.execute(query, params).fetchall()
+    return [_row_to_dict(row) for row in rows]
