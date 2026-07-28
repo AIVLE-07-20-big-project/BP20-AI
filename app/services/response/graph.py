@@ -146,8 +146,8 @@ def _route_after_validate_candidates(state: RecommendationState) -> str:
     return "select_action"
 
 
-# selectable 후보에서만 BanditPolicy로 선택한다(기본 serve=기대보상 argmax).
-# decision_source="policy"는 사람이 나중에 edit하면 await_approval에서 human_edit로 바뀐다.
+# coldstart(학습된 active 모델 없음)면 미학습 모델의 argmax 대신 비즈니스 우선순위
+# 기본값으로 fallback한다(설계 §10). 학습된 모델이 있으면 BanditPolicy로 선택한다.
 def _select_action(state: RecommendationState) -> dict:
     등급 = state.get("문제유형")
     candidates = state.get("candidate_actions") or []
@@ -156,7 +156,25 @@ def _select_action(state: RecommendationState) -> dict:
     warnings = list(state.get("warnings", []))
 
     context = np.asarray(state["context_vector"], dtype=np.float32)
-    bandit, _ = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+    bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+
+    if not model_loaded:
+        action = action_rules.coldstart_default_action(등급, selectable)
+        selected = next(c for c in candidates if c["방안"] == action)
+        return {
+            "policy_decision": {
+                "policy_mode": "coldstart", "policy_selected_action": action,
+                "policy_selected_propensity": None, "action_probabilities": {},
+                "fallback_reason": "coldstart — 학습된 모델 없음, 비즈니스 우선순위 기본값 사용",
+            },
+            "policy_selected_action": action,
+            "selected_action": selected,
+            "decision_source": "policy",
+            "selection_source": "business_rule_fallback",
+            "status": "방안 선택 완료(coldstart 기본값)",
+            "warnings": warnings,
+        }
+
     policy = BanditPolicy(
         bandit=bandit, exploration_excluded_actions=frozenset(action_rules.EXPLORATION_EXCLUDED_ACTIONS),
     )
@@ -168,6 +186,7 @@ def _select_action(state: RecommendationState) -> dict:
         "policy_selected_action": decision.selected_action,
         "selected_action": selected,
         "decision_source": "policy",
+        "selection_source": "policy",
         "status": f"방안 선택 완료(policy_mode={decision.mode})",
         "warnings": warnings,
     }

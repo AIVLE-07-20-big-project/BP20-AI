@@ -36,7 +36,7 @@ SCHEMA_COLUMNS = [
     "policy_mode", "action_probabilities",
     "recommended_action", "policy_selected_action", "policy_selected_propensity",
     "approved_action", "executed_action", "behavior_propensity", "decision_source",
-    "expected_rewards", "uncertainties",
+    "selection_source", "expected_rewards", "uncertainties",
     "net_sales_before", "net_sales_after", "variable_cost_before", "variable_cost_after",
     "campaign_cost", "measurement_days",
     "reward_definition_version", "reward_denominator_floor", "reward_status", "reward",
@@ -170,6 +170,7 @@ def append_log(
     context_vector = state.get("context_vector") or [None] * len(CONTEXT_COLS)
 
     decision_source = state.get("decision_source") or "policy"
+    selection_source = state.get("selection_source") or "policy"
     policy_decision = state.get("policy_decision") or {}
     policy_selected_propensity = policy_decision.get("policy_selected_propensity")
     behavior_propensity = policy_selected_propensity if decision_source == "policy" else None
@@ -216,6 +217,7 @@ def append_log(
         "executed_action": action_id,
         "behavior_propensity": behavior_propensity,
         "decision_source": decision_source,
+        "selection_source": selection_source,
         "expected_rewards": json.dumps(
             {a: s.get("expected_reward") for a, s in candidate_scores.items()}, ensure_ascii=False,
         ),
@@ -232,8 +234,10 @@ def append_log(
         "policy_version": state.get("policy_version"),
         "model_version": state.get("model_version"),
         "model_sha256": state.get("model_sha256"),
-        "ope_eligible": decision_source == "policy",
-        "training_eligible": decision_source == "policy" and reward_status == "complete",
+        "ope_eligible": decision_source == "policy" and selection_source == "policy",
+        "training_eligible": (
+            decision_source == "policy" and selection_source == "policy" and reward_status == "complete"
+        ),
         "데이터_출처": "real",
         "logged_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -282,17 +286,17 @@ def validate_logs(campaign_logs: Path | None = None) -> dict:
                 "제외사유": {"스키마 컬럼 누락": missing_cols}}
 
     reward_mismatch = logs.apply(_reward_recompute_mismatch, axis=1)
+    ope_eligible = logs["ope_eligible"].astype(bool)
     checks = [
         ("decision_id 중복", logs["decision_id"].duplicated(keep="first")),
         ("알 수 없는 action_id", ~logs["executed_action"].isin(action_rules.ACTIONS.keys())),
         (
-            "behavior_propensity 범위(0,1] 벗어남 — policy 결정에 한함",
-            (logs["decision_source"] == "policy")
-            & ~logs["behavior_propensity"].between(0, 1, inclusive="right"),
+            "behavior_propensity 범위(0,1] 벗어남 — ope_eligible 행에 한함",
+            ope_eligible & ~logs["behavior_propensity"].between(0, 1, inclusive="right"),
         ),
         (
-            "human_edit/admin_override인데 behavior_propensity가 있음",
-            (logs["decision_source"] != "policy") & logs["behavior_propensity"].notna(),
+            "ope_eligible=False인데 behavior_propensity가 있음",
+            ~ope_eligible & logs["behavior_propensity"].notna(),
         ),
         ("yyqu_cd 또는 treatment_yyqu_cd 결측", logs["yyqu_cd"].isna() | logs["treatment_yyqu_cd"].isna()),
         ("treatment_yyqu_cd가 yyqu_cd 이후가 아님", logs["treatment_yyqu_cd"] <= logs["yyqu_cd"]),

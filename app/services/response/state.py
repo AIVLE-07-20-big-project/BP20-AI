@@ -28,6 +28,7 @@ class RecommendationState(TypedDict, total=False):
     approved_action: str | None
     executed_action: str | None
     decision_source: Literal["policy", "human_edit", "admin_override"] | None
+    selection_source: Literal["policy", "business_rule_fallback"] | None
 
     context_vector: list[float] | None
     policy_version: str | None

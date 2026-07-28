@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 
-from app.core.config import BANDIT_MODEL_DIR
+from app.core.config import BANDIT_MODEL_DIR, CAMPAIGN_LOGS_V2
+from app.services.response import action_rules
+from app.services.response.activation import ActivationCriteria, check_activation
 from app.services.response.context import CONTEXT_SCHEMA_VERSION
 from app.services.response.reward import REWARD_DEFINITION_VERSION
 from scripts.response_strategy.bandit import BanditLoadMismatch, NeuralContextualBandit
@@ -53,3 +56,40 @@ def load_or_coldstart(등급: str, context_dim: int, arms: list[str]) -> tuple[N
 
 def save(등급: str, bandit: NeuralContextualBandit) -> None:
     bandit.save(model_path(등급))
+
+
+def candidate_path(등급: str, version: str) -> Path:
+    return BANDIT_MODEL_DIR / 등급 / f"candidate-{version}.pt"
+
+
+def save_candidate(등급: str, bandit: NeuralContextualBandit) -> Path:
+    path = candidate_path(등급, bandit.policy_version)
+    bandit.save(path)
+    return path
+
+
+# check_activation()을 통과해야만 candidate를 active로 승격한다(shadow 전용 버전은 거부)
+def promote_candidate(
+    등급: str, version: str, criteria: ActivationCriteria = ActivationCriteria(),
+) -> Path:
+    if version in LEGACY_SHADOW_ONLY_POLICY_VERSIONS:
+        raise ValueError(f"'{version}'은 shadow 전용 모델이라 승격할 수 없습니다")
+
+    src = candidate_path(등급, version)
+    if not src.exists():
+        raise FileNotFoundError(f"후보 모델을 찾을 수 없음: {src}")
+
+    arms = action_rules.ACTION_RULES.get(등급, [])
+    activation = check_activation(
+        CAMPAIGN_LOGS_V2, problem_type=등급, arms=arms,
+        reward_definition_version=REWARD_DEFINITION_VERSION,
+        context_schema_version=CONTEXT_SCHEMA_VERSION,
+        criteria=criteria,
+    )
+    if not activation.activated:
+        raise ValueError(f"활성화 기준 미달로 승격 불가: {list(activation.reasons)}")
+
+    bandit = NeuralContextualBandit.load_any(src)
+    bandit.training_data_cutoff = datetime.now(timezone.utc).isoformat()
+    bandit.save(model_path(등급))
+    return model_path(등급)

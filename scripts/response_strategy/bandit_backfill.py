@@ -47,13 +47,14 @@ def backfill(campaign_logs: Path = CAMPAIGN_LOGS, synthetic_weight: float = 0.3,
             bandit.update(ctx, idx, reward, weight=weight)
 
         loss = bandit.retrain_encoder(epochs=epochs, min_samples=min_samples)
-        bandit_store.save(등급, bandit)
+        # legacy backfill 모델은 shadow 전용이라 active를 직접 덮어쓰지 않고 candidate로만 남긴다
+        saved_path = bandit_store.save_candidate(등급, bandit)
 
         report[등급] = {
-            "상태": "완료", "arm목록": actions, "표본수": len(rows),
+            "상태": "완료(candidate — shadow 전용, 승격 대상 아님)", "arm목록": actions, "표본수": len(rows),
             "행_출처분포": rows["데이터_출처"].value_counts().to_dict(),
             "최종_loss": round(loss, 4),
-            "저장경로": str(bandit_store.model_path(등급)),
+            "저장경로": str(saved_path),
         }
     return report
 

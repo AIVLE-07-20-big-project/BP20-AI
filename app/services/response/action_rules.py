@@ -33,9 +33,13 @@ ACTION_RULES: dict[str, list[str]] = {
 
 # 등급(`5_처방.등급`) → Bandit arm 후보 목록
 def candidate_actions(등급: str) -> list[dict]:
-
-
-
-
     names = ACTION_RULES.get(등급, [])
     return [{"방안": name, "axis": ACTIONS[name]["axis"]} for name in names]
+
+
+# coldstart(학습된 모델 없음)일 때 쓰는 비즈니스 우선순위 기본값 — ACTION_RULES의
+# 등급별 목록 순서를 그대로 우선순위로 쓴다(첫 항목이 최우선)
+def coldstart_default_action(등급: str, selectable: list[str] | None = None) -> str | None:
+    ordered = ACTION_RULES.get(등급, [])
+    candidates = [a for a in ordered if selectable is None or a in selectable]
+    return candidates[0] if candidates else None
