@@ -1,4 +1,19 @@
 # 업로드 예시 CSV
 
-`sample_upload_1.csv`~`sample_upload_3.csv`는 `POST /api/v1/reports`의 수동 확인용 입력이다.
-자동 테스트는 자체 fixture를 만들므로 이 파일에 의존하지 않는다.
+`sample_cafe_pos_omnichannel_weather_2026Q2.csv`는 2026-04-01~06-30의
+매장·포장·배달 주문을 한 파일에 담은 POS형 합성 데이터다. 영수증번호, POS 단말,
+판매채널, 주문유형, 배달플랫폼, 결제수단, 상품·수량·단가·결제금액 컬럼을 포함한다.
+날씨는 기상청 서울 지점(108)의 일별 관측자료다.
+배달 주문에는 기온과 강수 영향을 반영하고 매장 주문에는 더 약한 기온·주말 효과를
+반영했다. 재생성은
+`python scripts/analysis/generate_weather_cause_test_pos.py`로 할 수 있다.
+
+수동 테스트 시 함께 넣을 상권코드/업종코드(둘 다 `merged_sales_analysis.csv`에 실제로 존재하는
+조합으로 확인됨):
+
+- `trdar_cd = 3120189` (강남역)
+- `svc_induty_cd = CS100010` (커피-음료)
+- `yyqu_cd`(선택): 생략하면 최신 분기 자동 사용. 넣는다면 이 조합의 데이터가 있는
+  `20241`~`20261` 중 하나.
+
+자동 테스트는 자체 fixture를 만들므로 이 파일들에 의존하지 않는다.

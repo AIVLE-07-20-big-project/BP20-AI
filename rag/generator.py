@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from rag.retriever import STAT_RE
+
 DISCLAIMER = (
     "본 수치는 유사 사례 문헌에 근거한 참고값이며, 해당 매장의 실측 효과가 아닙니다. "
     "실제 결과는 상권·메뉴·시기에 따라 달라질 수 있습니다."
@@ -13,11 +15,12 @@ DISCLAIMER = (
 
 SYSTEM_PROMPT = "당신은 프랜차이즈·체인 기업의 지점/상권별 대응방안 리포트를 작성하는 분석가다. 주어진 근거 밖의 사실이나 수치를 결코 만들어내지 않는다."
 
-_EXEMPT = re.compile(r"(19|20)\d{2}\s*년")
-_NUM_RE = re.compile(
-    r"[+\-]?\d[\d,]*(?:\.\d+)?\s?(?:%|퍼센트|원)"
-    r"|[+\-]?\d[\d,]*(?:\.\d+)?배(?![달란])"
-)
+# 수치 검증은 retriever.STAT_RE(허용 수치 추출과 동일 정규식)를 그대로 재사용한다.
+# build_prompt()의 [규칙] 3번이 요구하는 "(문서ID p페이지)" 인용 형식과 짝을 이룬다
+_CITATION_RE = re.compile(r"\(([^\s()]+)\s+p(\d+)")
+
+# build_prompt()의 [출력 형식]과 짝을 이루는 필수 섹션(소제목). "안내 문구"는 disclaimer_present로 별도 검사한다
+REQUIRED_SECTIONS = ["대응방안 요약", "매장 상황", "권장 실행방안", "근거", "허용 수치", "적용 시 한계", "결론"]
 
 
 @dataclass
@@ -26,6 +29,8 @@ class VerifyResult:
     violations: list[dict]
     disclaimer_present: bool
     numbers_found: list[str]
+    missing_sections: list[str]
+    unauthorized_sources: list[str]
 
     # 재생성 시 LLM에 돌려줄 교정 지시문
     def as_feedback(self) -> str:
@@ -36,6 +41,16 @@ class VerifyResult:
             msgs.append(
                 f"다음 수치는 허용 목록에 없으므로 삭제하거나 허용된 수치로 교체하라: {bad}. "
                 "추정·환산·반올림도 금지된다."
+            )
+        if self.unauthorized_sources:
+            bad_src = ", ".join(self.unauthorized_sources)
+            msgs.append(
+                f"다음 출처는 제공된 근거 목록에 없으므로 인용을 삭제하거나 제공된 출처로 교체하라: {bad_src}."
+            )
+        if self.missing_sections:
+            msgs.append(
+                "다음 섹션이 누락됐다. 지정된 순서와 소제목으로 모두 포함하라: "
+                + ", ".join(self.missing_sections)
             )
         if not self.disclaimer_present:
             msgs.append(f"마지막에 다음 문구를 그대로 포함하라: {DISCLAIMER}")
@@ -50,9 +65,30 @@ def build_prompt(evidence: dict[str, Any], action_name: str, shop_context: str =
     lines.append("[규칙]")
     lines.append("1. '허용 수치' 목록에 없는 숫자는 절대 생성하지 않는다. 추정·반올림·환산도 금지.")
     lines.append("2. 수치를 인용할 때 원문 맥락의 귀속(무엇의 효과인지)을 바꾸지 않는다.")
-    lines.append("3. 각 수치 옆에 출처와 신뢰도 라벨을 병기한다.")
+    lines.append("3. 출처를 인용할 때는 반드시 (문서ID p페이지) 형식으로 표기하고 신뢰도 라벨을 함께 병기한다.")
     lines.append("4. 허용 수치가 비어 있으면 숫자를 쓰지 말고 방향성만 서술한다.")
     lines.append(f"5. 마지막에 다음 문구를 그대로 넣는다: {DISCLAIMER}")
+    lines.append("")
+    lines.append("[근거 사용 제한]")
+    lines.append("6. 제공된 방향성 근거와 허용 수치만 사용한다. 근거에 없는 원인·효과·고객 반응·매출 영향을 추론하거나 단정하지 않는다.")
+    lines.append("7. 학술 근거는 방향성 설명에만 사용하고, 특정 매장의 효과로 일반화하지 않는다.")
+    lines.append("8. 근거 문장의 의미를 확대하거나 인과관계로 바꾸지 않는다.")
+    lines.append("9. 서로 다른 문헌의 내용을 조합해 근거에 없는 새로운 사실을 만들지 않는다.")
+    lines.append("")
+    lines.append("[수치 사용 규칙]")
+    lines.append("10. 허용 수치를 인용할 때는 원문의 대상·지표·기간·조건을 함께 기술한다.")
+    lines.append("11. 예산, 할인율, 기간, 고객 수, 매출액, 예상 효과 등 제공되지 않은 수치는 작성하지 않는다.")
+    lines.append("")
+    lines.append("[근거 부족 처리]")
+    lines.append("12. 직접적인 근거가 부족하면 '직접적인 근거가 부족하다'고 명시한다.")
+    lines.append("13. 현재 매장과 사례의 업종·상권·고객 조건이 다르면 적용 한계를 함께 설명한다.")
+    lines.append("14. 출처가 불명확하거나 근거가 부족한 문장은 사용하지 않는다.")
+    lines.append("")
+    lines.append("[출력 형식]")
+    lines.append(
+        "다음 순서와 소제목으로 작성한다: 대응방안 요약 / 매장 상황 / 권장 실행방안 / "
+        "근거(출처·신뢰도 포함) / 허용 수치 / 적용 시 한계 / 결론 / 안내 문구"
+    )
     lines.append("")
     lines.append(f"[대응방안] {action_name}")
     if shop_context:
@@ -83,21 +119,29 @@ def verify_output(text: str, evidence: dict[str, Any]) -> VerifyResult:
     found: list[str] = []
     violations: list[dict] = []
 
-    for m in _NUM_RE.finditer(text):
+    for m in STAT_RE.finditer(text):
         ctx = text[max(0, m.start() - 12) : m.end() + 4]
-        if _EXEMPT.search(ctx):
-            continue
         v = m.group(0).replace(" ", "")
         found.append(v)
         if v not in allowed:
             violations.append({"value": v, "context": ctx.strip()})
 
+    allowed_doc_ids = {r["doc_id"] for r in evidence.get("direction_refs", [])}
+    allowed_doc_ids |= {a["doc_id"] for a in evidence.get("allowed_numbers", [])}
+    unauthorized_sources = sorted({
+        doc_id for doc_id, _page in _CITATION_RE.findall(text) if doc_id not in allowed_doc_ids
+    })
+
+    missing_sections = [section for section in REQUIRED_SECTIONS if section not in text]
+
     has_disc = DISCLAIMER in text
     return VerifyResult(
-        ok=(not violations) and has_disc,
+        ok=(not violations) and has_disc and not missing_sections and not unauthorized_sources,
         violations=violations,
         disclaimer_present=has_disc,
         numbers_found=found,
+        missing_sections=missing_sections,
+        unauthorized_sources=unauthorized_sources,
     )
 
 
@@ -133,6 +177,17 @@ def generate_report(
 
     llm = llm or _call_openai
     prompt = build_prompt(evidence, action_name, shop_context)
+    # 근거 출처는 LLM 성공 여부와 무관하게 evidence만으로 결정되므로 모든 반환 경로에서 동일하게 채운다
+    evidence_refs = [
+        {
+            "doc_id": a["doc_id"],
+            "page": a["page"],
+            "value": a["value"],
+            "source_url": a.get("source_url"),
+            "tier_label": a["tier_label"],
+        }
+        for a in evidence.get("allowed_numbers", [])
+    ]
 
     try:
         text = llm(prompt)
@@ -142,8 +197,10 @@ def generate_report(
             "verified": False,
             "violations": [],
             "disclaimer_present": False,
+            "missing_sections": [],
+            "unauthorized_sources": [],
             "attempts": 1,
-            "evidence_refs": [],
+            "evidence_refs": evidence_refs,
             "has_magnitude": evidence.get("has_magnitude", False),
             "error": f"LLM 리포트 생성 실패: {type(exc).__name__}: {exc}",
         }
@@ -159,8 +216,10 @@ def generate_report(
                 "report": text, "verified": False,
                 "violations": result.violations,
                 "disclaimer_present": result.disclaimer_present,
+                "missing_sections": result.missing_sections,
+                "unauthorized_sources": result.unauthorized_sources,
                 "attempts": attempts + 1,
-                "evidence_refs": [],
+                "evidence_refs": evidence_refs,
                 "has_magnitude": evidence.get("has_magnitude", False),
                 "error": f"LLM 리포트 재생성 실패: {type(exc).__name__}: {exc}",
             }
@@ -172,17 +231,10 @@ def generate_report(
         "verified": result.ok,
         "violations": result.violations,
         "disclaimer_present": result.disclaimer_present,
+        "missing_sections": result.missing_sections,
+        "unauthorized_sources": result.unauthorized_sources,
         "attempts": attempts,
-        "evidence_refs": [
-            {
-                "doc_id": a["doc_id"],
-                "page": a["page"],
-                "value": a["value"],
-                "source_url": a.get("source_url"),
-                "tier_label": a["tier_label"],
-            }
-            for a in evidence.get("allowed_numbers", [])
-        ],
+        "evidence_refs": evidence_refs,
         "has_magnitude": evidence.get("has_magnitude", False),
     }
 
