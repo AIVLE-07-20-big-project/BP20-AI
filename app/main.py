@@ -49,16 +49,21 @@ async def lifespan(app: FastAPI):
             settings, "MODEL_PATH", "./roberta_absa_best_4class"
         )
 
-    tokenizer = AutoTokenizer.from_pretrained(settings.MODEL_PATH)
-    model = AutoModelForSequenceClassification.from_pretrained(settings.MODEL_PATH)
-    model.to(device)
-    model.eval()
+    tokenizer = None
+    model = None
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        model.to(device)
+        model.eval()
+        print("RoBERTa 모델 로드 완료!")
+    except Exception as exc:
+        print(f"RoBERTa 모델을 불러오지 못해 리뷰 분석 API를 비활성화합니다: {exc}")
 
     app.state.tokenizer = tokenizer
     app.state.model = model
     app.state.device = device
 
-    print("RoBERTa 모델 로드 완료!")
     try:
         from app.ocr.pipeline import _get_ocr_engine
 

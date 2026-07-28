@@ -12,6 +12,11 @@ async def analyze_reviews(payloads: List[ReviewRequest], request: Request):
 
     model = request.app.state.model
     tokenizer = request.app.state.tokenizer
+    if model is None or tokenizer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="리뷰 분석 모델이 준비되지 않았습니다.",
+        )
     device = request.app.state.device
     service = ABSAService(model=model, tokenizer=tokenizer, device=device)
 
