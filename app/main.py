@@ -1,17 +1,24 @@
 import sys
 import os
-
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
+from contextlib import asynccontextmanager
 
 import torch
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-from core.config import settings
-from api.router import api_router
+from app.core.config import settings
+
+from app.core import bootstrap  # noqa: F401
+from app.ocr import router as ocr
+from app.online_trend import router as online_trend
+from app.product_image import router as product_image
+from app.routers import (
+    agent_runs,
+    analysis,
+    campaign_logs,
+    effect_verification_router,
+    review,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,7 +30,6 @@ async def lifespan(app: FastAPI):
     model.to(device)
     model.eval()
 
-    # FastAPI app.state 메모리에 전역 저장
     app.state.tokenizer = tokenizer
     app.state.model = model
     app.state.device = device
@@ -31,19 +37,22 @@ async def lifespan(app: FastAPI):
     print("RoBERTa 모델 로드 완료! FastAPI 서비스를 시작합니다.")
     yield
     
-    # 서버 종료 시 메모리 정리
     del app.state.tokenizer
     del app.state.model
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    lifespan=lifespan
+    title="20BG AI 서비스",
+    lifespan=lifespan,
 )
-
-# API v1 라우터 등록 (/api/v1/review/predict)
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(analysis.router, prefix="/api/v1")
+app.include_router(agent_runs.router, prefix="/api/v1")
+app.include_router(campaign_logs.router, prefix="/api/v1")
+app.include_router(review.router, prefix="/api/v1")
+app.include_router(ocr.router)
+app.include_router(effect_verification_router.router)
+app.include_router(online_trend.router)
+app.include_router(product_image.router)
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "message": "RoBERTa ABSA API Server is running!"}
+    return {"status": "ok", "message": "BP Team 20 AI Server is running!"}

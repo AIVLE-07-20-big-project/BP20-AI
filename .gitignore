@@ -1,13 +1,3 @@
-.env
-venv/
-
-# Python bytecode cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-
 # Trained Model Weights / Checkpoints
 roberta_absa_best_4class/
 
@@ -17,3 +7,21 @@ roberta_absa_best_4class/
 *.pth
 *.safetensors
 *.onnx
+# 로컬 비밀정보
+.env
+
+# Python 가상환경 및 실행 캐시
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 로컬 원본·가공 데이터 및 학습 모델
+/data/
+/model/
+
+# 실행 시 생성되는 분석 리포트
+/reports/
+/sales_report*.html
+/sales_report*.json

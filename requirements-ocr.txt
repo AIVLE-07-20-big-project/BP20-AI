@@ -1,0 +1,12 @@
+fastapi>=0.139.0
+uvicorn[standard]>=0.51.0
+python-multipart>=0.0.32
+pandas>=3.0.3
+numpy>=2.3.5
+paddlepaddle>=3.3.1
+paddleocr>=3.7.0
+protobuf>=7.35.1
+huggingface_hub>=1.23.0
+opencv-python>=5.0.0.93
+matplotlib>=3.11.0
+pillow>=12.3.0
