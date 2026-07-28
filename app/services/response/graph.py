@@ -1,28 +1,34 @@
-# agent-runs LangGraph 그래프 (계획 §4)
+# agent-runs LangGraph 그래프 (계획 §4단계)
+#
+# diagnose → score_candidates → validate_candidates → select_action
+#   → [estimate, evidence] → prepare_approval → await_approval → generate_report
 from __future__ import annotations
 
 import sqlite3
 from functools import lru_cache
 
+import numpy as np
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from app.core.config import AGENT_RUNS_DB
+from app.core.config import AGENT_RUNS_DB, CAMPAIGN_LOGS_V2
 from app.services.response import action_rules, bandit_store
-from app.services.response.context import CONTEXT_DIM, build_context_vector
+from app.services.response.context import CONTEXT_DIM, CONTEXT_SCHEMA_VERSION, build_context_vector
+from app.services.response.policy import BanditPolicy
 from app.services.response.state import RecommendationState
 from rag.generator import generate_report
 from rag.retriever import get_index
 
 from scripts.modeling.sales_analysis import Diagnoser
-from scripts.response_strategy.ope import evaluate_policy
+from scripts.response_strategy.ope import evaluate_action_safety
 from scripts.response_strategy.synthetic_control import measured_effect, segment_baseline
 
 OPE_BOOTSTRAP_SAMPLES = 200
 MEASURED_EFFECT_BOOTSTRAP_SAMPLES = 500
 
 _APPROVAL_STATUS = {"approve": "approved", "edit": "edited", "reject": "rejected"}
+_SAFETY_VERDICT_TO_STATUS = {"차단": "blocked", "사용가능": "eligible"}
 
 
 def _diagnose(state: RecommendationState) -> dict:
@@ -52,10 +58,11 @@ def _route_after_diagnose(state: RecommendationState) -> str:
     diag = state.get("diagnosis") or {}
     if "error" in diag or not diag.get("6_신뢰도", {}).get("분석사용가능", False):
         return END
-    return "recommend"
+    return "score_candidates"
 
 
-def _recommend(state: RecommendationState) -> dict:
+# 후보별 기대보상·불확실성·UCB를 계산한다 — 선택은 하지 않는다(선택은 validate 이후)
+def _score_candidates(state: RecommendationState) -> dict:
     등급 = state.get("문제유형")
     candidates = action_rules.candidate_actions(등급)
     warnings = list(state.get("warnings", []))
@@ -70,37 +77,100 @@ def _recommend(state: RecommendationState) -> dict:
     context = build_context_vector(state["diagnosis"])
     arms = [c["방안"] for c in candidates]
     bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
-    result = bandit.select_arm(context)
-    rejected = set(state.get("rejected_actions", []))
-    ranked_arms = sorted(
-        arms, key=lambda arm: result["arm별_점수"].get(arm, float("-inf")), reverse=True,
-    )
-    selected_arm = next((arm for arm in ranked_arms if arm not in rejected), None)
-    selected = next((c for c in candidates if c["방안"] == selected_arm), None)
-    if selected is None:
-        warnings.append("OPE 기준을 통과할 대체 방안이 없어 최상위 원추천을 유지함")
-        selected = next(c for c in candidates if c["방안"] == result["선택된_arm"])
-    result = dict(result)
-    result["선택된_arm"] = selected["방안"]
-    result["propensity"] = result["arm별_propensity"][selected["방안"]]
+    scores = bandit.score_arms(context)
 
-    status = ("방안 선택 완료(학습된 모델 기반)" if model_loaded else
-              "방안 선택 완료(콜드스타트 — 실 로그 학습 전이라 arm별 점수는 참고용)")
     return {
         "candidate_actions": candidates,
-        "selected_action": selected,
-        "bandit_result": result,
+        "candidate_scores": {s.action_id: s.as_dict(ndigits=4) for s in scores},
         "context_vector": context.tolist(),
-        "policy_version": result.get("policy_version"),
-        "status": status,
+        "policy_version": bandit.policy_version,
+        "model_version": bandit.model_version,
+        "model_status": bandit_store.model_status(model_loaded),
+        "model_sha256": bandit_store.model_sha256(등급),
+        "context_schema_version": CONTEXT_SCHEMA_VERSION,
+        "reward_definition_version": bandit.reward_definition_version,
+        "status": f"점수 계산 완료({'학습된 모델' if model_loaded else '콜드스타트'})",
         "warnings": warnings,
     }
 
 
-def _route_after_recommend(state: RecommendationState):
-    if not state.get("selected_action"):
+def _route_after_score_candidates(state: RecommendationState) -> str:
+    if not state.get("candidate_actions"):
         return END
-    return ["estimate", "evidence"]
+    return "validate_candidates"
+
+
+# 후보 전체를 ActionSafetyOPE로 검증해 eligible/unknown/blocked를 매긴다(blocked는 선택 제외)
+def _validate_candidates(state: RecommendationState) -> dict:
+    등급 = state.get("문제유형")
+    candidates = state.get("candidate_actions") or []
+    arms = [c["방안"] for c in candidates]
+    warnings = list(state.get("warnings", []))
+
+    candidate_status: dict[str, str] = {}
+    candidate_safety: dict[str, dict] = {}
+    for action in arms:
+        result = evaluate_action_safety(
+            CAMPAIGN_LOGS_V2, problem_type=등급, candidate_action=action, arms=arms,
+            reward_definition_version=state.get("reward_definition_version"),
+            context_schema_version=state.get("context_schema_version"),
+        )
+        candidate_safety[action] = result
+        candidate_status[action] = _SAFETY_VERDICT_TO_STATUS.get(result.get("판정"), "unknown")
+
+    selectable = [a for a in arms if candidate_status[a] != "blocked"]
+    exploration_excluded = [a for a in arms if a in action_rules.EXPLORATION_EXCLUDED_ACTIONS]
+
+    if not selectable:
+        warnings.append("모든 후보가 OPE 안전성 검사에서 차단되어 자동 추천을 중단함")
+        return {
+            "candidate_status": candidate_status, "candidate_safety": candidate_safety,
+            "selectable_actions": [], "exploration_excluded_actions": exploration_excluded,
+            "ope_result": candidate_safety, "selected_action": None,
+            "status": "종료: 모든 후보 방안이 안전성 검사에서 차단됨",
+            "warnings": warnings,
+        }
+
+    return {
+        "candidate_status": candidate_status, "candidate_safety": candidate_safety,
+        "selectable_actions": selectable, "exploration_excluded_actions": exploration_excluded,
+        "ope_result": candidate_safety,
+        "status": f"후보 검증 완료(선택가능 {len(selectable)}/{len(arms)})",
+        "warnings": warnings,
+    }
+
+
+def _route_after_validate_candidates(state: RecommendationState) -> str:
+    if not state.get("selectable_actions"):
+        return END
+    return "select_action"
+
+
+# selectable 후보에서만 BanditPolicy로 선택한다(기본 serve=기대보상 argmax).
+# decision_source="policy"는 사람이 나중에 edit하면 await_approval에서 human_edit로 바뀐다.
+def _select_action(state: RecommendationState) -> dict:
+    등급 = state.get("문제유형")
+    candidates = state.get("candidate_actions") or []
+    arms = [c["방안"] for c in candidates]
+    selectable = state.get("selectable_actions") or []
+    warnings = list(state.get("warnings", []))
+
+    context = np.asarray(state["context_vector"], dtype=np.float32)
+    bandit, _ = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+    policy = BanditPolicy(
+        bandit=bandit, exploration_excluded_actions=frozenset(action_rules.EXPLORATION_EXCLUDED_ACTIONS),
+    )
+    decision = policy.choose(context, selectable, mode="serve", rng=np.random.default_rng())
+    selected = next(c for c in candidates if c["방안"] == decision.selected_action)
+
+    return {
+        "policy_decision": decision.as_dict(),
+        "policy_selected_action": decision.selected_action,
+        "selected_action": selected,
+        "decision_source": "policy",
+        "status": f"방안 선택 완료(policy_mode={decision.mode})",
+        "warnings": warnings,
+    }
 
 
 def _estimate(state: RecommendationState) -> dict:
@@ -120,48 +190,19 @@ def _evidence(state: RecommendationState) -> dict:
     return {"rag_evidence": evidence}
 
 
-def _validate(state: RecommendationState) -> dict:
-    action = state["selected_action"]["방안"]
-    result = evaluate_policy(
-        state["trdar_cd"], state["svc_induty_cd"],
-        target_action_fn=lambda _ctx, _action=action: _action,
-        n_bootstrap=OPE_BOOTSTRAP_SAMPLES,
-    )
-    return {"ope_result": result, "status": "검증 완료 — 승인 대기"}
-
-
-def _route_after_validate(state: RecommendationState) -> str:
-    result = state.get("ope_result") or {}
-    retry_count = state.get("retry_count", 0)
-    is_reliably_worse = (
-        state.get("approval_status") != "edited"
-        and
-        result.get("판정") == "사용가능"
-        and result.get("기준정책_대비_차이", 0) < 0
-        and retry_count < 2
-    )
-    return "reject_candidate" if is_reliably_worse else "await_approval"
-
-
-def _reject_candidate(state: RecommendationState) -> dict:
-    action = state["selected_action"]["방안"]
-    rejected = list(state.get("rejected_actions", []))
-    if action not in rejected:
-        rejected.append(action)
-    warnings = list(state.get("warnings", []))
-    warnings.append(f"OPE에서 기준정책보다 낮게 평가된 '{action}'을 제외하고 재추천함")
-    return {
-        "rejected_actions": rejected,
-        "retry_count": state.get("retry_count", 0) + 1,
-        "warnings": warnings,
-        "status": "OPE 기준 미달 — 대체 방안 재추천",
-    }
+# estimate/evidence 완료를 기다렸다가 승인화면 상태 문구를 통일한다(최초 선택·edit 재계산 공용)
+def _prepare_approval(state: RecommendationState) -> dict:
+    return {"status": "검증 완료 — 승인 대기"}
 
 
 def _await_approval(state: RecommendationState) -> dict:
     decision = interrupt({
         "선택된_방안": state.get("selected_action"),
         "방안_후보": state.get("candidate_actions", []),
+        "후보별_점수": state.get("candidate_scores"),
+        "후보별_상태": state.get("candidate_status"),
+        "선택_확률분포": (state.get("policy_decision") or {}).get("action_probabilities"),
+        "선택_이유": (state.get("policy_decision") or {}).get("fallback_reason") or "기대보상 최대 후보 선택",
         "효과추정": state.get("scm_result"),
         "근거_문헌": state.get("rag_evidence"),
         "정책_사전검증": state.get("ope_result"),
@@ -173,16 +214,31 @@ def _await_approval(state: RecommendationState) -> dict:
     if 결정 == "edit":
         방안명 = decision.get("수정_방안")
         candidate = next((c for c in state.get("candidate_actions", []) if c["방안"] == 방안명), None)
+        candidate_status = state.get("candidate_status") or {}
         if candidate is None:
             warnings.append(f"edit 방안 '{방안명}' — 후보 목록에 없어 반려 처리")
             return {"approval_status": "rejected", "warnings": warnings, "status": "종료: 잘못된 edit 요청으로 반려"}
+        if candidate_status.get(방안명) == "blocked":
+            warnings.append(f"edit 방안 '{방안명}' — OPE 안전성 검사에서 차단(blocked)되어 반려 처리")
+            return {
+                "approval_status": "rejected", "warnings": warnings,
+                "status": "종료: 차단된 방안으로 edit 요청되어 반려",
+            }
         return {
-            "approval_status": "edited", "selected_action": candidate, "warnings": warnings,
+            "approval_status": "edited", "selected_action": candidate,
+            "decision_source": "human_edit", "warnings": warnings,
             "status": "방안 수정됨 — 재계산 후 다시 승인 대기",
         }
 
-    status = "승인됨 — 리포트 생성 중" if 결정 == "approve" else "종료: 반려됨"
-    return {"approval_status": _APPROVAL_STATUS.get(결정, "rejected"), "warnings": warnings, "status": status}
+    if 결정 == "approve":
+        decision_source = state.get("decision_source") or "policy"
+        return {
+            "approval_status": "approved", "decision_source": decision_source,
+            "executed_action": (state.get("selected_action") or {}).get("방안"),
+            "warnings": warnings, "status": "승인됨 — 리포트 생성 중",
+        }
+
+    return {"approval_status": _APPROVAL_STATUS.get(결정, "rejected"), "warnings": warnings, "status": "종료: 반려됨"}
 
 
 def _route_after_approval(state: RecommendationState) -> str:
@@ -224,27 +280,32 @@ def _checkpointer() -> SqliteSaver:
 def get_graph():
     g = StateGraph(RecommendationState)
     g.add_node("diagnose", _diagnose)
-    g.add_node("recommend", _recommend)
+    g.add_node("score_candidates", _score_candidates)
+    g.add_node("validate_candidates", _validate_candidates)
+    g.add_node("select_action", _select_action)
     g.add_node("estimate", _estimate)
     g.add_node("evidence", _evidence)
-    g.add_node("validate", _validate)
-    g.add_node("reject_candidate", _reject_candidate)
+    g.add_node("prepare_approval", _prepare_approval)
     g.add_node("await_approval", _await_approval)
     g.add_node("generate_report", _generate_report)
 
     g.set_entry_point("diagnose")
-    g.add_conditional_edges("diagnose", _route_after_diagnose, {END: END, "recommend": "recommend"})
     g.add_conditional_edges(
-        "recommend", _route_after_recommend,
-        {END: END, "estimate": "estimate", "evidence": "evidence"},
+        "diagnose", _route_after_diagnose, {END: END, "score_candidates": "score_candidates"},
     )
-    g.add_edge("estimate", "validate")
-    g.add_edge("evidence", "validate")
     g.add_conditional_edges(
-        "validate", _route_after_validate,
-        {"reject_candidate": "reject_candidate", "await_approval": "await_approval"},
+        "score_candidates", _route_after_score_candidates,
+        {END: END, "validate_candidates": "validate_candidates"},
     )
-    g.add_edge("reject_candidate", "recommend")
+    g.add_conditional_edges(
+        "validate_candidates", _route_after_validate_candidates,
+        {END: END, "select_action": "select_action"},
+    )
+    g.add_edge("select_action", "estimate")
+    g.add_edge("select_action", "evidence")
+    g.add_edge("estimate", "prepare_approval")
+    g.add_edge("evidence", "prepare_approval")
+    g.add_edge("prepare_approval", "await_approval")
     g.add_conditional_edges(
         "await_approval", _route_after_approval,
         {"generate_report": "generate_report", "estimate": "estimate", "evidence": "evidence", END: END},

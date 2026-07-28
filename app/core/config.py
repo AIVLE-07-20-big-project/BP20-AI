@@ -13,7 +13,9 @@ AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
 ANALYSES_DB = MODEL / "analyses.sqlite3"
 JOBS_DB = MODEL / "analysis_jobs.sqlite3"  # 비동기 작업 상태 저장소
 BANDIT_MODEL_DIR = MODEL / "bandit"
+# legacy(6,000건, propensity 버그 있음) — 삭제하지 않고 보존만 한다. 신규 코드는 쓰지 않음(계획 §0)
 CAMPAIGN_LOGS = AGENT_DATA / "campaign_logs.csv"
+CAMPAIGN_LOGS_V2 = AGENT_DATA / "campaign_logs_v2.csv"
 RAG_INDEX_EXPORT = MODEL / "rag_index" / "export"
 
 SALES_ESTIMATE = SOURCE_DATA / "sales_estimate.csv"

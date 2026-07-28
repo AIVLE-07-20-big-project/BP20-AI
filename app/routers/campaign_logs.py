@@ -18,7 +18,10 @@ def create_campaign_log(
     try:
         return append_log(
             thread_id=payload.thread_id, executed=payload.executed,
-            treatment_yyqu_cd=payload.treatment_yyqu_cd, revenue_after=payload.revenue_after,
+            treatment_yyqu_cd=payload.treatment_yyqu_cd, net_sales_after=payload.net_sales_after,
+            variable_cost_before=payload.variable_cost_before,
+            variable_cost_after=payload.variable_cost_after,
+            campaign_cost=payload.campaign_cost, measurement_days=payload.measurement_days,
             user_id=x_user_id,
         )
     except DecisionNotFound as e:
