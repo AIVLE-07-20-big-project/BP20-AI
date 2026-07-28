@@ -1,7 +1,7 @@
 import torch
 from typing import List, Any
-from schemas.review import AspectSentiment
-from core.config import settings
+from app.schemas.review import AspectSentiment
+from app.core.config import settings
 
 class ABSAService:
     def __init__(self, model: Any, tokenizer: Any, device: str):

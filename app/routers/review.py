@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Request, HTTPException
 from typing import List
-from schemas.review import ReviewRequest, ReviewResponse
-from services.absa_service import ABSAService
+from app.schemas.review import ReviewRequest, ReviewResponse
+from app.services.absa_service import ABSAService
 
-router = APIRouter()
+router = APIRouter(prefix="/review", tags=["Review ABSA"])
 
 @router.post("/analyze", response_model=List[ReviewResponse], summary="리뷰 ABSA 감성 분석 (배치)")
 async def analyze_reviews(payloads: List[ReviewRequest], request: Request):
