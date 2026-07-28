@@ -359,6 +359,18 @@ def analyze_internal_drivers(
 
     count_effect = (current_count - baseline_count) * (baseline_aov + current_aov) / 2
     aov_effect = (current_aov - baseline_aov) * (baseline_count + current_count) / 2
+
+    # 메뉴 개별 이름은 POS 데이터에 없고 product_category만 있어, "최고 매출 메뉴" 대신
+    # 이번 기간(current) 매출이 가장 높은 카테고리를 보여준다.
+    category_revenue = current.groupby("product_category", observed=True)["Total_Bill"].sum()
+    top_category = None
+    if not category_revenue.empty:
+        top_name = category_revenue.idxmax()
+        top_category = {
+            "category": str(top_name),
+            "revenue": round(float(category_revenue.loc[top_name]), 2),
+        }
+
     summary = {
         "baselineRevenue": round(baseline_revenue, 2),
         "currentRevenue": round(current_revenue, 2),
@@ -399,6 +411,7 @@ def analyze_internal_drivers(
             "currentEnd": current_end_ts.date().isoformat(),
         },
         "summary": summary,
+        "topCategory": top_category,
         "revenueFormulaDrivers": factor_decomposition,
         "dimensionDrivers": {
             "store": _contribution_rows(
@@ -747,6 +760,7 @@ def build_root_cause_analysis(
         },
         "headline": f"{internal_label} 변화를 중심으로 매출이 {direction_ko}한 것으로 분석됩니다.",
         "narrative": narrative,
+        "topCategory": internal.get("topCategory"),
         "internalDrivers": formula_drivers,
         "internalDetailedDrivers": detailed_internal,
         "externalDrivers": reliable_external,
