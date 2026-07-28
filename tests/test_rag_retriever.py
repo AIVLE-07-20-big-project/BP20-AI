@@ -15,7 +15,7 @@ EXPORT_DIR = RAG_INDEX_EXPORT
 
 
 class ExtractStatContextsTests(unittest.TestCase):
-    """모델 로딩 없이 동작하는 순수 함수 테스트."""
+
 
     def test_extracts_percentage_with_surrounding_sentence(self):
         chunk = {"text": "이전 문장입니다. 세트메뉴가 7.4% 객단가를 올렸습니다. 다음 문장입니다."}
@@ -52,8 +52,8 @@ class ExtractStatContextsTests(unittest.TestCase):
 
 @unittest.skipUnless(EXPORT_DIR.exists(), "model/rag_index/export 산출물이 없음")
 class RagIndexIntegrationTests(unittest.TestCase):
-    """Colab에서 빌드한 실제 인덱스(embeddings.npy/chunks.jsonl/manifest.json)를 로드해
-    검증한다. sentence-transformers로 BGE-M3를 로드하므로 최초 1회는 느릴 수 있다."""
+
+
 
     @classmethod
     def setUpClass(cls):

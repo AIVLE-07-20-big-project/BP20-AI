@@ -355,7 +355,8 @@ def _covariates(panel: pd.DataFrame) -> pd.DataFrame:
     g = df.groupby("cell")
 
     df["t"] = g.cumcount()
-    df["매출_하락률"] = -((df[AMT] - g[AMT].cummax()) / g[AMT].cummax())
+    df["매출_하락률"] = -((df[AMT] - g[AMT].cummax())
+                        / g[AMT].cummax().replace(0, np.nan))
     df["점포_하락률"] = -((df["STOR_CO"] - g["STOR_CO"].cummax())
                         / g["STOR_CO"].cummax().replace(0, np.nan))
     df["폐업률"] = df["CLSBIZ_RT"]
@@ -466,6 +467,7 @@ class Diagnoser:
         peers = self.p[
             (self.p["STDR_YYQU_CD"] == row["STDR_YYQU_CD"])
             & (self.p["SVC_INDUTY_CD"] == row["SVC_INDUTY_CD"])
+            & (self.p["TRDAR_CD"] != row["TRDAR_CD"])
         ]
         basis = "동일 분기·동일 업종"
         if "TRDAR_SE_CD_NM" in self.p and pd.notna(row.get("TRDAR_SE_CD_NM")):

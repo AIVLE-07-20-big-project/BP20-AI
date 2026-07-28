@@ -191,6 +191,8 @@ def segment_baseline(trdar_cd, svc_induty_cd, yyqu_cd=None, panel=PANEL) -> dict
 
     out = {}
     for label, col in AGE_COLS.items():
+        if col not in p.columns:
+            continue
         target_seg = _cell_series(p, trdar_cd, svc_induty_cd, col=col)
         target_seg = target_seg[target_seg.index <= as_of]
         donor_seg = (
