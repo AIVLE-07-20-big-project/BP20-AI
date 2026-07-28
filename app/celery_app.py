@@ -6,7 +6,7 @@
     celery -A app.celery_app beat --loglevel=info
 
 Windows solo 풀은 개발용이다. 병렬 처리와 타임아웃은 Linux prefork에서 검증한다.
-작업 재전달(task_acks_late)은 아직 사용하지 않는다.
+task_acks_late=True라 워커가 처리 도중 죽으면 다른 워커(or 재시작 후 자신)가 재전달받는다.
 """
 from __future__ import annotations
 
@@ -39,6 +39,10 @@ celery_app.conf.update(
     task_time_limit=600,
     task_soft_time_limit=540,
     worker_prefetch_multiplier=1,
+    # 워커가 처리 도중 죽어도 메시지가 유실되지 않도록 완료 후 ack한다.
+    # run_analysis_task는 mark_running/INSERT OR IGNORE로 재실행에도 안전하다.
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
     result_expires=3600,
     task_serializer="json",
     result_serializer="json",
@@ -46,11 +50,21 @@ celery_app.conf.update(
     timezone="Asia/Seoul",
     enable_utc=True,
     # 전송 또는 워커 중단으로 정체된 작업을 주기적으로 실패 처리한다.
+    # 단일 워커(prefetch=1)에서는 작업이 직렬로 처리되므로, 대기가 몰리면 정상 queued 작업도
+    # 5분을 쉽게 넘길 수 있다 — task_time_limit(10분) 기준 몇 건 밀려도 견디도록 기본값을 늘렸다.
     beat_schedule={
         "cleanup-stale-queued-jobs": {
             "task": "jobs.cleanup_stale",
             "schedule": 60.0,
-            "kwargs": {"queued_max_age_minutes": 5, "running_max_age_minutes": 15},
+            "kwargs": {
+                "queued_max_age_minutes": int(os.getenv("CELERY_QUEUED_STALE_MINUTES", "20")),
+                "running_max_age_minutes": int(os.getenv("CELERY_RUNNING_STALE_MINUTES", "15")),
+            },
+        },
+        "purge-expired-uploads": {
+            "task": "jobs.purge_expired_uploads",
+            "schedule": 86400.0,
+            "kwargs": {"max_age_days": int(os.getenv("UPLOAD_PURGE_MAX_AGE_DAYS", "7"))},
         },
     },
 )

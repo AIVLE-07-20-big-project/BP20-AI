@@ -16,3 +16,13 @@ __pycache__/
 /reports/
 /sales_report*.html
 /sales_report*.json
+
+# 커밋하지 않는 로컬 문서
+/docs/
+
+# BE 단계에서 관리하는 Docker 산출물 (아직 이 저장소에서 커밋하지 않음)
+/Dockerfile
+/.dockerignore
+
+# celery beat가 로컬 실행 중 생성하는 스케줄 상태 파일
+celerybeat-schedule*
