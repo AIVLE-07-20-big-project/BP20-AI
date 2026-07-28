@@ -226,7 +226,7 @@ def _estimate(state: RecommendationState) -> dict:
 def _evidence(state: RecommendationState) -> dict:
     action = state["selected_action"]["방안"]
     axis = action_rules.ACTION_TO_AXIS.get(action)
-    evidence = get_index().build_evidence(action, axis=axis)
+    evidence = get_index().build_evidence(action, axis=axis, action=action)
     return {"rag_evidence": evidence}
 
 

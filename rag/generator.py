@@ -22,6 +22,9 @@ _CITATION_RE = re.compile(r"\(([^\s()]+)\s+p(\d+)")
 # build_prompt()의 [출력 형식]과 짝을 이루는 필수 섹션(소제목). "안내 문구"는 disclaimer_present로 별도 검사한다
 REQUIRED_SECTIONS = ["대응방안 요약", "매장 상황", "권장 실행방안", "근거", "허용 수치", "적용 시 한계", "결론"]
 
+# action-특화가 아닌(axis-공용) 수치를 인용할 때 강제하는 한정 문구(설계 §10)
+AXIS_QUALIFIER_PHRASE = "동일 유형"
+
 
 @dataclass
 class VerifyResult:
@@ -31,6 +34,7 @@ class VerifyResult:
     numbers_found: list[str]
     missing_sections: list[str]
     unauthorized_sources: list[str]
+    missing_axis_qualifier: bool = False
 
     # 재생성 시 LLM에 돌려줄 교정 지시문
     def as_feedback(self) -> str:
@@ -51,6 +55,11 @@ class VerifyResult:
             msgs.append(
                 "다음 섹션이 누락됐다. 지정된 순서와 소제목으로 모두 포함하라: "
                 + ", ".join(self.missing_sections)
+            )
+        if self.missing_axis_qualifier:
+            msgs.append(
+                "인용한 수치 중 일부는 이 대응방안이 아니라 같은 유형(axis)의 다른 사례에서 "
+                f"나온 것이다. 해당 수치를 인용할 때 '{AXIS_QUALIFIER_PHRASE} 사례'처럼 한정하는 표현을 포함하라."
             )
         if not self.disclaimer_present:
             msgs.append(f"마지막에 다음 문구를 그대로 포함하라: {DISCLAIMER}")
@@ -107,7 +116,13 @@ def build_prompt(evidence: dict[str, Any], action_name: str, shop_context: str =
         lines.append("- (없음) → 수치 사용 금지, 방향성만 서술")
     for a in evidence.get("allowed_numbers", []):
         src = f"{a['doc_id']} p{a['page']}"
-        lines.append(f"- {a['value']} | 출처: {src} ({a['tier_label']})")
+        note = ""
+        if a.get("action_specific") is False:
+            note = (
+                f" ※ 이 수치는 '{action_name}'이 아니라 같은 유형(axis)의 다른 방안 사례에서 나온 것이다 — "
+                f"인용할 때 '{AXIS_QUALIFIER_PHRASE} 사례'처럼 한정해서 표현하라."
+            )
+        lines.append(f"- {a['value']} | 출처: {src} ({a['tier_label']}){note}")
         lines.append(f"  원문맥락: {a['sentence'][:250]}")
     return "\n".join(lines)
 
@@ -134,14 +149,26 @@ def verify_output(text: str, evidence: dict[str, Any]) -> VerifyResult:
 
     missing_sections = [section for section in REQUIRED_SECTIONS if section not in text]
 
+    # action-특화가 아닌(axis-공용) 수치를 인용했으면 한정 문구를 강제한다(설계 §10)
+    non_specific_values = {
+        a["value"].replace(" ", "") for a in evidence.get("allowed_numbers", [])
+        if a.get("action_specific") is False
+    }
+    cited_non_specific = bool(non_specific_values & set(found))
+    missing_axis_qualifier = cited_non_specific and AXIS_QUALIFIER_PHRASE not in text
+
     has_disc = DISCLAIMER in text
     return VerifyResult(
-        ok=(not violations) and has_disc and not missing_sections and not unauthorized_sources,
+        ok=(
+            not violations and has_disc and not missing_sections and not unauthorized_sources
+            and not missing_axis_qualifier
+        ),
         violations=violations,
         disclaimer_present=has_disc,
         numbers_found=found,
         missing_sections=missing_sections,
         unauthorized_sources=unauthorized_sources,
+        missing_axis_qualifier=missing_axis_qualifier,
     )
 
 
