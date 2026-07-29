@@ -64,6 +64,7 @@ class ABSAAgentResponse(BaseModel):
     store_id: int
     summary: str
     total_reviews_analyzed: int
+    reviews_analysis: List[ReviewResponse]
     clusters: List[KeywordClusterItem]
 
 class ReviewAgentState(BaseModel):
