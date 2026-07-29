@@ -42,17 +42,14 @@ async def lifespan(app: FastAPI):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"RoBERTa ABSA is loading (Device: {device})")
 
-    try:
-        from app.core.config import absa_settings
+    model_path = getattr(settings, "MODEL_PATH", "thadus2/roberta-absa-best-4class")
+    hf_token = getattr(settings, "HF_TOKEN", None) or os.getenv("HF_TOKEN")
 
-        model_path = absa_settings.MODEL_PATH
-    except (ImportError, AttributeError):
-        model_path = getattr(
-            settings, "MODEL_PATH", "./roberta_absa_best_4class"
-        )
+    token_arg = hf_token if hf_token else None
 
-    tokenizer = AutoTokenizer.from_pretrained(settings.MODEL_PATH)
-    model = AutoModelForSequenceClassification.from_pretrained(settings.MODEL_PATH)
+    tokenizer = AutoTokenizer.from_pretrained(model_path, token=token_arg)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path, token=token_arg)
+    
     model.to(device)
     model.eval()
 

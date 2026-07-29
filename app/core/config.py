@@ -31,7 +31,10 @@ SEOUL_EVENT_EXPOSURE = PROCESSED_DATA / "event_exposure_quarterly.csv"
 SEOUL_SUBWAY_EXPOSURE = PROCESSED_DATA / "subway_exposure_quarterly.csv"
 
 class ABSASettings:    
-    MODEL_PATH: str = str(ROOT / "roberta_absa_best_4class")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "thadus2/roberta-absa-best-4class")
+
+    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+
     ASPECTS: list = ["food", "service", "convenience", "price", "atmosphere"]
     LABEL_MAP: dict = {0: "부정", 1: "중립", 2: "긍정", 3: "none"}
     MAX_LENGTH: int = 128
