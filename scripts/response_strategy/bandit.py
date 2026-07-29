@@ -259,8 +259,7 @@ class NeuralContextualBandit:
         bandit._prior_bias = payload["prior_bias"]
         return bandit
 
-    # 저장된 모델을 복원한다. context_dim·arms가 저장 당시와 다르면(예: action_rules의 arm 목록 변경)
-    # BanditLoadMismatch를 던진다.
+    # 저장된 모델을 복원한다. context_dim·arms가 저장 당시와 다르면(예: action_rules의
     @classmethod
     def load(cls, path: str | Path, context_dim: int, arms: list[str]) -> "NeuralContextualBandit":
 
@@ -290,7 +289,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BANDIT_MODEL_DIR = ROOT / "model" / "bandit"
 
 
-# 오프라인 재학습 — 온라인 update()로 이미 쌓인 active 모델의 buffer로 encoder를 재학습해 candidate로 저장한다.
+# 오프라인 재학습 — 온라인 update()로 이미 쌓인 active 모델의 buffer로 encoder를
 def retrain_cli(등급: str, min_samples: int = 10, epochs: int = 50) -> dict:
 
 

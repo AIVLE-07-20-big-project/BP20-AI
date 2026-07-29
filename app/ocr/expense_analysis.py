@@ -16,7 +16,7 @@ def load_data(receipts_path: str, budget_path: str):
 # 1) 이상 지출 탐지 (Z-score 기반)
 # ------------------------------------------------------------------
 def detect_expense_anomalies(receipts: pd.DataFrame, z_thresh: float = 1.3) -> pd.DataFrame:
-    # 카테고리별로 "주(week) 단위 지출 합계"를 구하고, Z-score로 평소보다 튀는 주를 찾아낸다.
+    # 카테고리별로 "주(week) 단위 지출 합계"를 구하고,
     df = receipts.copy()
     df["week"] = df["TransactionDate"].dt.to_period("W").apply(lambda p: p.start_time.date())
 
@@ -50,7 +50,7 @@ def detect_expense_anomalies(receipts: pd.DataFrame, z_thresh: float = 1.3) -> p
 # 2) 예산 초과 확인
 # ------------------------------------------------------------------
 def check_budget_overage(receipts: pd.DataFrame, budget: pd.DataFrame) -> pd.DataFrame:
-    # 월(YearMonth) x 카테고리 단위로 실제 지출과 예산 목표치를 비교해서 초과 금액·초과율을 계산한다.
+    # 월(YearMonth) x 카테고리 단위로 실제 지출과 예산 목표치를 비교해서
     df = receipts.copy()
     df["YearMonth"] = df["TransactionDate"].dt.to_period("M").astype(str)
 

@@ -1,4 +1,4 @@
-# 표본(§0: 데이터 출처가 real 또는 synthetic_v2인 표본)이 coldstart→active 전환 기준을 만족하는지 판정(설계 §10)
+# 실제(§0: real 또는 synthetic_v2) 표본이 coldstart→active 전환 기준을 만족하는지 판정(설계 §10)
 from __future__ import annotations
 
 from dataclasses import dataclass

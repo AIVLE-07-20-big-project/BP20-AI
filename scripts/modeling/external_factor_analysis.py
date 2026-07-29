@@ -476,7 +476,7 @@ def _fit_anchor(data: pd.DataFrame) -> dict:
     return result
 
 
-# 지하철 승하차 노출 변화와 매출 변화의 연관성을 문화행사와 동일한 방식(위약검정 + 부호안정성 검사)으로 판정한다.
+# 지하철 승하차 노출 변화와 매출 변화의 연관성을 문화행사와 동일한 방식(위약검정
 def _fit_subway(data: pd.DataFrame) -> dict:
 
 

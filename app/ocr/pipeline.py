@@ -374,7 +374,7 @@ def extract_store_name(ocr_results, image_height: float):
 
 
 def extract_items(ocr_results):
-    # 좌표 기반으로 행을 클러스터링한 뒤, 각 행에서 이름/수량/금액 토큰을 분류해 품목으로 구성한다.
+    # 좌표 기반으로 행을 클러스터링한 뒤, 각 행이 "품목 행"인지 판단하고
     # 금액은 "24,800원"처럼 숫자 뒤에 '원'이 공백 없이 붙는 경우가 흔해서, 비교 전에 '원'을 떼고 검사한다.
     comma_amount_pattern = re.compile(r"^\d{1,3}(?:,\d{3})+$")
     plain_qty_pattern = re.compile(r"^\d{1,2}$")
@@ -511,8 +511,7 @@ def _detect_payment_method(text_clean: str, current: str | None) -> str | None:
 # "라벨 텍스트" 바로 다음(또는 몇 칸 이내)에 나오는 숫자를 그 라벨의 값으로 보는 방식.
 # PaddleOCR 결과가 대체로 읽는 순서(위→아래, 좌→우)로 반환되기 때문에,
 # "과세금액" 다음에 "9,091"이 나오는 식의 인접 패턴이 실제로 잘 맞는다.
-# (상호명·품목은 좌표 기반 매칭인 extract_store_name()/extract_items()가 별도로 담당하며,
-#  router.py에서 이 함수의 결과 위에 덮어쓴다)
+# (진짜 좌표 기반 매칭은 이후 items[] 추출 작업 때 더 정교하게 구현 예정)
 LABEL_FIELD_MAP = {
     "supplyAmount": ["공급가액", "과세금액"],
     "vat": ["부가세", "부가가치세"],
@@ -540,12 +539,12 @@ def native_nlp_parser(ocr_text_list, document_type: str = "RECEIPT"):
     # OCR 텍스트 리스트를 목표 스키마 형태로 구조화
     structured_data = {
         "documentType": document_type,
-        "storeName": None,          # router.py에서 extract_store_name() 결과로 덮어씀
+        "storeName": None,          # TODO: 좌표 기반 상호명 추출 (다음 작업)
         "businessNumber": None,
         "transactionDate": None,
         "transactionTime": None,    # 목표 스키마엔 없지만 유용한 정보라 유지
         "paymentMethod": "현금",
-        "items": [],                # router.py에서 extract_items() 결과로 덮어씀
+        "items": [],                # TODO: 좌표 기반 품목 추출 (다음 작업)
         "supplyAmount": None,
         "vat": None,
         "taxFreeAmount": None,
@@ -602,7 +601,7 @@ def native_nlp_parser(ocr_text_list, document_type: str = "RECEIPT"):
 
 
 # ------------------------------------------------------------------
-# 4. 데이터 검증 및 가계부 반영
+# 3. 데이터 검증 및 가계부 반영
 # ------------------------------------------------------------------
 CATEGORY_MAP = {
     "식재료비": ["돼지고기", "양파", "소스", "쌀", "야채", "고기", "원두", "생두", "커피", "우유", "시럽", "밀가루"],

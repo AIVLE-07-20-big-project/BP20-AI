@@ -1,4 +1,4 @@
-# 실행: python -m scripts.collection.run_collect --only all [--test|--full] [--start-year YYYY] [--end-year YYYY] [--end-quarter 1-4]
+# 실행:
 import argparse
 import asyncio
 import os

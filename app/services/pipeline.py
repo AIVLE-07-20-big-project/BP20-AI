@@ -1,4 +1,4 @@
-# Diagnoser -> AISalesAnalyzer(선택) -> ExternalFactorAnalyzer(선택) 순서로 기존 인스턴스를 캐싱해 재사용한다.
+# Diagnoser -> AISalesAnalyzer(선택) -> ExternalFactorAnalyzer(선택) 순서로 기존
 from __future__ import annotations
 
 import threading

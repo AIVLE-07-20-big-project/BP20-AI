@@ -104,7 +104,7 @@ def _orders_to_df(orders: List[Dict[str, Any]]) -> pd.DataFrame:
 # ------------------------------------------------------------------
 @router.post("/api/v1/receipts/parse")
 async def parse_receipt(file: UploadFile = File(...)) -> Dict[str, Any]:
-    # 영수증 이미지를 업로드하면 OCR + 좌표기반 추출 + 검증까지 마친 구조화 데이터를 반환한다.
+    # 영수증 이미지를 업로드하면 OCR + 좌표기반 추출 + 검증까지 마친
     validate_upload_type(
         file,
         extensions=IMAGE_EXTENSIONS,

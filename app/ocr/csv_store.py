@@ -1,4 +1,4 @@
-# OCR로 처리한 영수증 1건을, expense_analysis.py / cost_analysis.py가 바로 읽을 수 있는 CSV로 저장한다.
+# OCR로 처리한 영수증 1건을, expense_analysis.py / cost_analysis.py가 바로 읽을 수 있는
 
 import os
 
