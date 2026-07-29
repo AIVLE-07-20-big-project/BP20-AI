@@ -1,8 +1,3 @@
-"""Docker HEALTHCHECK 엔트리포인트.
-
-api/worker/beat가 같은 이미지를 공유하므로 healthcheck도 역할에 맞게 갈라져야 한다.
-BE compose가 컨테이너별로 CONTAINER_ROLE 환경변수를 지정한다(미지정 시 "api"로 동작).
-"""
 from __future__ import annotations
 
 import os

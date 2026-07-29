@@ -1,13 +1,3 @@
-"""Redis를 브로커와 결과 백엔드로 사용하는 Celery 앱.
-
-실행(로컬, 이 저장소 루트에서):
-    uvicorn app.main:app --reload
-    celery -A app.celery_app worker --loglevel=info --pool=solo
-    celery -A app.celery_app beat --loglevel=info
-
-Windows solo 풀은 개발용이다. 병렬 처리와 타임아웃은 Linux prefork에서 검증한다.
-task_acks_late=True라 워커가 처리 도중 죽으면 다른 워커(or 재시작 후 자신)가 재전달받는다.
-"""
 from __future__ import annotations
 
 import os
