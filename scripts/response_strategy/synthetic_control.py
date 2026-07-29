@@ -267,6 +267,31 @@ def measured_effect(trdar_cd, svc_induty_cd, action_id, campaign_logs=CAMPAIGN_L
     pool = same_cell if not same_cell.empty else matched
     적용범위 = "동일 상권 실측" if not same_cell.empty else "동일 업종 전체 실측(해당 상권 사례 없음)"
 
+    # 생성기 로그는 실제 캠페인 전후 매출이 아니라 reward를 기준으로 만든 합성 자료다.
+    # 이를 SCM 반사실 효과로 다시 계산하면 패널 추세 오차가 합성 효과에 중복 반영되어
+    # -89% 같은 의미 없는 수치가 발생할 수 있으므로, 합성 로그는 reward 기준효과로만
+    # 표시하고 실제 로그가 들어오면 아래의 SCM 경로를 사용한다.
+    if "데이터_출처" in pool.columns and (pool["데이터_출처"] == "synthetic_v2").all():
+        rewards = pd.to_numeric(pool.get("reward"), errors="coerce").dropna()
+        if not rewards.empty:
+            rng = np.random.default_rng(seed)
+            values = rewards.to_numpy(dtype=float)
+            boot_means = np.array([
+                rng.choice(values, size=len(values), replace=True).mean()
+                for _ in range(n_bootstrap)
+            ])
+            ci_low, ci_high = np.percentile(boot_means, [2.5, 97.5])
+            return {
+                "판정": "사용가능" if len(values) >= MEASURED_EFFECT_MIN_RELIABLE_CASES else "탐색적",
+                "적용범위": 적용범위,
+                "실측_사례수": int(len(pool)),
+                "반사실_계산가능_사례수": 0,
+                "효과율_평균": round(float(values.mean()), 4),
+                "효과율_95%CI": [round(float(ci_low), 4), round(float(ci_high), 4)],
+                "추정방법": "synthetic_v2 reward 기준효과",
+                "해석주의": "합성 데이터의 기준효과이며 실제 매장 실측 SCM 효과가 아님",
+            }
+
     p = pd.read_csv(panel) if isinstance(panel, (str, Path)) else panel.copy()
 
     effects, fit_flags = [], []

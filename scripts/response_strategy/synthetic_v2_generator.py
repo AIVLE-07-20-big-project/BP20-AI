@@ -21,6 +21,7 @@ from app.services.response.reward import (
     REWARD_DEFINITION_VERSION,
     calculate_reward_v2,
 )
+from scripts.modeling.sales_analysis import AMT, MIN_Q, PANEL
 
 from scripts.response_strategy.bandit import NeuralContextualBandit
 
@@ -59,12 +60,18 @@ def _sample_context(rng: np.random.Generator) -> np.ndarray:
 
 
 # target reward를 만족하도록 net_sales/variable_cost/campaign_cost를 역산한다(variable cost는 매출의 고정 비율)
-def _sample_costs(rng: np.random.Generator, target_reward: float) -> dict[str, float]:
-    contribution_before = abs(rng.normal(CONTRIBUTION_BEFORE_MEAN, CONTRIBUTION_BEFORE_STD))
+def _sample_costs(rng: np.random.Generator, target_reward: float,
+                  baseline_sales: float | None = None) -> dict[str, float]:
+    if baseline_sales is not None and baseline_sales > 0:
+        # 합성 사후매출도 실제 분석 패널의 SCM 반사실 기준선에서 생성한다.
+        net_sales_before = float(baseline_sales)
+        contribution_before = net_sales_before * (1 - VARIABLE_COST_RATIO)
+    else:
+        contribution_before = abs(rng.normal(CONTRIBUTION_BEFORE_MEAN, CONTRIBUTION_BEFORE_STD))
+        net_sales_before = contribution_before / (1 - VARIABLE_COST_RATIO)
     denominator = max(contribution_before, DEFAULT_REWARD_DENOMINATOR_FLOOR)
     contribution_after = contribution_before + target_reward * denominator
 
-    net_sales_before = contribution_before / (1 - VARIABLE_COST_RATIO)
     variable_cost_before = net_sales_before * VARIABLE_COST_RATIO
     campaign_cost = net_sales_before * CAMPAIGN_COST_RATIO
 
@@ -78,7 +85,26 @@ def _sample_costs(rng: np.random.Generator, target_reward: float) -> dict[str, f
     }
 
 
-def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator) -> list[dict]:
+def _load_target_cells() -> list[tuple[int, str, int, int]]:
+    """실제 분석 패널과 조인 가능한 합성 캠페인 대상 셀을 만든다."""
+    panel = pd.read_csv(PANEL, usecols=["TRDAR_CD", "SVC_INDUTY_CD", "STDR_YYQU_CD", AMT])
+    cells: list[tuple[int, str, int, int]] = []
+    for (trdar_cd, svc_induty_cd), group in panel.groupby(["TRDAR_CD", "SVC_INDUTY_CD"]):
+        quarters = sorted(int(q) for q in group["STDR_YYQU_CD"].dropna().unique())
+        # treatment 직전 기간에 SCM이 사용할 MIN_Q개 이상의 관측값이 있어야 한다.
+        for index in range(MIN_Q, len(quarters)):
+            treatment_q = quarters[index]
+            as_of_q = quarters[index - 1]
+            cells.append((int(trdar_cd), str(svc_induty_cd), as_of_q, treatment_q))
+    if not cells:
+        raise RuntimeError(f"실제 패널에서 합성 캠페인 대상 셀을 만들 수 없습니다: {PANEL}")
+    return cells
+
+
+def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator,
+                  target_cells: list[tuple[int, str, int, int]],
+                  coverage: list[tuple[tuple[int, str, int, int], str]],
+                  panel: pd.DataFrame) -> list[dict]:
     effects = TRUE_EFFECTS[등급]
     bandit = NeuralContextualBandit(
         context_dim=CONTEXT_DIM, arms=arms, policy_version=GENERATOR_VERSION,
@@ -88,18 +114,42 @@ def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator
     policy = BanditPolicy(bandit=bandit, epsilon=EXPERIMENT_EPSILON)
 
     rows = []
+    baseline_cache: dict[tuple[int, str, int], float | None] = {}
     base_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     for i in range(n):
+        if i < len(coverage):
+            (trdar_cd, svc_induty_cd, as_of_q, treatment_q), forced_action = coverage[i]
+        else:
+            trdar_cd, svc_induty_cd, as_of_q, treatment_q = target_cells[int(rng.integers(0, len(target_cells)))]
+            forced_action = None
         context = _sample_context(rng)
         # 매 행마다 "믿는 최고 arm"을 랜덤하게 바꿔 action별 표본이 고르게 퍼지게 한다
         champion = rng.choice(arms)
         bandit._prior_bias = np.array([CHAMPION_PRIOR_BIAS if a == champion else 0.0 for a in arms])
 
         decision = policy.choose(context, arms, mode="experiment", rng=rng)
-        action = decision.selected_action
+        action = forced_action or decision.selected_action
+        # 업종×방안 커버리지 행은 균등 탐색 로그로 기록해 propensity와 action을 일치시킨다.
+        propensity = 1.0 / len(arms) if forced_action else decision.propensity
+        action_probabilities = (
+            {arm: 1.0 / len(arms) for arm in arms}
+            if forced_action else decision.action_probabilities
+        )
 
-        target_reward = effects[action] + rng.normal(0, REWARD_NOISE_STD)
-        costs = _sample_costs(rng, target_reward)
+        # 데모용 합성 로그에서는 모든 방안이 최소한의 양의 기준효과를 갖게 해
+        # 추천 화면에 구조적으로 의미 없는 대폭 하락값이 나오지 않게 한다.
+        target_reward = max(0.01, effects[action] + rng.normal(0, REWARD_NOISE_STD))
+        cache_key = (trdar_cd, svc_induty_cd, as_of_q)
+        if cache_key not in baseline_cache:
+            next_rows = panel[
+                (panel["TRDAR_CD"] == trdar_cd)
+                & (panel["SVC_INDUTY_CD"] == svc_induty_cd)
+                & (panel["STDR_YYQU_CD"] == treatment_q)
+            ]
+            baseline_cache[cache_key] = (
+                float(next_rows.iloc[0][AMT]) if not next_rows.empty else None
+            )
+        costs = _sample_costs(rng, target_reward, baseline_cache[cache_key])
         reward_result = calculate_reward_v2(
             **costs, measurement_days_before=MEASUREMENT_DAYS, measurement_days_after=MEASUREMENT_DAYS,
         )
@@ -110,9 +160,9 @@ def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator
         row = {col: None for col in SCHEMA_COLUMNS}
         row.update({
             "decision_id": str(uuid.uuid4()),
-            "store_id": f"synthetic-{등급}-{i % 20}",
-            "trdar_cd": 0, "svc_induty_cd": "SYNTHETIC",
-            "yyqu_cd": 20261, "treatment_yyqu_cd": 20262,
+            "store_id": f"synthetic-{trdar_cd}-{i % 20}",
+            "trdar_cd": trdar_cd, "svc_induty_cd": svc_induty_cd,
+            "yyqu_cd": as_of_q, "treatment_yyqu_cd": treatment_q,
             "problem_type": 등급, "context_schema_version": CONTEXT_SCHEMA_VERSION,
             **{col: float(context[j]) for j, col in enumerate(CONTEXT_COLS)},
             "candidate_actions": json.dumps(arms, ensure_ascii=False),
@@ -124,12 +174,12 @@ def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator
                 [a for a in arms if a in action_rules.EXPLORATION_EXCLUDED_ACTIONS], ensure_ascii=False,
             ),
             "policy_mode": decision.mode,
-            "action_probabilities": json.dumps(decision.action_probabilities, ensure_ascii=False),
-            "recommended_action": decision.selected_action,
-            "policy_selected_action": decision.selected_action,
-            "policy_selected_propensity": decision.propensity,
+            "action_probabilities": json.dumps(action_probabilities, ensure_ascii=False),
+            "recommended_action": action,
+            "policy_selected_action": action,
+            "policy_selected_propensity": propensity,
             "approved_action": action, "executed_action": action,
-            "behavior_propensity": decision.propensity, "decision_source": "policy",
+            "behavior_propensity": propensity, "decision_source": "policy",
             "selection_source": "policy",
             "expected_rewards": json.dumps({}, ensure_ascii=False),
             "uncertainties": json.dumps({}, ensure_ascii=False),
@@ -147,10 +197,20 @@ def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator
 
 def generate_all(seed: int = 0, n_per_grade: int = SAMPLES_PER_PROBLEM_TYPE) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
+    target_cells = _load_target_cells()
+    panel = pd.read_csv(PANEL)
+    cells_by_service: dict[str, list[tuple[int, str, int, int]]] = {}
+    for cell in target_cells:
+        cells_by_service.setdefault(cell[1], []).append(cell)
     all_rows = []
     for 등급, effects in TRUE_EFFECTS.items():
         arms = list(effects.keys())
-        all_rows.extend(generate_rows(등급, arms, n_per_grade, rng))
+        coverage = [
+            (cells_by_service[svc][index % len(cells_by_service[svc])], action)
+            for index, svc in enumerate(sorted(cells_by_service))
+            for action in arms
+        ]
+        all_rows.extend(generate_rows(등급, arms, n_per_grade, rng, target_cells, coverage, panel))
     return pd.DataFrame(all_rows, columns=SCHEMA_COLUMNS)
 
 
