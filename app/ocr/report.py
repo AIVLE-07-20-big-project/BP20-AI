@@ -53,7 +53,7 @@ def resolve_period(report_type: str, year: int, month: int, data_min: date, data
 
 
 # ------------------------------------------------------------------
-# 기존 4개 섹션 (요약/이상지출/예산초과/매입단가/원가율) - 렌더링만 담당
+# 기존 5개 섹션 (요약/이상지출/예산초과/매입단가/원가율) - 렌더링만 담당
 # ------------------------------------------------------------------
 def render_summary_cards(orders_in_period: pd.DataFrame, receipts_in_period: pd.DataFrame) -> str:
     total_sales = orders_in_period["TotalAmount"].sum()

@@ -85,7 +85,7 @@ RATES = {"개업률", "폐업률"}
 COVS = ["매출_하락률", "폐업률", "개업률", "유동인구_변화", "log_점포수"]
 
 
-# merged가 경로면 CSV로 읽고, 이미 로드된 DataFrame이면 그대로 쓴다(FastAPI에서
+# merged가 경로면 CSV로 읽고, 이미 로드된 DataFrame이면 그대로 쓴다(FastAPI에서 캐시된 DataFrame을 넘길 때 재입출력 비용을 줄이기 위함).
 def build_panel(merged=MERGED, out=PANEL) -> pd.DataFrame:
 
 
@@ -114,7 +114,7 @@ def build_panel(merged=MERGED, out=PANEL) -> pd.DataFrame:
     return panel
 
 
-# 상권x분기별 '상권 전체(업종 무관) 매출' 전분기 대비 변화율과, 반경
+# 상권x분기별 '상권 전체(업종 무관) 매출' 전분기 대비 변화율과, 반경 내 이웃 상권들의 평균 변화율을 계산한다.
 def build_neighbor_features(panel_path=PANEL, area_path=AREA_COORDS,
                              out_path=NEIGHBOR_FEATURES) -> pd.DataFrame:
 
@@ -263,7 +263,7 @@ MARKET_STATE_EXPLANATION = {
 }
 
 
-# 상주인구(거주자)·유동인구(방문객 전체)·직장인구(근무자) 변화를 비교해 매출 하락의
+# 상주인구(거주자)·유동인구(방문객 전체)·직장인구(근무자) 변화를 비교해 매출 하락의 원인 유형을 분류한다.
 def classify_traffic_source(repop_change, flpop_change, workpop_change=None) -> str:
 
 

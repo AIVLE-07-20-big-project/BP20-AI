@@ -1,4 +1,4 @@
-"""Celery beat가 호출하는 정체 작업 정리 태스크."""
+"""Celery beat가 호출하는 정리 태스크 모음: 정체 작업 정리, 만료된 업로드 원본 삭제."""
 from __future__ import annotations
 
 from app.celery_app import celery_app

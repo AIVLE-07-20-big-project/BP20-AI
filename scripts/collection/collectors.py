@@ -164,6 +164,7 @@ class CulturalEventCollector(SeoulOpenApiCollector):
 
 
 # 지하철역 좌표(서울교통빅데이터플랫폼 t-data.seoul.go.kr) - 대규모점포와 달리
+# 서울 열린데이터광장이 아닌 별도 플랫폼 API라 SeoulOpenApiCollector를 상속하지 않는다.
 class SubwayStationGeomCollector:
 
 
