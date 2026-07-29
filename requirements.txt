@@ -4,7 +4,6 @@ uvicorn[standard]>=0.51.0
 python-multipart>=0.0.32
 pandas>=3.0.3
 lightgbm>=4.3
-xgboost>=3.3
 scikit-learn>=1.4
 numpy>=2.3.5
 pyproj>=3.6
@@ -37,8 +36,8 @@ torch>=2.2
 # RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요
 sentence-transformers>=3.0
 
-# AI 상품 이미지 생성(app/product_image)에 필요.
-rembg[cpu]>=2.0
+# AI 상품 이미지 생성(app/product_image)에 필요. 
+rembg>=2.0
 pillow>=10.0
 requests>=2.31
 python-dotenv>=1.0

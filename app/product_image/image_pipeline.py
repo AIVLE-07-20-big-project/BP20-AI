@@ -13,6 +13,8 @@ import base64
 import tempfile
 
 from PIL import Image
+from rembg import remove
+from openai import OpenAI
 
 TARGET_SIZE = (1024, 1024)  # gpt-image-1이 지원하는 정사각형 크기
 
@@ -68,7 +70,6 @@ def _prepare_image_and_mask(image_bytes: bytes) -> tuple:
     """업로드된 원본 이미지 바이트로부터, OpenAI에 보낼 (원본 정사각형 이미지 경로, 마스크 경로)를 생성.
     rembg 결과(상품=불투명/배경=투명)를 별도 변환 없이 그대로 마스크로 재활용함."""
     import io
-    from rembg import remove
 
     request_id = uuid.uuid4().hex
     temp_dir = tempfile.gettempdir()  # OS에 맞는 임시 폴더 경로 (Windows/Linux/Mac 모두 대응)
@@ -88,8 +89,6 @@ def _prepare_image_and_mask(image_bytes: bytes) -> tuple:
 
 
 def _edit_with_openai(image_path: str, mask_path: str, category: str) -> bytes:
-    from openai import OpenAI
-
     if category not in CATEGORY_PROMPTS:
         raise InvalidCategoryError(f"지원하지 않는 카테고리입니다: {category}")
 
