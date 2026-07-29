@@ -17,6 +17,18 @@ def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> 
     payload["상태"] = payload.pop("status", "알 수 없음")
     payload["thread_id"] = thread_id
     payload["대기중_승인"] = interrupt_value
+    target = (payload.get("diagnosis") or {}).get("대상", {})
+    trdar_name = target.get("상권명") or payload.get("trdar_cd") or "상권 미지정"
+    svc_name = target.get("업종명") or payload.get("svc_induty_cd") or "업종 미지정"
+    store_id = payload.get("store_id")
+    payload["대상_매장"] = {
+        "표시명": f"{trdar_name} / {svc_name} (매장 ID: {store_id or '미지정'})",
+        "매장_ID": store_id,
+        "상권코드": payload.get("trdar_cd"),
+        "상권명": trdar_name,
+        "업종코드": payload.get("svc_induty_cd"),
+        "업종명": svc_name,
+    }
     return payload
 
 
@@ -93,7 +105,10 @@ def resume_agent_run(
     current = read_agent_run(thread_id)
     _assert_owner(current, x_user_id)
     resume_payload = {"결정": payload.decision}
-    if payload.modification_plan is not None:
-        resume_payload["수정_방안"] = payload.modification_plan
+    selected_action = payload.selected_action or payload.modification_plan
+    if selected_action is not None:
+        # edit뿐 아니라 approve와 함께 보내도 선택 방안을 먼저 적용한 뒤
+        # 해당 방안의 검증 결과와 리포트를 생성한다.
+        resume_payload["선택_방안"] = selected_action
 
     return continue_agent_run(thread_id, resume_payload)

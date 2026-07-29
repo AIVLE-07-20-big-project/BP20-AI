@@ -122,11 +122,15 @@ def _validate_candidates(state: RecommendationState) -> dict:
         candidate_status[action] = _SAFETY_VERDICT_TO_STATUS.get(result.get("판정"), "unknown")
 
     selectable = [a for a in arms if candidate_status[a] != "blocked"]
+    selectable_candidates = [
+        c for c in candidates if c["방안"] in selectable
+    ]
     exploration_excluded = [a for a in arms if a in action_rules.EXPLORATION_EXCLUDED_ACTIONS]
 
     if not selectable:
         warnings.append("모든 후보가 OPE 안전성 검사에서 차단되어 자동 추천을 중단함")
         return {
+            "candidate_actions": [],
             "candidate_status": candidate_status, "candidate_safety": candidate_safety,
             "selectable_actions": [], "exploration_excluded_actions": exploration_excluded,
             "ope_result": candidate_safety, "selected_action": None,
@@ -135,6 +139,8 @@ def _validate_candidates(state: RecommendationState) -> dict:
         }
 
     return {
+        # 차단된 방안은 후보 목록·선택 UI에 노출하지 않는다.
+        "candidate_actions": selectable_candidates,
         "candidate_status": candidate_status, "candidate_safety": candidate_safety,
         "selectable_actions": selectable, "exploration_excluded_actions": exploration_excluded,
         "ope_result": candidate_safety,
@@ -239,6 +245,10 @@ def _await_approval(state: RecommendationState) -> dict:
     decision = interrupt({
         "선택된_방안": state.get("selected_action"),
         "방안_후보": state.get("candidate_actions", []),
+        "선택_가능_방안": [
+            c for c in state.get("candidate_actions", [])
+            if (state.get("candidate_status") or {}).get(c.get("방안")) != "blocked"
+        ],
         "후보별_점수": state.get("candidate_scores"),
         "후보별_상태": state.get("candidate_status"),
         "선택_확률분포": (state.get("policy_decision") or {}).get("action_probabilities"),
@@ -250,10 +260,11 @@ def _await_approval(state: RecommendationState) -> dict:
         "주의사항": state.get("warnings", []),
     })
     결정 = decision.get("결정") if isinstance(decision, dict) else None
+    선택방안 = decision.get("선택_방안") or decision.get("selected_action") if isinstance(decision, dict) else None
     warnings = list(state.get("warnings", []))
 
     if 결정 == "edit":
-        방안명 = decision.get("수정_방안")
+        방안명 = 선택방안 or decision.get("수정_방안")
         candidate = next((c for c in state.get("candidate_actions", []) if c["방안"] == 방안명), None)
         candidate_status = state.get("candidate_status") or {}
         if candidate is None:
@@ -273,11 +284,37 @@ def _await_approval(state: RecommendationState) -> dict:
 
     if 결정 == "approve":
         decision_source = state.get("decision_source") or "policy"
-        return {
+        selected_action_update = None
+        if 선택방안 is not None:
+            candidate = next(
+                (c for c in state.get("candidate_actions", []) if c.get("방안") == 선택방안), None,
+            )
+            candidate_status = state.get("candidate_status") or {}
+            if candidate is None:
+                warnings.append(f"approve 방안 '{선택방안}' — 후보 목록에 없어 반려 처리")
+                return {"approval_status": "rejected", "warnings": warnings,
+                        "status": "종료: 잘못된 승인 방안으로 반려"}
+            if candidate_status.get(선택방안) == "blocked":
+                warnings.append(f"approve 방안 '{선택방안}' — OPE 안전성 검사에서 차단되어 반려 처리")
+                return {"approval_status": "rejected", "warnings": warnings,
+                        "status": "종료: 차단된 방안으로 승인 요청되어 반려 처리"}
+            # 바로 승인한 경우에도 선택 방안이 최종 상태가 되도록 한다.
+            selected_action_update = candidate
+            decision_source = "human_edit"
+        result = {
             "approval_status": "approved", "decision_source": decision_source,
-            "executed_action": (state.get("selected_action") or {}).get("방안"),
+            "executed_action": (selected_action_update or state.get("selected_action") or {}).get("방안"),
             "warnings": warnings, "status": "승인됨 — 리포트 생성 중",
         }
+        if selected_action_update is not None:
+            result["selected_action"] = selected_action_update
+            # 한 번의 approve 요청으로 대안을 선택한 경우에도 이전 방안의
+            # 검증·근거가 남지 않도록 선택 방안 기준으로 즉시 재계산한다.
+            selected_state = dict(state)
+            selected_state["selected_action"] = selected_action_update
+            result.update(_estimate(selected_state))
+            result.update(_evidence(selected_state))
+        return result
 
     return {"approval_status": _APPROVAL_STATUS.get(결정, "rejected"), "warnings": warnings, "status": "종료: 반려됨"}
 
