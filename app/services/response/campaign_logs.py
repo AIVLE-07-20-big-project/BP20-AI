@@ -1,5 +1,4 @@
 # 캠페인 로그 v2 수집 + 데이터 계약 검증(계획 §2·4단계, 설계 §9)
-# legacy 로그(CAMPAIGN_LOGS, propensity 버그 있음)는 보존만 하고 더 이상 쓰지 않는다(계획 §0)
 from __future__ import annotations
 
 import contextlib

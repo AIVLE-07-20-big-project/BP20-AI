@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
+from app.core.config import CAMPAIGN_LOGS_V2
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -17,8 +19,9 @@ if __package__ in {None, ""} and str(ROOT) not in sys.path:
 
 from scripts.modeling.sales_analysis import AMT, MIN_PEERS, MIN_Q, PANEL, shift_quarter
 
-DATA = ROOT / "data"
-CAMPAIGN_LOGS = DATA / "agent" / "campaign_logs.csv"
+# 운영 기본 로그는 v2 계약을 사용한다. 명시적으로 legacy 형식의 테스트 파일을
+# 넘기는 경우에는 아래 measured_effect()가 기존 컬럼도 계속 지원한다.
+CAMPAIGN_LOGS = CAMPAIGN_LOGS_V2
 
 MIN_DONORS = 5
 MAX_DONORS = 30
@@ -68,7 +71,7 @@ def build_donor_pool(panel: pd.DataFrame, trdar_cd: int, svc_induty_cd: str,
     return counts[counts >= MIN_Q].index.tolist()
 
 
-# 도너 수가 max_donors보다 많으면, pre-period 로그매출 궤적과의 상관계수 상위
+# 도너 수가 max_donors보다 많으면, pre-period 로그매출 궤적과의 상관계수 상위 max_donors개만 남긴다.
 def _restrict_to_most_similar(target: pd.Series, donors: pd.DataFrame, max_donors: int) -> pd.DataFrame:
 
 
@@ -220,7 +223,7 @@ _LOG_REQUIRED_COLS = {
 }
 
 
-# campaign_logs.csv에서 이 방안(action_id)의 실제 적용 사례를 찾아 사후 효과를 추정한다
+# campaign_logs_v2.csv에서 이 방안의 실제 적용 사례를 찾아 사후 효과를 추정한다
 def measured_effect(trdar_cd, svc_induty_cd, action_id, campaign_logs=CAMPAIGN_LOGS,
                      panel=PANEL, n_bootstrap: int = 500, seed: int = 0) -> dict:
 
@@ -236,10 +239,18 @@ def measured_effect(trdar_cd, svc_induty_cd, action_id, campaign_logs=CAMPAIGN_L
 
     path = Path(campaign_logs)
     if not path.exists():
-        return {"판정": "판정불가", "사유": "실제 시행 사례 없음 (campaign_logs.csv 없음)",
+        return {"판정": "판정불가", "사유": "실제 시행 사례 없음 (campaign_logs_v2.csv 없음)",
                 "실측_사례수": 0}
 
     logs = pd.read_csv(path)
+    # v2 로그를 SCM이 사용하는 내부 컬럼으로 정규화한다. v2의
+    # net_sales_after는 legacy의 revenue_after와 동일한 역할을 한다.
+    if {"executed_action", "net_sales_after"}.issubset(logs.columns):
+        logs = logs.rename(columns={
+            "executed_action": "action_id",
+            "net_sales_after": "revenue_after",
+        })
+        logs["executed"] = logs["action_id"].notna() & logs["revenue_after"].notna()
     if not _LOG_REQUIRED_COLS.issubset(logs.columns):
         return {"판정": "판정불가", "사유": "실제 시행 사례 없음", "실측_사례수": 0}
 

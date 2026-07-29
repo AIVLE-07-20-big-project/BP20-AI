@@ -12,9 +12,11 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
-CAMPAIGN_LOGS = DATA / "agent" / "campaign_logs.csv"
+from app.core.config import CAMPAIGN_LOGS_V2
+
+# 운영 기본 로그는 v2 계약을 사용한다. 명시적으로 다른 경로를 넘기는
+# 기존 호출·테스트는 하위 호환을 위해 그대로 지원한다.
+CAMPAIGN_LOGS = CAMPAIGN_LOGS_V2
 
 
 @dataclass
@@ -170,7 +172,7 @@ def _bootstrap_ci(batch: LoggedBatch, target_action_fn, arms: list[str],
     return float(lo), float(hi)
 
 
-# 실 로그(data/campaign_logs.csv)로 실제 정책가치를 평가한다.
+# 실 로그(campaign_logs_v2.csv)로 실제 정책가치를 평가한다.
 # 주의: trdar_cd는 호출부 시그니처 호환을 위해 받지만 필터에는 쓰지 않는다 —
 # 상권 단위로 좁히면 표본이 급감해 대부분 '판정불가'가 되므로, 의도적으로 동일
 # 업종(svc_induty_cd) 로그 전체를 풀링해 정책가치를 추정한다.
@@ -190,9 +192,18 @@ def evaluate_policy(trdar_cd, svc_induty_cd, target_action_fn, campaign_logs=CAM
 
     path = Path(campaign_logs)
     if not path.exists():
-        return {"판정": "판정불가", "사유": "실제 로그 없음 (campaign_logs.csv 없음)", "표본수": 0}
+        return {"판정": "판정불가", "사유": "실제 로그 없음 (campaign_logs_v2.csv 없음)", "표본수": 0}
 
     logs = pd.read_csv(path)
+    # v2 로그를 legacy evaluate_policy 시그니처에서도 읽을 수 있게 정규화한다.
+    # 신규 운영 경로는 evaluate_action_safety()를 사용하지만, 이 함수는 CLI·기존
+    # 호출부 호환용으로 남아 있으므로 입력 파일만 v2로 통일한다.
+    if {"executed_action", "behavior_propensity", "net_sales_after"}.issubset(logs.columns):
+        logs = logs.rename(columns={
+            "executed_action": "action_id",
+            "behavior_propensity": "propensity",
+        })
+        logs["executed"] = logs["action_id"].notna() & logs["reward"].notna()
     if not _LOG_REQUIRED_COLS.issubset(logs.columns):
         return {"판정": "판정불가", "사유": "실제 로그 없음 (스키마 불일치)", "표본수": 0}
 
