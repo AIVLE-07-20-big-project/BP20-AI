@@ -29,7 +29,7 @@ def get_graph_runner(request: Request) -> ABSAGraphRunner:
             )
 
         _graph_runner = ABSAGraphRunner(
-            _absa_service=_absa_service, openai_api_key=api_key
+            absa_service=_absa_service, openai_api_key=api_key
         )
 
     return _graph_runner
@@ -70,7 +70,7 @@ async def analyze_reviews(payloads: List[ReviewRequest], request: Request):
         responses.append(
             ReviewResponse(
                 review_id=payload.review_id, 
-                review_text=review_text, 
+                # review_text=review_text, 
                 results=results
             )
         )
