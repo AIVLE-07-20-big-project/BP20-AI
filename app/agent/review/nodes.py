@@ -6,9 +6,10 @@ from app.agent.review.tools import fetch_existing_keywords, fetch_store_context
 from app.schemas.review import ABSAClusterReport, ReviewAgentState
 from app.services.absa_service import ABSAService
 
-async def node_roberta_classify(
+def node_roberta_classify(
     state: ReviewAgentState, absa_service: ABSAService
 ) -> Dict[str, Any]:
+    print("RoBERTa Classify Node 시작")
     roberta_results = []
     for item in state.reviews:
         text = item.review_text.strip()
@@ -32,6 +33,7 @@ async def node_roberta_classify(
 async def node_fetch_db_context(
     state: ReviewAgentState,
 ) -> Dict[str, Any]:
+    # TODO: DB에서 Store 정보 조회 기능 추가 예정
     context = await fetch_store_context(state.store_id)
     existing_keywords = await fetch_existing_keywords(state.store_id)
     return {
@@ -42,6 +44,7 @@ async def node_fetch_db_context(
 async def node_llm_cluster(
     state: ReviewAgentState, openai_client: AsyncOpenAI
 ) -> Dict[str, Any]:
+    print("LLM Cluster Node 시작")
     if not state.roberta_results:
         return {
             "final_report": ABSAClusterReport(
@@ -54,6 +57,7 @@ async def node_llm_cluster(
     너는 외식업 리뷰 데이터 정제 및 키워드 클러스터링 전문가야.
     아래 제공된 [1차 분석 데이터]를 바탕으로, 동일한 속성(aspect)과 감성(sentiment) 내에서 유사한 표현들을 하나의 대표 키워드로 묶어줘.
 
+    "representative_keyword는 original_expressions의 의미를 가장 잘 대표하는 단어로 작성해줘. (예: 밍밍함/무맛인 경우 '음식 간이 심심함/무맛'으로 표기)"
     [매장 컨텍스트]
     {json.dumps(state.store_context, ensure_ascii=False)}
 
