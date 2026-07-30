@@ -25,13 +25,9 @@ class ReviewResponse(BaseModel):
     review_id: int
     results: List[AspectSentiment]
 
-class ReviewItem(BaseModel):
-    review_id: int
-    review_text: str
-
 class BatchReviewRequest(BaseModel):
     store_id: int
-    reviews: List[ReviewItem]
+    reviews: List[ReviewRequest]
 
 class KeywordClusterItem(BaseModel):
     aspect: str = Field(
@@ -69,7 +65,7 @@ class ABSAAgentResponse(BaseModel):
 
 class ReviewAgentState(BaseModel):
     store_id: int
-    reviews: List[ReviewItem]
+    reviews: List[ReviewRequest]
     roberta_results: List[Dict[str, Any]] = []
     store_context: Optional[Dict[str, Any]] = None
     existing_keywords: List[str] = []
