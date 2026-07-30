@@ -207,3 +207,10 @@ def all_quarter_codes(start_year: int = 2021, end_year: int = 2026, end_quarter:
             codes.append(f"{year}{q}")
     return codes
 
+# 상권영역(경계) - 상권코드별 대표좌표(EPSG:5181)와 면적. 상가업소 데이터의 위경도를
+# 상권코드에 매핑하는 데 쓴다(app/sales_target/geo_matching.py).
+# 검증(2026-07-29): 좌표계가 EPSG:5181인 것을 실제 변환 결과로 확인함.
+class TrdarBoundaryCollector(SeoulOpenApiCollector):
+
+    SERVICE_NAME = "TbgisTrdarRelm"
+

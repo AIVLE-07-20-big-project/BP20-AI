@@ -30,6 +30,10 @@ SEOUL_WEATHER_DAILY = SOURCE_DATA / "weather_seoul_daily_recent.csv"
 SEOUL_EVENT_EXPOSURE = PROCESSED_DATA / "event_exposure_quarterly.csv"
 SEOUL_SUBWAY_EXPOSURE = PROCESSED_DATA / "subway_exposure_quarterly.csv"
 
+# 신규 가맹점 영업 타겟 추천
+STORE_REGISTRY = SOURCE_DATA / "store_registry.csv"
+ADONG_CODES = SOURCE_DATA / "adong_codes.csv"  # 행정표준코드관리시스템(code.go.kr)에서 내려받아 수동 배치
+
 class ABSASettings:    
     MODEL_PATH: str = str(ROOT / "roberta_absa_best_4class")
     ASPECTS: list = ["food", "service", "convenience", "price", "atmosphere"]
