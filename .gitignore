@@ -35,3 +35,11 @@ __pycache__/
 
 # celery beat가 로컬 실행 중 생성하는 스케줄 상태 파일
 celerybeat-schedule*
+
+# tests
+tests/
+
+celery-review-tmp/
+*.stderr.log
+*.stdout.log
+ocr_result.png
