@@ -13,11 +13,14 @@ SYSTEM_PROMPT = """당신은 소상공인이 쉽게 이해할 수 있도록 매�
 2. 상권 전체 매출과 사용자의 매장 매출을 명확히 구분한다.
 3. 가장 큰 내부 원인을 먼저 설명한다.
 4. 제공된 세부 원인과 외부 원인은 유의미한 항목이므로 빠뜨리지 않는다.
-5. 외부 원인은 확정 원인이 아니라 관련 가능성이 있는 원인으로 표현한다.
-6. 데이터 결합, 값 확장, 회귀, 다중검정, 기여 방향 같은 기술 용어를 사용하지 않는다.
-7. 같은 의미를 반복하지 않고 평이한 한국어로 작성한다.
-8. 분석 방법이나 데이터 처리 과정은 설명하지 않는다.
-9. JSON 객체 하나만 반환한다."""
+5. 세부 원인은 단순 나열하지 말고 각 항목의 매출 영향 방향과 상대적 크기를 함께 설명한다.
+6. 서로 다른 기준(카테고리·상품유형·채널)의 값을 합산하거나 전체 매출 감소분에 대한 기여율로 표현하지 않는다.
+7. 외부 원인은 확정 원인이 아니라 관련 가능성이 있는 원인으로 표현한다.
+8. 데이터 결합, 값 확장, 회귀, 다중검정, 기여 방향 같은 기술 용어를 사용하지 않는다.
+9. 같은 의미를 반복하지 않고 평이한 한국어로 작성한다.
+10. summary 안에서 핵심 원인, 세부 영향, 외부 요인을 줄바꿈(\\n)으로 구분한다.
+11. 분석 방법이나 데이터 처리 과정은 설명하지 않는다.
+12. JSON 객체 하나만 반환한다."""
 
 
 def _fact_payload(report: dict[str, Any], detailed: dict[str, Any]) -> dict[str, Any]:
@@ -44,6 +47,12 @@ def _fact_payload(report: dict[str, Any], detailed: dict[str, Any]) -> dict[str,
     detailed_causes = [
         {
             "label": item.get("label"),
+            # 카테고리·상품유형·채널은 서로 겹치므로 퍼센트를 사용자 문장에
+            # 노출하지 않는다. 원본 상세 결과에는 dimensionSharePct가 남아 있다.
+            "contributionPct": None,
+            "contributionAmount": item.get("contributionAmount"),
+            "direction": item.get("direction"),
+            "dimension": item.get("dimension"),
         }
         for item in root.get("internalDetailedDrivers", [])
         if item.get("label")
@@ -160,7 +169,15 @@ def _fallback_summary(report: dict[str, Any], detailed: dict[str, Any]) -> dict[
             f"내 매장의 {period_text}매출은 비교 기간보다 {change.lstrip('-')} {direction}했습니다."
         )
     if details:
-        sentences.append(f"주요 세부 원인: {', '.join(details)}.")
+        detail_lines = []
+        for item in facts["detailedInternalCauses"]:
+            label = item["label"]
+            pct = item.get("contributionPct")
+            direction = "감소" if item.get("direction") == "negative" else "증가"
+            impact = f"매출 {direction}에 기여"
+            impact += " 폭이 큰 항목"
+            detail_lines.append(f"- {label}: {impact}")
+        sentences.append("주요 세부 영향:\n" + "\n".join(detail_lines))
     if externals:
         sentences.append(f"외부 원인 후보: {', '.join(externals)}.")
     if traffic.get("peakDay") and traffic.get("peakTime"):
@@ -179,10 +196,17 @@ def _fallback_summary(report: dict[str, Any], detailed: dict[str, Any]) -> dict[
 def _call_openai(prompt: str) -> str:
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    # 매출 분석 전체 응답을 늦추지 않도록 요약 전용 호출은 짧게 제한한다.
+    # 환경변수로 기존 모델을 명시하면 운영자가 모델을 교체할 수 있다.
+    client = OpenAI(
+        api_key=os.environ["OPENAI_API_KEY"],
+        timeout=float(os.getenv("SALES_SUMMARY_TIMEOUT", "15")),
+        max_retries=0,
+    )
     response = client.chat.completions.create(
-        model=os.getenv("SALES_SUMMARY_MODEL", "gpt-4.1"),
+        model=os.getenv("SALES_SUMMARY_MODEL", "gpt-4.1-mini"),
         temperature=0.1,
+        max_tokens=250,
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -234,6 +258,7 @@ def generate_sales_summary(
         return {
             "headline": headline,
             "summary": summary,
+            # 기존 API 응답 계약의 source 값은 유지하고 실제 모델은 환경변수로 교체한다.
             "source": "gpt-4.1",
             "facts": fallback["facts"],
         }

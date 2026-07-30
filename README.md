@@ -25,7 +25,7 @@ OPENAI_API_KEY=실제_API_키
 ```text
 data/agent/
 ├─ trend_panel.csv
-├─ campaign_logs.csv
+├─ campaign_logs_v2.csv
 └─ neighbor_sales_quarterly.csv
 
 model/

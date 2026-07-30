@@ -21,6 +21,10 @@ class AgentRunResumeRequest(BaseModel):
         default=None,
         validation_alias=AliasChoices("modificationPlan", "modification_plan", "수정_방안"),
     )
+    selected_action: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("selectedAction", "selected_action", "선택_방안"),
+    )
 
 
 class AgentRunResponse(BaseModel):

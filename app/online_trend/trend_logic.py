@@ -1,14 +1,3 @@
-"""
-업종 기반 검색 트렌드 - 핵심 로직 모듈
-
-업종을 받아 대표 메뉴들의 네이버 Search Trend(검색어트렌드) 검색지수를 조회하고
-HTML 리포트를 생성하는 순수 로직. (대화형 CLI 부분은 제거됨 - app/main.py의
-FastAPI 라우터에서 build_report()를 호출하는 방식으로 사용)
-
-사전 준비:
-- .env 파일에 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 설정 (.env.example 참고)
-"""
-
 import os
 import json
 import time
@@ -195,9 +184,6 @@ def print_table(rows: list, col_widths: dict, col_labels: dict):
 
 
 def select_top_menus(industry: str, candidates: list, top_n: int = TOP_N_MENUS) -> list:
-    """후보 메뉴 전체를 Search Trend API로 조회해 평균 검색지수 상위 N개를 선정.
-    업종당 결과는 파일 캐시(MENU_SELECTION_CACHE_FILE)에 저장해, 며칠 이내 재실행 시
-    API를 다시 호출하지 않고 재사용한다 (검색 트렌드 순위는 하루 단위로 요동칠 필요가 없음)."""
     cache = _load_menu_selection_cache()
     cached_entry = cache.get(industry)
 
@@ -253,8 +239,6 @@ def select_top_menus(industry: str, candidates: list, top_n: int = TOP_N_MENUS) 
 
 
 def fetch_long_term_quarterly(menu_groups, years=10):
-    """지정한 메뉴들의 장기(기본 10년) 분기별 검색지수 추이를 조회
-    (네이버 API는 timeUnit='quarter'를 지원하지 않아 월 단위로 받아 분기 평균으로 재집계)"""
     end_date = date.today()
     start_year = max(2016, end_date.year - years)  # API는 2016-01-01 이후만 지원
     start_date = date(start_year, end_date.month, 1)
@@ -443,9 +427,6 @@ def generate_daily_report_html(industry: str, summary_df: pd.DataFrame, skipped:
     today_str = date.today().strftime("%Y-%m-%d")
 
     def natural_language_summary() -> str:
-        """가이드라인 원본 스펙 예시 형태의 자연어 요약 문장 생성
-        예: "최근 '딸기 케이크', '빙수' 검색량이 증가하고 있습니다. 이번 주말 해당 상품 재고를
-             평소보다 20% 늘리는 것을 추천합니다." """
         surge_names = summary_df[summary_df["신호"] == "🔴 급증"]["메뉴"].tolist()
         up_names = summary_df[summary_df["신호"] == "🟠 증가"]["메뉴"].tolist()
         down_names = summary_df[summary_df["신호"] == "🔵 감소"]["메뉴"].tolist()
@@ -640,9 +621,6 @@ def generate_daily_report_html(industry: str, summary_df: pd.DataFrame, skipped:
 
 
 def build_report(industry: str) -> dict:
-    """업종명을 받아 전체 파이프라인을 실행하고, HTML 리포트 문자열과 요약 데이터를 반환.
-    (CLI의 input() 대화형 부분을 제거하고, API에서 바로 호출할 수 있는 형태로 만든 함수)
-    """
     if not CLIENT_ID or not CLIENT_SECRET:
         raise RuntimeError("환경변수 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 을 먼저 설정해주세요.")
 

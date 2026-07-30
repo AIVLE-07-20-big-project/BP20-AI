@@ -7,15 +7,6 @@ from app.schemas.effect_verification_schema import (
 
 
 def calculate_change_rate(before: float, after: float) -> float | None:
-    """
-    실행 전 대비 실행 후 증감률을 계산한다.
-
-    예:
-    100 -> 120 = 20%
-    100 -> 80 = -20%
-
-    실행 전 값이 0이면 증감률을 계산할 수 없으므로 None을 반환한다.
-    """
     if before == 0:
         return None
 
@@ -58,11 +49,6 @@ def normalize_positive_change(
     change_rate: float | None,
     target_rate: float,
 ) -> float:
-    """
-    증가할수록 좋은 지표를 0~100점으로 변환한다.
-
-    목표 증가율만큼 증가하면 100점이다.
-    """
     if change_rate is None or change_rate <= 0:
         return 0.0
 
@@ -76,13 +62,6 @@ def normalize_negative_change(
     change_rate: float | None,
     target_decrease_rate: float,
 ) -> float:
-    """
-    감소할수록 좋은 지표를 0~100점으로 변환한다.
-
-    예:
-    실제 감소율 -30%, 목표 감소율 30%
-    -> 100점
-    """
     if change_rate is None or change_rate >= 0:
         return 0.0
 
@@ -103,9 +82,6 @@ def normalize_point_increase(
     after: float,
     target_point: float,
 ) -> float:
-    """
-    별점, 재방문율처럼 차이값으로 판단하는 지표를 점수화한다.
-    """
     point_change = after - before
 
     if point_change <= 0:

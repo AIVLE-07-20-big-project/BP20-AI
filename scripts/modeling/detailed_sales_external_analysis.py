@@ -359,6 +359,18 @@ def analyze_internal_drivers(
 
     count_effect = (current_count - baseline_count) * (baseline_aov + current_aov) / 2
     aov_effect = (current_aov - baseline_aov) * (baseline_count + current_count) / 2
+
+    # 메뉴 개별 이름은 POS 데이터에 없고 product_category만 있어, "최고 매출 메뉴" 대신
+    # 이번 기간(current) 매출이 가장 높은 카테고리를 보여준다.
+    category_revenue = current.groupby("product_category", observed=True)["Total_Bill"].sum()
+    top_category = None
+    if not category_revenue.empty:
+        top_name = category_revenue.idxmax()
+        top_category = {
+            "category": str(top_name),
+            "revenue": round(float(category_revenue.loc[top_name]), 2),
+        }
+
     summary = {
         "baselineRevenue": round(baseline_revenue, 2),
         "currentRevenue": round(current_revenue, 2),
@@ -399,6 +411,7 @@ def analyze_internal_drivers(
             "currentEnd": current_end_ts.date().isoformat(),
         },
         "summary": summary,
+        "topCategory": top_category,
         "revenueFormulaDrivers": factor_decomposition,
         "dimensionDrivers": {
             "store": _contribution_rows(
@@ -408,10 +421,104 @@ def analyze_internal_drivers(
             "category": _contribution_rows(
                 baseline, current, "product_category", revenue_change,
             ),
+            "product_type": _contribution_rows(
+                baseline, current, "product_type", revenue_change,
+            ) if "product_type" in transactions else [],
+            "sales_channel": _contribution_rows(
+                baseline, current, "sales_channel", revenue_change,
+            ) if "sales_channel" in transactions else [],
+            "order_type": _contribution_rows(
+                baseline, current, "order_type", revenue_change,
+            ) if "order_type" in transactions else [],
+            "delivery_platform": _contribution_rows(
+                baseline, current, "delivery_platform", revenue_change,
+            ) if "delivery_platform" in transactions else [],
         },
         "priceQuantityDrivers": _price_quantity_decomposition(
             baseline, current, revenue_change,
         ),
+    }
+
+
+def _breakdown_rows(frame: pd.DataFrame, dimension: str) -> list[dict[str, Any]]:
+    """POS에 실제 존재하는 차원별 매출·수량·객단가를 화면용으로 집계한다."""
+    if dimension not in frame.columns:
+        return []
+    data = frame.copy()
+    data[dimension] = data[dimension].fillna("미상").astype(str)
+    receipt_column = "receipt_number" if "receipt_number" in data.columns else "transaction_id"
+    grouped = data.groupby(dimension, dropna=False, observed=True).agg(
+        revenue=("Total_Bill", "sum"),
+        quantity=("transaction_qty", "sum"),
+        transactionCount=("transaction_id", "nunique"),
+        receiptCount=(receipt_column, "nunique"),
+    ).reset_index()
+    total = float(grouped["revenue"].sum()) or 1.0
+    grouped["revenueSharePct"] = grouped["revenue"] / total * 100
+    grouped["averageOrderValue"] = grouped["revenue"] / grouped["receiptCount"].replace(0, np.nan)
+    grouped = grouped.sort_values("revenue", ascending=False).head(20)
+    return [
+        {
+            "value": str(getattr(row, dimension)),
+            "revenue": round(float(row.revenue), 2),
+            "revenueSharePct": round(float(row.revenueSharePct), 2),
+            "quantity": round(float(row.quantity), 2),
+            "transactionCount": int(row.transactionCount),
+            "receiptCount": int(row.receiptCount),
+            "averageOrderValue": round(float(row.averageOrderValue), 2) if pd.notna(row.averageOrderValue) else None,
+        }
+        for row in grouped.itertuples(index=False)
+    ]
+
+
+def _build_sales_breakdown(transactions: pd.DataFrame) -> dict[str, Any]:
+    """날씨·행사와 별개로 POS 원천 컬럼을 활용한 상세 매출 분석."""
+    data = transactions.copy()
+    data["dayOfWeek"] = data["date"].dt.dayofweek
+    data["dayOfWeekLabel"] = data["dayOfWeek"].map({0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"})
+    data["daypart"] = pd.cut(
+        data["hour"], bins=[-1, 6, 10, 14, 18, 22, 24],
+        labels=["새벽(0~6)", "오전(7~10)", "점심(11~14)", "오후(15~18)", "저녁(19~22)", "심야(23~24)"],
+    )
+    data["weekdayDaypart"] = data["dayOfWeekLabel"].astype(str) + " · " + data["daypart"].astype(str)
+    result: dict[str, Any] = {
+        "dimensions": {},
+        "hourly": _breakdown_rows(data.assign(hour=data["hour"].astype(str)), "hour"),
+        "weekday": _breakdown_rows(data, "dayOfWeekLabel"),
+        "daypart": _breakdown_rows(data, "daypart"),
+        "weekdayDaypart": _breakdown_rows(data, "weekdayDaypart"),
+        "priceQuantity": {
+            "averageUnitPrice": round(float(data["unit_price"].mean()), 2),
+            "medianUnitPrice": round(float(data["unit_price"].median()), 2),
+            "averageQuantityPerLine": round(float(data["transaction_qty"].mean()), 2),
+        },
+    }
+    for dimension in ("product_category", "product_type", "product_detail", "sales_channel", "order_type", "delivery_platform", "payment_method", "store_location", "terminal_id"):
+        rows = _breakdown_rows(data, dimension)
+        if rows:
+            result["dimensions"][dimension] = rows
+    return result
+
+
+def _build_traffic_analysis(merged: pd.DataFrame) -> dict[str, Any] | None:
+    """분기 유동인구를 활용한 매출/유동인구 참고 지표."""
+    column = "foot_traffic_quarterly"
+    if column not in merged or merged[column].dropna().empty:
+        return None
+    data = merged.dropna(subset=[column]).copy()
+    traffic = float(data[column].mean())
+    if traffic <= 0:
+        return None
+    daily_revenue = float(data["revenue"].mean())
+    daily_transactions = float(data["transaction_count"].mean())
+    return {
+        "available": True,
+        "averageQuarterlyFootTraffic": round(traffic, 2),
+        "averageDailyRevenue": round(daily_revenue, 2),
+        "averageDailyTransactions": round(daily_transactions, 2),
+        "revenuePerFootTraffic": round(daily_revenue / traffic, 6),
+        "transactionsPerFootTrafficPct": round(daily_transactions / traffic * 100, 4),
+        "interpretation": "분기 유동인구 대비 POS 매출·거래건수를 비교한 참고 지표입니다. 실제 고객 전환율과는 다를 수 있습니다.",
     }
 
 
@@ -677,6 +784,10 @@ def build_root_cause_analysis(
         "store": lambda value: f"{value} 매장",
         "hour": lambda value: f"{value}시 시간대",
         "category": lambda value: f"{value} 카테고리",
+        "product_type": lambda value: f"{value} 상품 유형",
+        "sales_channel": lambda value: f"{value} 판매채널",
+        "order_type": lambda value: f"{value} 주문유형",
+        "delivery_platform": lambda value: f"{value} 배달 플랫폼",
     }
     materiality_threshold = abs(change) * 0.05
     for dimension, drivers in internal.get("dimensionDrivers", {}).items():
@@ -709,6 +820,8 @@ def build_root_cause_analysis(
         key=lambda item: abs(float(item["contributionAmount"])),
         reverse=True,
     )
+    # 원인 문장이 지나치게 길어지지 않도록 영향이 큰 상위 요인만 서술한다.
+    detailed_internal = detailed_internal[:6]
 
     period = internal.get("period", {})
     if {
@@ -729,7 +842,7 @@ def build_root_cause_analysis(
     )
     if detailed_internal:
         detail_text = ", ".join(item["label"] for item in detailed_internal)
-        narrative += f" 세부 원인으로 {detail_text}이 확인됐습니다."
+        narrative += f" 세부 원인으로 {detail_text}에서 변화가 두드러졌습니다."
     if reliable_external:
         external_text = ", ".join(item["label"] for item in reliable_external)
         narrative += (
@@ -747,6 +860,7 @@ def build_root_cause_analysis(
         },
         "headline": f"{internal_label} 변화를 중심으로 매출이 {direction_ko}한 것으로 분석됩니다.",
         "narrative": narrative,
+        "topCategory": internal.get("topCategory"),
         "internalDrivers": formula_drivers,
         "internalDetailedDrivers": detailed_internal,
         "externalDrivers": reliable_external,
@@ -877,6 +991,40 @@ def analyze_external_factors(
     return results
 
 
+def _build_event_analysis(merged: pd.DataFrame) -> dict[str, Any] | None:
+    """분기 행사 노출 정보를 상세 화면에서 확인할 수 있도록 정리한다.
+
+    행사 데이터가 분기 단위이면 행사 전·중·후 일별 효과로 확대해석하지 않고,
+    행사 노출 분기와 비노출 분기의 매출 수준을 비교하는 참고 지표로만 제공한다.
+    """
+    columns = [column for column in ("event_count_quarterly", "event_days_quarterly", "event_exposure_quarterly") if column in merged]
+    if not columns:
+        return None
+    event_column = "event_exposure_quarterly" if "event_exposure_quarterly" in merged else columns[0]
+    data = merged.dropna(subset=[event_column]).copy()
+    if data.empty:
+        return {"available": False, "reason": "POS 기간에 일치하는 행사 데이터가 없습니다."}
+    exposed = data[data[event_column] > 0]
+    unexposed = data[data[event_column] <= 0]
+    exposed_revenue = float(exposed["revenue"].mean()) if not exposed.empty else None
+    unexposed_revenue = float(unexposed["revenue"].mean()) if not unexposed.empty else None
+    comparison = None
+    if exposed_revenue is not None and unexposed_revenue not in (None, 0):
+        comparison = round((exposed_revenue / unexposed_revenue - 1) * 100, 2)
+    return {
+        "available": True,
+        "eventCount": int(data["event_count_quarterly"].max()) if "event_count_quarterly" in data else None,
+        "eventDays": int(data["event_days_quarterly"].max()) if "event_days_quarterly" in data else None,
+        "exposure": round(float(data[event_column].max()), 4),
+        "exposedDays": int(len(exposed)),
+        "unexposedDays": int(len(unexposed)),
+        "averageDailyRevenueExposed": round(exposed_revenue, 2) if exposed_revenue is not None else None,
+        "averageDailyRevenueUnexposed": round(unexposed_revenue, 2) if unexposed_revenue is not None else None,
+        "exposedVsUnexposedRevenuePct": comparison,
+        "interpretation": "행사 노출 분기와 비노출 분기의 매출 수준 비교입니다. 행사 자체의 인과효과를 의미하지 않습니다.",
+    }
+
+
 def run_analysis(
     pos_path: str | Path = DEFAULT_POS_PATH,
     external_path: str | Path | None = None,
@@ -920,6 +1068,9 @@ def run_analysis(
             }
             for row in daily_sales.itertuples(index=False)
         ],
+        "salesBreakdown": _build_sales_breakdown(transactions),
+        "eventAnalysis": None,
+        "trafficAnalysis": None,
         "externalFactors": [],
         "internalAnalysis": analyze_internal_drivers(transactions),
         "dataQuality": {
@@ -983,6 +1134,8 @@ def run_analysis(
         result["internalAnalysis"],
         join_rates,
     )
+    result["eventAnalysis"] = _build_event_analysis(merged)
+    result["trafficAnalysis"] = _build_traffic_analysis(merged)
     result["rootCauseAnalysis"] = build_root_cause_analysis(
         result["internalAnalysis"],
         external_attribution,

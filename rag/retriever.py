@@ -19,6 +19,30 @@ TIER_LABEL = {
     "official": "공공통계",
 }
 
+# action 태깅용 문자열 후보 — doc_id/source_url 문자열 매치만으로 action-특화 여부를 판정한다.
+# 매핑이 없는 action은 매칭하지 않는다("즉시할인"은 URL 카테고리명과 우연히 겹칠 뿐이라 제외)
+ACTION_NAME_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "쿠폰발행": ("쿠폰발행", "쿠폰"),
+    "타임세일": ("타임세일",),
+    "세트메뉴 도입": ("세트메뉴",),
+    "사이드메뉴 추가": ("사이드메뉴",),
+    "배달채널 확대": ("배달채널", "배달"),
+    "매장 리뉴얼": ("매장 리뉴얼", "리뉴얼"),
+    "신메뉴 출시": ("신메뉴",),
+    "웰컴 프로모션": ("웰컴",),
+    "리뷰 관리 캠페인": ("리뷰",),
+    "브랜드 SNS 캠페인": ("SNS",),
+    "지역 제휴 마케팅": ("제휴",),
+}
+
+
+def _action_tag_matches(chunk: dict, action: str) -> bool:
+    candidates = ACTION_NAME_SYNONYMS.get(action, ())
+    if not candidates:
+        return False
+    haystack = f"{chunk.get('source_url') or ''} {chunk.get('doc_id') or ''}"
+    return any(name in haystack for name in candidates)
+
 
 # 임베딩 행렬 + 청크 메타를 담은 검색 인덱스
 @dataclass
@@ -111,25 +135,31 @@ class RagIndex:
         order = idxs[np.argsort(-sims[idxs])][:k]
         return [(float(sims[i]), self.chunks[i]) for i in order]
 
-    # 방향성(academic) + 수치(vendor)를 분리 수집
+    # 방향성(academic) + 수치(vendor)를 분리 수집. action이 주어지면 action-특화 자료를 우선한다
     def build_evidence(
         self,
         query: str,
         axis: str | None = None,
+        action: str | None = None,
         n_direction: int = 3,
         n_magnitude: int = 3,
         window: int = 1,
     ) -> dict[str, Any]:
-
-
-
-
-
-
-
-
         direction = self.search(query, k=n_direction, tier="academic", axis=axis)
-        magnitude = self.search(query, k=n_magnitude, tier="vendor", axis=axis, require_stat=True)
+        pool = self.search(query, k=max(n_magnitude * 4, 20), tier="vendor", axis=axis, require_stat=True)
+
+        if action:
+            specific = [(s, c) for s, c in pool if _action_tag_matches(c, action)]
+            generic = [(s, c) for s, c in pool if not _action_tag_matches(c, action)]
+            magnitude = specific[:n_magnitude]
+            if len(magnitude) < n_magnitude:
+                magnitude += generic[: n_magnitude - len(magnitude)]
+            specific_ids = {id(c) for _, c in specific[:n_magnitude]}
+            action_specific_available = bool(specific)
+        else:
+            magnitude = pool[:n_magnitude]
+            specific_ids = {id(c) for _, c in magnitude}
+            action_specific_available = None
 
         allowed: list[dict[str, Any]] = []
         for _, c in magnitude:
@@ -143,6 +173,7 @@ class RagIndex:
                         "doc_id": c["doc_id"],
                         "page": c["page_start"],
                         "tier_label": TIER_LABEL["vendor"],
+                        "action_specific": id(c) in specific_ids,
                     }
                 )
         allowed = dedup_numbers(allowed)
@@ -150,6 +181,8 @@ class RagIndex:
         return {
             "query": query,
             "axis": axis,
+            "action": action,
+            "action_specific_available": action_specific_available,
             "direction_refs": [
                 {
                     "doc_id": c["doc_id"],
@@ -163,6 +196,26 @@ class RagIndex:
             "allowed_numbers": allowed,
             "has_magnitude": bool(allowed),
         }
+
+    # axis별 vendor(수치) 자료 중 action-특화 태깅이 전혀 안 되는 축을 찾는다
+    # (우선 보강 대상 파악용, 설계 §10)
+    def axis_coverage_report(self) -> dict[str, dict]:
+        axes = {c["axis"] for c in self.chunks if c["tier"] == "vendor"}
+        report = {}
+        for axis in axes:
+            vendor_chunks = [
+                c for c in self.chunks if c["tier"] == "vendor" and c["axis"] == axis and c["contains_stat"]
+            ]
+            specific_count = sum(
+                1 for c in vendor_chunks
+                if any(_action_tag_matches(c, action) for action in ACTION_NAME_SYNONYMS)
+            )
+            report[axis] = {
+                "총_수치자료": len(vendor_chunks),
+                "action_특화_수치자료": specific_count,
+                "전부_axis_공용": specific_count == 0 and len(vendor_chunks) > 0,
+            }
+        return report
 
 
 # 허용 수치 추출(build_evidence)과 생성문 검증(generator.verify_output)이 공유하는
@@ -195,13 +248,20 @@ def extract_stat_contexts(chunk: dict, window: int = 1) -> list[dict]:
     return out
 
 
-# 같은 값이 여러 청크에서 나오면 가장 긴 맥락 하나만 남긴다
+# 같은 값이 여러 청크에서 나오면 action-특화를 우선하고, 동률이면 가장 긴 맥락을 남긴다
 def dedup_numbers(allowed: list[dict]) -> list[dict]:
 
     best: dict[str, dict] = {}
     for a in allowed:
         cur = best.get(a["value"])
-        if cur is None or len(a["sentence"]) > len(cur["sentence"]):
+        if cur is None:
+            best[a["value"]] = a
+            continue
+        a_specific = a.get("action_specific", True)
+        cur_specific = cur.get("action_specific", True)
+        if a_specific and not cur_specific:
+            best[a["value"]] = a
+        elif a_specific == cur_specific and len(a["sentence"]) > len(cur["sentence"]):
             best[a["value"]] = a
     return list(best.values())
 
