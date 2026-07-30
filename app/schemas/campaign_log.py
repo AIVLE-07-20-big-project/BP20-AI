@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel
@@ -15,6 +16,13 @@ class CampaignLogRequest(BaseModel):
     variable_cost_after: Optional[float] = None
     campaign_cost: Optional[float] = None
     measurement_days: Optional[int] = None
+    execution_started_at: Optional[datetime] = None
+    execution_ended_at: Optional[datetime] = None
+    measurement_started_at: Optional[date] = None
+    measurement_ended_at: Optional[date] = None
+    baseline_period_start: Optional[date] = None
+    baseline_period_end: Optional[date] = None
+    control_store_ids: Optional[list[str]] = None
 
 
 class CampaignLogResponse(BaseModel):
