@@ -7,7 +7,7 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -38,12 +38,22 @@ SCHEMA_COLUMNS = [
     "selection_source", "expected_rewards", "uncertainties",
     "net_sales_before", "net_sales_after", "variable_cost_before", "variable_cost_after",
     "campaign_cost", "measurement_days",
+    "execution_started_at", "execution_ended_at",
+    "measurement_started_at", "measurement_ended_at",
+    "baseline_period_start", "baseline_period_end", "control_store_ids",
     "reward_definition_version", "reward_denominator_floor", "reward_status", "reward",
     "policy_version", "model_version", "model_sha256",
     "ope_eligible", "training_eligible", "데이터_출처", "logged_at",
 ]
 
 _logger = logging.getLogger(__name__)
+
+PERIOD_COLUMNS = {
+    "execution_started_at", "execution_ended_at", "measurement_started_at",
+    "measurement_ended_at", "baseline_period_start", "baseline_period_end",
+    "control_store_ids",
+}
+REQUIRED_SCHEMA_COLUMNS = [column for column in SCHEMA_COLUMNS if column not in PERIOD_COLUMNS]
 
 
 # 해당 thread_id의 agent-run을 찾을 수 없음
@@ -116,6 +126,26 @@ def _none_if_nan(value):
     return None if pd.isna(value) else value
 
 
+def _iso(value: date | datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _validate_periods(
+    execution_started_at: datetime | None,
+    execution_ended_at: datetime | None,
+    measurement_started_at: date | None,
+    measurement_ended_at: date | None,
+    baseline_period_start: date | None,
+    baseline_period_end: date | None,
+) -> None:
+    if execution_started_at and execution_ended_at and execution_ended_at < execution_started_at:
+        raise ValueError("execution_ended_at은 execution_started_at 이후여야 합니다")
+    if measurement_started_at and measurement_ended_at and measurement_ended_at < measurement_started_at:
+        raise ValueError("measurement_ended_at은 measurement_started_at 이후여야 합니다")
+    if baseline_period_start and baseline_period_end and baseline_period_end < baseline_period_start:
+        raise ValueError("baseline_period_end는 baseline_period_start 이후여야 합니다")
+
+
 # 저장된 reward를 net_sales/variable_cost/campaign_cost로 재계산해 일치하는지 검증
 def _reward_recompute_mismatch(row: pd.Series) -> bool:
     if row["reward_status"] != "complete":
@@ -145,8 +175,16 @@ def append_log(
     net_sales_after: float | None = None,
     variable_cost_before: float | None = None, variable_cost_after: float | None = None,
     campaign_cost: float | None = None, measurement_days: int | None = None,
+    execution_started_at: datetime | None = None, execution_ended_at: datetime | None = None,
+    measurement_started_at: date | None = None, measurement_ended_at: date | None = None,
+    baseline_period_start: date | None = None, baseline_period_end: date | None = None,
+    control_store_ids: list[str] | None = None,
     campaign_logs: Path | None = None, user_id: str | None = None,
 ) -> dict:
+    _validate_periods(
+        execution_started_at, execution_ended_at, measurement_started_at,
+        measurement_ended_at, baseline_period_start, baseline_period_end,
+    )
     campaign_logs = Path(campaign_logs) if campaign_logs is not None else CAMPAIGN_LOGS_V2
     config = {"configurable": {"thread_id": thread_id}}
     snapshot = get_graph().get_state(config)
@@ -213,7 +251,7 @@ def append_log(
         "policy_selected_action": state.get("policy_selected_action"),
         "policy_selected_propensity": policy_selected_propensity,
         "approved_action": action_id,
-        "executed_action": action_id,
+        "executed_action": action_id if executed else None,
         "behavior_propensity": behavior_propensity,
         "decision_source": decision_source,
         "selection_source": selection_source,
@@ -226,6 +264,13 @@ def append_log(
         "net_sales_before": net_sales_before, "net_sales_after": net_sales_after,
         "variable_cost_before": variable_cost_before, "variable_cost_after": variable_cost_after,
         "campaign_cost": campaign_cost, "measurement_days": measurement_days,
+        "execution_started_at": _iso(execution_started_at),
+        "execution_ended_at": _iso(execution_ended_at),
+        "measurement_started_at": _iso(measurement_started_at),
+        "measurement_ended_at": _iso(measurement_ended_at),
+        "baseline_period_start": _iso(baseline_period_start),
+        "baseline_period_end": _iso(baseline_period_end),
+        "control_store_ids": json.dumps(control_store_ids or [], ensure_ascii=False),
         "reward_definition_version": REWARD_DEFINITION_VERSION,
         "reward_denominator_floor": DEFAULT_REWARD_DENOMINATOR_FLOOR,
         "reward_status": reward_status,
@@ -279,7 +324,8 @@ def validate_logs(campaign_logs: Path | None = None) -> dict:
         return {"총행수": 0, "유효행수": 0, "제외행수": 0, "제외사유": {}}
 
     logs = pd.read_csv(path)
-    missing_cols = [c for c in SCHEMA_COLUMNS if c not in logs.columns]
+    # 기간 추적 필드는 기존 로그와의 하위 호환을 위해 누락되어도 기존 행을 무효화하지 않는다.
+    missing_cols = [c for c in REQUIRED_SCHEMA_COLUMNS if c not in logs.columns]
     if missing_cols:
         return {"총행수": int(len(logs)), "유효행수": 0, "제외행수": int(len(logs)),
                 "제외사유": {"스키마 컬럼 누락": missing_cols}}
@@ -288,7 +334,10 @@ def validate_logs(campaign_logs: Path | None = None) -> dict:
     ope_eligible = logs["ope_eligible"].astype(bool)
     checks = [
         ("decision_id 중복", logs["decision_id"].duplicated(keep="first")),
-        ("알 수 없는 action_id", ~logs["executed_action"].isin(action_rules.ACTIONS.keys())),
+        (
+            "알 수 없는 action_id",
+            logs["executed_action"].notna() & ~logs["executed_action"].isin(action_rules.ACTIONS.keys()),
+        ),
         (
             "behavior_propensity 범위(0,1] 벗어남 — ope_eligible 행에 한함",
             ope_eligible & ~logs["behavior_propensity"].between(0, 1, inclusive="right"),
