@@ -325,6 +325,9 @@ def _route_after_approval(state: RecommendationState) -> str:
         return "generate_report"
     if status == "edited":
         return ["estimate", "evidence"]
+    # 반려 이력도 같은 thread에서 다시 승인할 수 있도록 승인 대기를 유지한다.
+    if status == "rejected":
+        return "await_approval"
     return END
 
 
