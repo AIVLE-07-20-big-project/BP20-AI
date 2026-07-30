@@ -4,7 +4,10 @@ import os
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT / ".env", override=False)
 DATA = ROOT / "data"
 MODEL = ROOT / "model"
 AGENT_DATA = DATA / "agent"
@@ -47,6 +50,10 @@ class ABSASettings:
     MODEL_PATH: str = os.getenv("MODEL_PATH", "thadus2/roberta-absa-best-4class")
 
     HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+    HF_MODEL_REPO_ID: str = os.getenv("HF_MODEL_REPO_ID", "")
+    HF_DATASET_REPO_ID: str = os.getenv("HF_DATASET_REPO_ID", "")
+    HF_ASSET_REVISION: str = os.getenv("HF_ASSET_REVISION", "main")
+    HF_AUTO_DOWNLOAD_ASSETS: bool = _bool_env("HF_AUTO_DOWNLOAD_ASSETS", True)
 
     ASPECTS: list = ["food", "service", "convenience", "price", "atmosphere"]
     LABEL_MAP: dict = {0: "부정", 1: "중립", 2: "긍정", 3: "none"}
