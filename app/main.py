@@ -17,6 +17,7 @@ from app.routers import (
     analysis,
     campaign_logs,
     effect_verification_router,
+    forecast,
     review,
     jobs,
 )
@@ -87,6 +88,7 @@ app.include_router(campaign_logs.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(ocr.router)
 app.include_router(effect_verification_router.router)
+app.include_router(forecast.router)
 app.include_router(online_trend.router)
 app.include_router(product_image.router)
 
