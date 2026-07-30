@@ -1,6 +1,7 @@
 # Neural Contextual Bandit — 대응방안 선택 (WHAT)
 from __future__ import annotations
 
+import io
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -219,7 +220,7 @@ class NeuralContextualBandit:
         path.parent.mkdir(parents=True, exist_ok=True)
         # 저장 중에 select_arm의 load가 겹쳐도 부분 파일을 읽지 않도록 원자적으로 교체한다
         tmp_path = path.with_suffix(path.suffix + ".tmp")
-        torch.save({
+        payload = {
             "context_dim": self.context_dim,
             "encoding_dim": self.encoding_dim,
             "arms": list(self.arms),
@@ -236,7 +237,12 @@ class NeuralContextualBandit:
             "A": self.A,
             "b": self.b,
             "buffer": self.buffer,
-        }, tmp_path)
+        }
+        # Windows의 torch zip writer는 한글 경로를 직접 열 때 실패할 수
+        # 있으므로 메모리 버퍼에 직렬화한 뒤 pathlib로 원자 교체한다.
+        buffer = io.BytesIO()
+        torch.save(payload, buffer)
+        tmp_path.write_bytes(buffer.getvalue())
         tmp_path.replace(path)
 
     @classmethod
