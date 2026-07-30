@@ -157,6 +157,11 @@ def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator
             raise RuntimeError(f"synthetic reward 계산 실패: {reward_result.reason}")
 
         logged_at = base_time + timedelta(hours=i)
+        execution_end = logged_at + timedelta(days=MEASUREMENT_DAYS)
+        measurement_start = logged_at.date()
+        measurement_end = (logged_at + timedelta(days=MEASUREMENT_DAYS - 1)).date()
+        baseline_start = (logged_at - timedelta(days=MEASUREMENT_DAYS)).date()
+        baseline_end = (logged_at - timedelta(days=1)).date()
         row = {col: None for col in SCHEMA_COLUMNS}
         row.update({
             "decision_id": str(uuid.uuid4()),
@@ -184,6 +189,15 @@ def generate_rows(등급: str, arms: list[str], n: int, rng: np.random.Generator
             "expected_rewards": json.dumps({}, ensure_ascii=False),
             "uncertainties": json.dumps({}, ensure_ascii=False),
             **costs, "measurement_days": MEASUREMENT_DAYS,
+            "execution_started_at": logged_at.isoformat(),
+            "execution_ended_at": execution_end.isoformat(),
+            "measurement_started_at": measurement_start.isoformat(),
+            "measurement_ended_at": measurement_end.isoformat(),
+            "baseline_period_start": baseline_start.isoformat(),
+            "baseline_period_end": baseline_end.isoformat(),
+            "control_store_ids": json.dumps(
+                [f"synthetic-control-{trdar_cd}"], ensure_ascii=False,
+            ),
             "reward_definition_version": REWARD_DEFINITION_VERSION,
             "reward_denominator_floor": DEFAULT_REWARD_DENOMINATOR_FLOOR,
             "reward_status": "complete", "reward": reward_result.reward,
