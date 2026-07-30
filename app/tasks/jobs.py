@@ -14,3 +14,11 @@ def cleanup_stale_jobs(queued_max_age_minutes: int = 5, running_max_age_minutes:
     for job_id in cleaned:
         uploads.delete_job_upload(job_id)
     return cleaned
+
+
+@celery_app.task(name="jobs.purge_expired_uploads")
+def purge_expired_uploads(max_age_days: int = 7) -> int:
+    """실패 후 재현 목적으로 남겨둔 업로드 원본을 보존기간 경과 시 정리한다."""
+    from app.core import uploads
+
+    return uploads.purge_expired_uploads(max_age_days=max_age_days)

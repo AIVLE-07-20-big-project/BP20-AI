@@ -10,8 +10,11 @@ from app.core.config import JOBS_DB
 
 def _connect() -> sqlite3.Connection:
     JOBS_DB.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(str(JOBS_DB))
+    connection = sqlite3.connect(str(JOBS_DB), timeout=10)
     connection.row_factory = sqlite3.Row
+    # API와 worker가 동시에 여는 파일이라 WAL + busy_timeout으로 "database is locked"을 줄인다.
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("PRAGMA busy_timeout=10000")
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS analysis_jobs (

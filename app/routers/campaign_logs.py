@@ -18,7 +18,17 @@ def create_campaign_log(
     try:
         return append_log(
             thread_id=payload.thread_id, executed=payload.executed,
-            treatment_yyqu_cd=payload.treatment_yyqu_cd, revenue_after=payload.revenue_after,
+            treatment_yyqu_cd=payload.treatment_yyqu_cd, net_sales_after=payload.net_sales_after,
+            variable_cost_before=payload.variable_cost_before,
+            variable_cost_after=payload.variable_cost_after,
+            campaign_cost=payload.campaign_cost, measurement_days=payload.measurement_days,
+            execution_started_at=payload.execution_started_at,
+            execution_ended_at=payload.execution_ended_at,
+            measurement_started_at=payload.measurement_started_at,
+            measurement_ended_at=payload.measurement_ended_at,
+            baseline_period_start=payload.baseline_period_start,
+            baseline_period_end=payload.baseline_period_end,
+            control_store_ids=payload.control_store_ids,
             user_id=x_user_id,
         )
     except DecisionNotFound as e:
@@ -27,6 +37,8 @@ def create_campaign_log(
         raise HTTPException(status_code=409, detail=str(e))
     except DecisionOwnershipMismatch as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.get("/campaign-logs/quality", response_model=CampaignLogQualityResponse)
