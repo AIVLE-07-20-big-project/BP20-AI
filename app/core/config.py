@@ -1,3 +1,5 @@
+import os
+
 # 경로 상수 — scripts/modeling/sales_analysis.py의 ROOT/DATA/MODEL 정의와 동일하게 유지
 import os
 from pathlib import Path
@@ -25,7 +27,6 @@ RESIDENT_POPULATION = SOURCE_DATA / "resident_population.csv"
 WORKPLACE_POPULATION = SOURCE_DATA / "workplace_population.csv"
 WEATHER_QUARTERLY = SOURCE_DATA / "weather_seoul_quarterly.csv"
 MERGED_SALES_ANALYSIS = PROCESSED_DATA / "merged_sales_analysis.csv"
-
 SEOUL_WEATHER_MONTHLY = SOURCE_DATA / "weather_seoul_monthly_raw.csv"
 SEOUL_WEATHER_DAILY = SOURCE_DATA / "weather_seoul_daily_recent.csv"
 SEOUL_EVENT_EXPOSURE = PROCESSED_DATA / "event_exposure_quarterly.csv"
@@ -42,3 +43,13 @@ BANDIT_POLICY_V2_ENABLED = _bool_env("BANDIT_POLICY_V2_ENABLED", False)
 BANDIT_V2_SHADOW_ENABLED = _bool_env("BANDIT_V2_SHADOW_ENABLED", True)
 BANDIT_EXPERIMENT_ENABLED = _bool_env("BANDIT_EXPERIMENT_ENABLED", False)
 BANDIT_EXPERIMENT_EPSILON = float(os.environ.get("BANDIT_EXPERIMENT_EPSILON", "0.10"))
+class ABSASettings:    
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "thadus2/roberta-absa-best-4class")
+
+    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+
+    ASPECTS: list = ["food", "service", "convenience", "price", "atmosphere"]
+    LABEL_MAP: dict = {0: "부정", 1: "중립", 2: "긍정", 3: "none"}
+    MAX_LENGTH: int = 128
+
+settings = ABSASettings()

@@ -1,3 +1,12 @@
+# Trained Model Weights / Checkpoints
+roberta_absa_best_4class/
+
+# AI 모델 가중치 확장자들 (혹시 모를 대비)
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
 # 로컬 비밀정보
 .env
 

@@ -1,5 +1,12 @@
-from fastapi import FastAPI
+import sys
+import os
+from contextlib import asynccontextmanager
 
+import torch
+from fastapi import FastAPI
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+from app.core.config import settings
 from app.core import bootstrap  # noqa: F401
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.ocr import router as ocr
@@ -10,6 +17,7 @@ from app.routers import (
     analysis,
     campaign_logs,
     effect_verification_router,
+    review,
     jobs,
 )
 
@@ -26,14 +34,53 @@ OPENAPI_TAGS = [
     {"name": "상태 확인", "description": "통합 FastAPI 서비스 상태 확인"},
 ]
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"RoBERTa ABSA is loading (Device: {device})")
+
+    model_path = getattr(settings, "MODEL_PATH", "thadus2/roberta-absa-best-4class")
+    hf_token = getattr(settings, "HF_TOKEN", None) or os.getenv("HF_TOKEN")
+
+    token_arg = hf_token if hf_token else None
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path, token=token_arg)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path, token=token_arg)
+    
+    model.to(device)
+    model.eval()
+
+    app.state.tokenizer = tokenizer
+    app.state.model = model
+    app.state.device = device
+    
+    print("RoBERTa 모델 로드 완료!")
+    try:
+        from app.ocr.pipeline import _get_ocr_engine
+
+        print("서버 시작 - PaddleOCR 모델 예열 중...")
+        _get_ocr_engine()
+        print("PaddleOCR 모델 예열 완료.")
+    except Exception as e:
+        print(f"PaddleOCR 예열 중 알림: {e}")
+
+    yield
+    
+    del app.state.tokenizer
+    del app.state.model
+
 app = FastAPI(
     title="20BG AI 서비스",
-    version="1.0.0",
-    description="매출 분석, 고객 대응방안 추천·검증, 영수증 OCR 통합 API",
+    version="1.0.1",
+    description="모델 및 FastAPI 서버 구조 1차 통합 version",
     openapi_tags=OPENAPI_TAGS,
     responses=ERROR_RESPONSES,
+    lifespan=lifespan,
 )
+
 register_error_handlers(app)
+
+app.include_router(review.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
@@ -43,12 +90,6 @@ app.include_router(effect_verification_router.router)
 app.include_router(online_trend.router)
 app.include_router(product_image.router)
 
-
-# 최초 OCR 요청이 지연되지 않도록 서버 시작 시 PaddleOCR 모델을 미리 로드한다.
-@app.on_event("startup")
-async def warm_up_ocr_engine() -> None:
-    from app.ocr.pipeline import _get_ocr_engine
-
-    print("서버 시작 - PaddleOCR 모델 예열 중...")
-    _get_ocr_engine()
-    print("PaddleOCR 모델 예열 완료.")
+@app.get("/")
+def health_check():
+    return {"status": "ok", "message": "BP Team 20 AI Server is running!"}

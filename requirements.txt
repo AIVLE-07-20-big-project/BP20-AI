@@ -43,3 +43,9 @@ rembg[cpu]>=2.0
 pillow>=10.0
 requests>=2.31
 python-dotenv>=1.0
+
+pydantic==2.13.4
+pydantic-settings==2.14.2
+transformers==5.14.1
+tokenizers==0.22.2
+safetensors==0.8.0
