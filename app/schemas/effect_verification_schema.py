@@ -1,7 +1,7 @@
 """Request and response schemas for effect verification."""
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -192,3 +192,32 @@ class EffectVerificationResponse(BaseModel):
     verdict: str
     metric_results: list[MetricResult]
     summary: str
+
+
+class EffectVerificationFromAnalysesRequest(BaseModel):
+    """/analyses로 이미 저장된 두 분석(적용전·적용후)을 비교해 매출형 전략검증을 요청한다"""
+
+    before_analysis_id: str
+    after_analysis_id: str
+    store_id: int
+    recommendation_id: int
+    start_hour: Optional[int] = Field(default=None, ge=0, le=23)
+    end_hour: Optional[int] = Field(default=None, ge=0, le=23)
+    period_days: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="비교 기간 일수(생략 시 적용후 분석의 POS 날짜 범위로 자동 계산)",
+    )
+
+
+class EffectVerificationFromAnalysesResponse(EffectVerificationResponse):
+    """저장된 분석 결과 두 건으로 자동 집계한 매출형 전략검증 결과"""
+
+    computation_notes: list[str] = Field(
+        default_factory=list,
+        description="자동 집계 과정에서 근사·생략한 항목에 대한 안내",
+    )
+    strategy_report: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="지표를 사람이 읽는 구조화 보고서로 요약한 결과(headline/summary/sections)",
+    )
