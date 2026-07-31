@@ -273,12 +273,16 @@ def _await_approval(state: RecommendationState) -> dict:
         candidate_status = state.get("candidate_status") or {}
         if candidate is None:
             warnings.append(f"edit 방안 '{방안명}' — 후보 목록에 없어 반려 처리")
-            return {"approval_status": "rejected", "warnings": warnings, "status": "종료: 잘못된 edit 요청으로 반려"}
+            return {
+                "approval_status": "needs_revision",
+                "warnings": warnings,
+                "status": "수정 필요: 잘못된 edit 요청",
+            }
         if candidate_status.get(방안명) == "blocked":
             warnings.append(f"edit 방안 '{방안명}' — OPE 안전성 검사에서 차단(blocked)되어 반려 처리")
             return {
-                "approval_status": "rejected", "warnings": warnings,
-                "status": "종료: 차단된 방안으로 edit 요청되어 반려",
+                "approval_status": "needs_revision", "warnings": warnings,
+                "status": "수정 필요: 차단된 방안으로 edit 요청됨",
             }
         return {
             "approval_status": "edited", "selected_action": candidate,
@@ -296,12 +300,12 @@ def _await_approval(state: RecommendationState) -> dict:
             candidate_status = state.get("candidate_status") or {}
             if candidate is None:
                 warnings.append(f"approve 방안 '{선택방안}' — 후보 목록에 없어 반려 처리")
-                return {"approval_status": "rejected", "warnings": warnings,
-                        "status": "종료: 잘못된 승인 방안으로 반려"}
+                return {"approval_status": "needs_revision", "warnings": warnings,
+                        "status": "수정 필요: 잘못된 승인 방안"}
             if candidate_status.get(선택방안) == "blocked":
                 warnings.append(f"approve 방안 '{선택방안}' — OPE 안전성 검사에서 차단되어 반려 처리")
-                return {"approval_status": "rejected", "warnings": warnings,
-                        "status": "종료: 차단된 방안으로 승인 요청되어 반려 처리"}
+                return {"approval_status": "needs_revision", "warnings": warnings,
+                        "status": "수정 필요: 차단된 방안은 승인할 수 없음"}
             # 바로 승인한 경우에도 선택 방안이 최종 상태가 되도록 한다.
             selected_action_update = candidate
             decision_source = "human_edit"
@@ -329,8 +333,8 @@ def _route_after_approval(state: RecommendationState) -> str:
         return "generate_report"
     if status == "edited":
         return ["estimate", "evidence"]
-    # 반려 이력도 같은 thread에서 다시 승인할 수 있도록 승인 대기를 유지한다.
-    if status == "rejected":
+    # 수정이 필요한 입력은 같은 thread에서 다시 승인할 수 있도록 승인 대기를 유지한다.
+    if status == "needs_revision":
         return "await_approval"
     return END
 
@@ -398,8 +402,7 @@ def get_graph():
         "await_approval", _route_after_approval,
         {
             "generate_report": "generate_report", "estimate": "estimate", "evidence": "evidence",
-            # 반려(rejected) 시 _route_after_approval이 자기 자신으로 돌아가는데(재승인 대기),
-            # 이 self-loop이 ends에 없으면 반려할 때마다 KeyError로 그래프가 죽는다.
+            # 잘못된 입력(needs_revision)은 같은 스레드에서 다시 승인할 수 있도록 대기한다.
             "await_approval": "await_approval", END: END,
         },
     )
