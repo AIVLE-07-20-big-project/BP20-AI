@@ -13,6 +13,8 @@ class RecommendationState(TypedDict, total=False):
     yyqu_cd: int | None
 
     diagnosis: dict | None
+    report: dict | None
+    detailed_analysis: dict | None
     문제유형: str | None
 
     candidate_actions: list[dict]
