@@ -70,3 +70,44 @@ class ReviewAgentState(BaseModel):
     store_context: Optional[Dict[str, Any]] = None
     existing_keywords: List[str] = []
     final_report: Optional[ABSAClusterReport] = None
+
+class PriorityActionItem(BaseModel):
+    priority: str = Field(
+        description="우선순위 (HIGH: 긴급, MEDIUM: 보통/주의, LOW: 유지/권장)"
+    )
+    aspect: str = Field(
+        description="속성 카테고리 (food, service, convenience, price, atmosphere)"
+    )
+    keyword: str = Field(
+        description="대상 대표 키워드 (예: '직원 불친절/응대 미흡')"
+    )
+    trend_summary: str = Field(
+        description="키워드 수치 및 트렌드 요약 (예: '이번 달 3건 발생 (+200% 급증)', '신규 발생 3건')"
+    )
+    problem_cause: str = Field(
+        description="리뷰 표현 기반 주요 원인 추정 (예: '피크타임 대기시간 길어짐에 따른 불친절 응대')"
+    )
+    action_plan: str = Field(
+        description="점주가 현장에서 바로 실행 가능한 구체적 개선 행동 솔루션"
+    )
+    expected_outcome: str = Field(
+        description="개선 실행 시 예상되는 효과"
+    )
+
+class StoreImprovementReport(BaseModel):
+    executive_summary: str = Field(
+        description="점주를 위한 종합 총평 및 이번 달 매장 운영 핵심 한줄 가이드"
+    )
+    action_items: List[PriorityActionItem] = Field(
+        description="우선순위 순으로 정렬된 개선 과제 리스트"
+    )
+
+class ReviewAgentState(BaseModel):
+    store_id: int
+    reviews: List[ReviewRequest]
+    roberta_results: List[Dict[str, Any]] = []
+    store_context: Optional[Dict[str, Any]] = None
+    existing_keywords: List[str] = []
+    past_keyword_counts: Optional[Dict[str, int]] = {}
+    final_report: Optional[ABSAClusterReport] = None
+    improvement_report: Optional[StoreImprovementReport] = None
