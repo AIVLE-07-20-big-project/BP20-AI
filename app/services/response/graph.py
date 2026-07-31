@@ -18,6 +18,7 @@ from app.services.response import action_rules, bandit_store, shadow
 from app.services.response.context import CONTEXT_DIM, CONTEXT_SCHEMA_VERSION, build_context_vector
 from app.services.response.policy import BanditPolicy
 from app.services.response.state import RecommendationState
+from app.services.sales_summary import build_diagnosis_facts
 from rag.generator import generate_report
 from rag.retriever import get_index
 
@@ -175,12 +176,15 @@ def _build_shadow_report(등급: str, context: np.ndarray, selectable: list[str]
 def _select_action(state: RecommendationState) -> dict:
     등급 = state.get("문제유형")
     candidates = state.get("candidate_actions") or []
-    arms = [c["방안"] for c in candidates]
+    # candidate_actions는 validate_candidates가 이미 selectable로만 좁혀놨다 — 모델은
+    # 등급 전체 arm 집합으로 저장돼 있으므로, 로딩은 항상 전체 arm으로 해야 한다
+    # (아니면 arm 수가 달라 BanditLoadMismatch로 매번 콜드스타트된다).
+    full_arms = [c["방안"] for c in action_rules.candidate_actions(등급)]
     selectable = state.get("selectable_actions") or []
     warnings = list(state.get("warnings", []))
 
     context = np.asarray(state["context_vector"], dtype=np.float32)
-    bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+    bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=full_arms)
     shadow_report = _build_shadow_report(등급, context, selectable)
 
     if not model_loaded:
@@ -335,8 +339,11 @@ def _generate_report(state: RecommendationState) -> dict:
     action = state["selected_action"]["방안"]
     target = (state.get("diagnosis") or {}).get("대상", {})
     shop_context = ", ".join(v for v in (target.get("업종명"), target.get("상권명")) if v)
+    diagnosis_facts = build_diagnosis_facts(
+        state.get("report") or {}, state.get("detailed_analysis") or {},
+    )
 
-    out = generate_report(state.get("rag_evidence") or {}, action, shop_context)
+    out = generate_report(state.get("rag_evidence") or {}, action, diagnosis_facts, shop_context)
     warnings = list(state.get("warnings", []))
     if not out["verified"]:
         warnings.append("리포트 수치 검증 실패(재생성 후에도 위반) — 방향성만 신뢰하고 수치는 재확인 필요")
@@ -389,7 +396,12 @@ def get_graph():
     g.add_edge("prepare_approval", "await_approval")
     g.add_conditional_edges(
         "await_approval", _route_after_approval,
-        {"generate_report": "generate_report", "estimate": "estimate", "evidence": "evidence", END: END},
+        {
+            "generate_report": "generate_report", "estimate": "estimate", "evidence": "evidence",
+            # 반려(rejected) 시 _route_after_approval이 자기 자신으로 돌아가는데(재승인 대기),
+            # 이 self-loop이 ends에 없으면 반려할 때마다 KeyError로 그래프가 죽는다.
+            "await_approval": "await_approval", END: END,
+        },
     )
     g.add_edge("generate_report", END)
 
