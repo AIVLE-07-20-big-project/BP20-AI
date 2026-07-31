@@ -332,6 +332,9 @@ def load_v2_logged_batch(
     exclude("behavior_propensity 결측", logs["behavior_propensity"].isna())
     exclude("reward 결측", logs["reward"].isna())
     exclude("데이터_출처 허용 목록 밖", ~logs["데이터_출처"].isin(allowed_data_sources))
+    # store_id가 없으면 store 단위 cross-fitting/bootstrap에서 NaN과 문자열이 섞여
+    # np.unique가 깨진다(정렬 불가) — 사용 전에 걸러낸다.
+    exclude("store_id 결측", logs["store_id"].isna())
     if cutoff_after is not None:
         exclude("safety_data_version 이전 기간 제외(holdout 분리)", logs["logged_at"] < cutoff_after)
     if cutoff_before is not None:
