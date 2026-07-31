@@ -46,4 +46,5 @@ class ABSAGraphRunner:
             total_reviews_analyzed=len(payload.reviews),
             reviews_analysis=reviews_analysis,
             clusters=report.keyword_clusters,
+            improvement_report=final_state.get("improvement_report")
         )
