@@ -190,6 +190,8 @@ def create_recommendation_from_analysis(
         "svc_induty_cd": payload.svc_induty_cd,
         "yyqu_cd": payload.yyqu_cd,
         "diagnosis": payload.diagnosis,
+        "report": payload.report,
+        "detailed_analysis": payload.detailed_analysis,
         "warnings": payload.warnings,
     })
 
@@ -221,6 +223,8 @@ def create_analysis_recommendation(
         "svc_induty_cd": analysis["svc_induty_cd"],
         "yyqu_cd": analysis["yyqu_cd"],
         "diagnosis": analysis["diagnosis"],
+        "report": analysis.get("report"),
+        "detailed_analysis": analysis.get("detailed_analysis"),
         "warnings": analysis["warnings"],
     })
 
