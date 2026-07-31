@@ -1,16 +1,12 @@
 """
 AI 상품 이미지 생성 - 핵심 파이프라인 (API 서비스용)
-
-CLI 스크립트(generate_product_image_openai.py)와 로직은 동일하지만,
-웹 서비스에서 여러 요청이 동시에 들어올 수 있다는 점을 감안해
-파일 경로 대신 바이트(bytes) 데이터를 주고받도록 리팩터링함.
-또한 임시 파일명에 uuid를 붙여 동시 요청 간 충돌을 방지함.
 """
 
 import os
 import uuid
 import base64
 import tempfile
+from typing import Optional
 
 from PIL import Image
 from rembg import remove
@@ -18,6 +14,8 @@ from openai import OpenAI
 
 TARGET_SIZE = (1024, 1024)  # gpt-image-1이 지원하는 정사각형 크기
 
+# 카테고리별 "기본 프롬프트" 프리셋(참고용/초기값).
+# 실제 사용 프롬프트는 요청에 custom_prompt가 오면 그게 우선한다.
 CATEGORY_PROMPTS = {
     "아메리카노": "Place this on a warm wooden cafe table. Gentle steam rising from the hot coffee. "
                  "Soft morning light, natural shadow. Photo realistic, professional coffee shop photography.",
@@ -51,9 +49,65 @@ CATEGORY_PROMPTS = {
              "natural shadow. Photo realistic, professional dessert photography.",
 }
 
+# 프리셋에도 없고 custom_prompt도 없을 때 쓰는 최후 fallback
+DEFAULT_PROMPT_TEMPLATE = (
+    "Place this {category} on a table suitable for its category. "
+    "Professional food and beverage product photography, natural lighting, "
+    "natural shadow, photo realistic."
+)
+
+# custom_prompt 사용 시에도 사진 품질/스타일이 무너지지 않도록 항상 덧붙이는 접미사
+QUALITY_SUFFIX = (
+    " Photo realistic, professional product photography, natural lighting, natural shadow."
+)
+
 
 class InvalidCategoryError(Exception):
     pass
+
+
+def _contains_korean(text: str) -> bool:
+    return any("가" <= ch <= "힣" for ch in text)
+
+
+def _translate_prompt_to_english(korean_text: str) -> str:
+    """gpt-image-1은 영어 프롬프트를 훨씬 더 잘 따르고, 한글 지시문은 스타일/분위기
+    묘사가 약하게 반영되거나 무시되는 경우가 많다. 그래서 이미지 생성에 넘기기 전에
+    한글 프롬프트를 짧은 영어 지시문으로 변환한다."""
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You translate a short Korean instruction for AI product-photo "
+                    "background editing into a single concise English prompt. "
+                    "Keep it under 40 words. Only output the translated prompt, nothing else."
+                ),
+            },
+            {"role": "user", "content": korean_text},
+        ],
+        temperature=0.2,
+    )
+    return completion.choices[0].message.content.strip()
+
+
+def _resolve_prompt(category: str, custom_prompt: Optional[str]) -> str:
+    """실제 사용할 프롬프트 결정.
+    우선순위: custom_prompt > 카테고리 프리셋 > 카테고리명 기반 기본 템플릿
+
+    custom_prompt에 한글이 섞여 있으면 영어로 변환한 뒤 사용하고,
+    사진 품질 관련 문구(QUALITY_SUFFIX)를 항상 덧붙인다.
+    """
+    if custom_prompt and custom_prompt.strip():
+        text = custom_prompt.strip()
+        if _contains_korean(text):
+            text = _translate_prompt_to_english(text)
+        return text + QUALITY_SUFFIX
+    if category in CATEGORY_PROMPTS:
+        return CATEGORY_PROMPTS[category]
+    return DEFAULT_PROMPT_TEMPLATE.format(category=category)
 
 
 def _to_square(img: Image.Image, size, fill=(0, 0, 0, 0)) -> Image.Image:
@@ -72,7 +126,7 @@ def _prepare_image_and_mask(image_bytes: bytes) -> tuple:
     import io
 
     request_id = uuid.uuid4().hex
-    temp_dir = tempfile.gettempdir()  # OS에 맞는 임시 폴더 경로 (Windows/Linux/Mac 모두 대응)
+    temp_dir = tempfile.gettempdir()
     image_path = os.path.join(temp_dir, f"{request_id}_image.png")
     mask_path = os.path.join(temp_dir, f"{request_id}_mask.png")
 
@@ -88,12 +142,18 @@ def _prepare_image_and_mask(image_bytes: bytes) -> tuple:
     return image_path, mask_path
 
 
-def _edit_with_openai(image_path: str, mask_path: str, category: str) -> bytes:
-    if category not in CATEGORY_PROMPTS:
-        raise InvalidCategoryError(f"지원하지 않는 카테고리입니다: {category}")
+def _edit_with_openai(
+    image_path: str,
+    mask_path: str,
+    category: str,
+    custom_prompt: Optional[str] = None,
+) -> bytes:
+    if not category or not category.strip():
+        raise InvalidCategoryError("카테고리(메뉴명)를 입력해주세요.")
+
+    prompt = _resolve_prompt(category, custom_prompt)
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-    prompt = CATEGORY_PROMPTS[category]
 
     with open(image_path, "rb") as image_file, open(mask_path, "rb") as mask_file:
         result = client.images.edit(
@@ -115,13 +175,16 @@ def _edit_with_openai(image_path: str, mask_path: str, category: str) -> bytes:
         raise RuntimeError(f"OpenAI 응답에서 이미지 데이터를 찾지 못했습니다: {item}")
 
 
-def generate_product_image(image_bytes: bytes, category: str) -> bytes:
-    """전체 파이프라인 실행: 원본 이미지 바이트 + 카테고리 -> 생성된 이미지 바이트"""
+def generate_product_image(
+    image_bytes: bytes,
+    category: str,
+    custom_prompt: Optional[str] = None,
+) -> bytes:
+    """전체 파이프라인 실행: 원본 이미지 바이트 + 카테고리(+선택적 커스텀 프롬프트) -> 생성된 이미지 바이트"""
     image_path, mask_path = _prepare_image_and_mask(image_bytes)
     try:
-        return _edit_with_openai(image_path, mask_path, category)
+        return _edit_with_openai(image_path, mask_path, category, custom_prompt)
     finally:
-        # 요청별 임시 파일은 결과 반환 후 즉시 정리 (동시 요청 간 파일 잔존 방지)
         for path in (image_path, mask_path):
             if os.path.exists(path):
                 os.remove(path)

@@ -35,7 +35,10 @@ STORE_REGISTRY = SOURCE_DATA / "store_registry.csv"
 ADONG_CODES = SOURCE_DATA / "adong_codes.csv"  # 행정표준코드관리시스템(code.go.kr)에서 내려받아 수동 배치
 
 class ABSASettings:    
-    MODEL_PATH: str = str(ROOT / "roberta_absa_best_4class")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "thadus2/roberta-absa-best-4class")
+
+    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+
     ASPECTS: list = ["food", "service", "convenience", "price", "atmosphere"]
     LABEL_MAP: dict = {0: "부정", 1: "중립", 2: "긍정", 3: "none"}
     MAX_LENGTH: int = 128

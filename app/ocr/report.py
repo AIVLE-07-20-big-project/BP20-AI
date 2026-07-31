@@ -385,7 +385,8 @@ def _svg_multi_line_chart(labels, series_dict: dict) -> str:
     if n == 0 or not series_dict:
         return '<p class="section-note">표시할 데이터가 없습니다.</p>'
 
-    palette = ["#6B4226", "#B23A2E", "#3B6E8F", "#7A8B4A", "#A9752E", "#5C4A72", "#2F6B4F"]
+    # BP20-FE 차트 색상 토큰(--chart-1~5)과 맞춘 팔레트
+    palette = ["#246BFD", "#8B5CF6", "#38BDF8", "#D97706", "#D92D20", "#0E9F6E", "#7C3AED"]
 
     width = max(560, min(60 * n + 140, 900))
     height = 260
@@ -527,60 +528,69 @@ def render_purchase_price_index_section(receipts: pd.DataFrame, items: pd.DataFr
 
 CSS = """
 :root {
-  --paper: #E7EDE0;
-  --rule: #A9BFA0;
-  --ink: #16211B;
-  --ink-soft: #4A5A4E;
-  --red: #B23A2E;
-  --brass: #6B4226;
-  --card: #FAF8F1;
+  /* BP20-FE의 theme.css 색상 토큰과 맞춘 값. 변수 이름은 기존 SVG 차트 코드가
+     그대로 참조하므로 유지하고, 값만 프론트엔드 디자인 시스템에 맞게 교체했다. */
+  --paper: #F4F7FB;      /* --background */
+  --rule: #DDE3EC;       /* --border */
+  --ink: #101828;        /* --foreground */
+  --ink-soft: #667085;   /* --muted-foreground */
+  --red: #D92D20;        /* --destructive / 지출·경고 계열 */
+  --brass: #246BFD;      /* --primary / 매출·안전 계열 */
+  --card: #FFFFFF;       /* --card */
+  --muted: #EEF2F7;      /* --muted */
+  --accent: #8B5CF6;     /* --accent (AI 배지) */
+  --amber: #D97706;      /* --warning (원가율 중간 단계) */
+  --positive: #0E9F6E;
+  --radius: 16px;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
   background: var(--paper);
-  background-image:
-    repeating-linear-gradient(var(--paper), var(--paper) 27px, var(--rule) 28px);
   color: var(--ink);
-  font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
-  padding: 48px 20px 80px;
+  font-family: 'Noto Sans KR', 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
+  font-feature-settings: "tnum";
+  padding: 40px 20px 72px;
 }
 .masthead {
-  max-width: 880px;
-  margin: 0 auto 32px;
-  padding-bottom: 20px;
-  border-bottom: 3px double var(--ink);
+  max-width: 900px;
+  margin: 0 auto 24px;
 }
-.masthead__eyebrow {
-  font-family: 'Special Elite', monospace;
-  font-size: 13px;
-  letter-spacing: 0.12em;
-  color: var(--brass);
-  text-transform: uppercase;
+.masthead__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(139, 92, 246, 0.1);
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 12px;
 }
 .masthead h1 {
-  font-family: 'Special Elite', monospace;
-  font-size: 32px;
-  margin: 6px 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--ink);
 }
 .masthead__meta {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
   color: var(--ink-soft);
 }
 .docket {
-  max-width: 880px;
-  margin: 0 auto 40px;
+  max-width: 900px;
+  margin: 0 auto 28px;
   background: var(--card);
   border: 1px solid var(--rule);
-  border-radius: 2px;
+  border-radius: var(--radius);
   display: flex;
-  box-shadow: 3px 3px 0 rgba(22,33,27,0.08);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
 }
 .docket__item {
   flex: 1;
   padding: 20px 24px;
-  border-right: 1px dashed var(--rule);
+  border-right: 1px solid var(--rule);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -588,38 +598,39 @@ body {
 .docket__item:last-child { border-right: none; }
 .docket__label {
   font-size: 12px;
-  letter-spacing: 0.08em;
+  font-weight: 600;
   color: var(--ink-soft);
 }
 .docket__figure {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 26px;
-  font-weight: 600;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .figure--loss { color: var(--red); }
 .ledger-section {
-  max-width: 880px;
-  margin: 0 auto 36px;
+  max-width: 900px;
+  margin: 0 auto 24px;
   background: var(--card);
   border: 1px solid var(--rule);
-  border-radius: 2px;
+  border-radius: var(--radius);
   padding: 24px 28px 20px;
-  box-shadow: 3px 3px 0 rgba(22,33,27,0.06);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
 }
 .ledger-section h2 {
-  font-family: 'Special Elite', monospace;
-  font-size: 20px;
+  font-size: 17px;
+  font-weight: 700;
   margin: 0 0 6px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
 }
 .eyebrow {
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--brass);
-  border: 1px solid var(--brass);
-  padding: 1px 7px;
-  border-radius: 2px;
+  background: rgba(36, 107, 253, 0.08);
+  padding: 2px 10px;
+  border-radius: 999px;
 }
 .section-note {
   font-size: 13px;
@@ -634,67 +645,72 @@ body {
 .ledger-table th {
   text-align: left;
   font-size: 12px;
-  letter-spacing: 0.04em;
+  font-weight: 600;
   color: var(--ink-soft);
-  border-bottom: 1px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
   padding: 6px 8px;
 }
 .ledger-table td {
-  padding: 9px 8px;
-  border-bottom: 1px dashed var(--rule);
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--rule);
   vertical-align: middle;
 }
-.ledger-table .num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+.ledger-table tbody tr:last-child td { border-bottom: none; }
+.ledger-table .num { font-variant-numeric: tabular-nums; text-align: right; }
 .empty-row, .muted-note {
   color: var(--ink-soft);
-  font-style: italic;
   text-align: center;
 }
 .row--muted td { color: var(--ink-soft); }
 .stamp {
   display: inline-block;
-  font-family: 'Special Elite', monospace;
   font-size: 11px;
-  padding: 2px 8px;
-  border: 2px solid var(--red);
+  font-weight: 600;
+  padding: 2px 10px;
+  background: rgba(217, 45, 32, 0.08);
   color: var(--red);
-  border-radius: 3px;
-  transform: rotate(-4deg);
+  border-radius: 999px;
   margin-left: 6px;
   white-space: nowrap;
 }
-.stamp--drop { border-color: var(--brass); color: var(--brass); }
-.stamp--over { border-color: var(--red); color: var(--red); }
+.stamp--drop { background: rgba(36, 107, 253, 0.08); color: var(--brass); }
+.stamp--over { background: rgba(217, 45, 32, 0.08); color: var(--red); }
 .bar-track {
   display: inline-block;
   width: 110px;
   height: 8px;
-  background: var(--rule);
-  border-radius: 4px;
+  background: var(--muted);
+  border-radius: 999px;
   overflow: hidden;
   vertical-align: middle;
 }
 .bar-fill {
   height: 100%;
   background: var(--brass);
+  border-radius: 999px;
 }
-.bar-fill--mid { background: #C08A3E; }
+.bar-fill--mid { background: var(--amber); }
 .bar-fill--high { background: var(--red); }
 .rate-label {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   margin-left: 8px;
 }
 footer {
-  max-width: 880px;
-  margin: 24px auto 0;
+  max-width: 900px;
+  margin: 20px auto 0;
   font-size: 12px;
   color: var(--ink-soft);
   text-align: center;
 }
+@media print {
+  :root { --paper: #FFFFFF; }
+  * { print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+}
 @media (max-width: 640px) {
   .docket { flex-direction: column; }
-  .docket__item { border-right: none; border-bottom: 1px dashed var(--rule); }
+  .docket__item { border-right: none; border-bottom: 1px solid var(--rule); }
   .ledger-table { font-size: 12px; }
   .bar-track { width: 70px; }
 }
@@ -790,7 +806,7 @@ def build_html_from_frames(receipts: pd.DataFrame, budget: pd.DataFrame, items: 
 
     body = f"""
     <div class="masthead">
-      <div class="masthead__eyebrow">경영 장부 · MANAGEMENT LEDGER</div>
+      <div class="masthead__badge">✦ AI 자동 생성 리포트</div>
       <h1>{store_name} 가계부 · 원가 리포트</h1>
       <div class="masthead__meta">{period_label} · 집계 기간 {period_start} ~ {period_end} · 생성일 {datetime.now().strftime('%Y-%m-%d')}</div>
     </div>
@@ -805,7 +821,7 @@ def build_html_from_frames(receipts: pd.DataFrame, budget: pd.DataFrame, items: 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{store_name} 가계부 · 원가 리포트</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{CSS}</style>
 </head>
 <body>

@@ -25,3 +25,7 @@ __pycache__/
 /reports/
 /sales_report*.html
 /sales_report*.json
+
+# 로컬 테스트 실행 결과물
+/ocr_result.png
+/sales_targets_result.csv
