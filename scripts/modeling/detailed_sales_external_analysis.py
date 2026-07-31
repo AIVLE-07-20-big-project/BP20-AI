@@ -1011,6 +1011,33 @@ def _build_event_analysis(merged: pd.DataFrame) -> dict[str, Any] | None:
     comparison = None
     if exposed_revenue is not None and unexposed_revenue not in (None, 0):
         comparison = round((exposed_revenue / unexposed_revenue - 1) * 100, 2)
+    event_drivers = []
+    if "event_details_quarterly" in data:
+        seen = set()
+        for value in data["event_details_quarterly"].dropna().unique():
+            try:
+                details = json.loads(value) if isinstance(value, str) else value
+            except (TypeError, json.JSONDecodeError):
+                details = []
+            for item in details or []:
+                key = (
+                    item.get("eventName"), item.get("startDate"),
+                    item.get("endDate"), item.get("distanceM"),
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                event_drivers.append({
+                    "eventName": item.get("eventName"),
+                    "startDate": item.get("startDate"),
+                    "endDate": item.get("endDate"),
+                    "distanceM": item.get("distanceM"),
+                    "estimatedEffectPct": comparison,
+                    "direction": "positive" if comparison is not None and comparison > 0 else "negative" if comparison is not None and comparison < 0 else None,
+                    "confidence": "medium" if comparison is not None else None,
+                    "causal": False,
+                })
+
     return {
         "available": True,
         "eventCount": int(data["event_count_quarterly"].max()) if "event_count_quarterly" in data else None,
@@ -1021,6 +1048,7 @@ def _build_event_analysis(merged: pd.DataFrame) -> dict[str, Any] | None:
         "averageDailyRevenueExposed": round(exposed_revenue, 2) if exposed_revenue is not None else None,
         "averageDailyRevenueUnexposed": round(unexposed_revenue, 2) if unexposed_revenue is not None else None,
         "exposedVsUnexposedRevenuePct": comparison,
+        "eventDrivers": event_drivers,
         "interpretation": "행사 노출 분기와 비노출 분기의 매출 수준 비교입니다. 행사 자체의 인과효과를 의미하지 않습니다.",
     }
 
@@ -1141,6 +1169,8 @@ def run_analysis(
         external_attribution,
         data_warnings=result["dataQuality"]["warnings"],
     )
+    if result["eventAnalysis"]:
+        result["rootCauseAnalysis"]["eventDrivers"] = result["eventAnalysis"].get("eventDrivers", [])
     return result
 
 
