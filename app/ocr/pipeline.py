@@ -3,10 +3,12 @@
 import datetime
 import json
 import re
+from statistics import median
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
+
+from app.ocr.image_preprocessing import preprocess_receipt
 
 
 # ------------------------------------------------------------------
@@ -15,6 +17,7 @@ import numpy as np
 def setup_korean_font():
     # ocr_result.png 시각화에 한글 라벨이 네모(□)로 깨지는 걸 방지
     import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
 
     candidates = [
         "Malgun Gothic",   # Windows 기본 내장
@@ -187,69 +190,18 @@ def _get_ocr_engine():
 
 
 def preprocess_and_ocr(img_path: str):
-    setup_korean_font()
-
-    original_img = cv2.imread(img_path)
-    if original_img is None:
-        raise FileNotFoundError(f"이미지를 불러올 수 없습니다: {img_path}")
-
+    # preparation에서 검증한 기하 보정 + CLAHE + sharpen 파이프라인을 사용한다.
+    # OCR은 가장 성능이 좋았던 단일 후보에 한 번만 실행해 지연시간을 줄인다.
+    processed_img, metadata = preprocess_receipt(img_path)
     ocr_engine = _get_ocr_engine()
-
-    # 패스 1: 가벼운 전처리 (큰 글자/숫자에 유리)
-    light_img = enhance_receipt_image_light(original_img)
-    rgb_light = cv2.cvtColor(light_img, cv2.COLOR_BGR2RGB)
-    print("텍스트 추출 시작 (1/2: 원본에 가까운 버전)...")
-    results_light = run_paddle_ocr(ocr_engine, rgb_light)
-
-    # 패스 2: 강한 전처리 (닷매트릭스 작은 글자 복원에 유리)
-    heavy_img = enhance_receipt_image(original_img)
-    rgb_heavy = cv2.cvtColor(heavy_img, cv2.COLOR_BGR2RGB)
-    print("텍스트 추출 시작 (2/2: 점 연결 보정 버전)...")
-    results_heavy = run_paddle_ocr(ocr_engine, rgb_heavy)
-
-    # 두 결과 병합 (겹치는 영역은 confidence 높은 쪽 채택)
-    ocr_results = merge_ocr_results(results_light, results_heavy)
-
-    # 시각화는 가벼운 버전(원본에 가까운 화질) 위에 그린다
-    rgb_img = rgb_light
-
-    plt.figure(figsize=(12, 12))
-    plt.imshow(rgb_img)
-    ax = plt.gca()
-
-    extracted_texts = []
-
-    for (bbox, text, prob) in ocr_results:
-        if prob > 0.2:  # 임계값을 0.3 -> 0.2로 낮춰서 더 많이 잡되, 결과에서 prob도 같이 확인
-            extracted_texts.append(text)
-
-            top_left = [int(val) for val in bbox[0]]
-            bottom_right = [int(val) for val in bbox[2]]
-
-            rect = plt.Rectangle(
-                (top_left[0], top_left[1]),
-                bottom_right[0] - top_left[0],
-                bottom_right[1] - top_left[1],
-                fill=False,
-                edgecolor="red",
-                linewidth=2,
-            )
-            ax.add_patch(rect)
-            plt.text(
-                top_left[0],
-                top_left[1] - 5,
-                f"{text} ({prob:.2f})",
-                bbox=dict(facecolor="yellow", alpha=0.5),
-                fontsize=9,
-            )
-
-    plt.axis("off")
-    plt.savefig("ocr_result.png", bbox_inches="tight", dpi=150)
-    print("OCR 시각화 결과를 ocr_result.png 로 저장했습니다.")
-
-    image_height = rgb_img.shape[0]
-    filtered_results = [(bbox, text, prob) for (bbox, text, prob) in ocr_results if prob > 0.2]
-
+    rgb_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
+    print(f"텍스트 추출 시작 (CLAHE+Sharpen, 전처리={metadata})...")
+    ocr_results = run_paddle_ocr(ocr_engine, rgb_img)
+    filtered_results = [item for item in ocr_results if item[2] > 0.2]
+    ordered_rows = cluster_rows(filtered_results)
+    filtered_results = [item for row in ordered_rows for item in row]
+    extracted_texts = [text for _, text, _ in filtered_results]
+    image_height = processed_img.shape[0]
     return extracted_texts, filtered_results, image_height
 
 
@@ -260,14 +212,29 @@ def preprocess_and_ocr(img_path: str):
 # 이 키워드가 포함된 행(row)은 품목이 아니라 헤더/합계/결제 정보 등이므로
 # 품목 추출 대상에서 제외한다.
 NON_ITEM_ROW_KEYWORDS = [
-    "합계", "총매출", "부가세", "공급가액", "면세금액", "과세금액",
+    "합계", "총매출", "총액", "부가", "부가세", "세액", "공급가액",
+    "면세", "면세금액", "면세물품가액", "과세", "과세금액", "과세물품가액",
+    "물품가액", "물품금액",
     "결제금액", "받은금액", "거스름", "카드", "승인", "영수증",
     "사업자", "대표", "전화", "주소", "제품명", "상품명", "품목",
-    "수량", "단가", "금액", "할인",
+    "수량", "단가", "금액", "할인", "청구", "포인트",
 ]
 
 # 행 안에서 "품목명"으로 볼 수 있는 토큰 판별 - 숫자만 있거나 너무 짧으면 품목명 아님
 _ITEM_NAME_MIN_LEN = 2
+
+
+def _normalize_row_label(text: str) -> str:
+    """Remove OCR spacing/punctuation before testing non-item labels.
+
+    Examples: ``부'가 세`` -> ``부가세``, ``합 계`` -> ``합계``.
+    """
+    return re.sub(r"[^가-힣A-Za-z0-9]", "", text).casefold()
+
+
+def is_non_item_row(texts) -> bool:
+    normalized = _normalize_row_label("".join(texts))
+    return any(_normalize_row_label(keyword) in normalized for keyword in NON_ITEM_ROW_KEYWORDS)
 
 
 def _bbox_metrics(bbox):
@@ -279,7 +246,7 @@ def _bbox_metrics(bbox):
     return x_min, y_min, x_max, y_max, (y_min + y_max) / 2, (y_max - y_min)
 
 
-def cluster_rows(ocr_results, y_overlap_ratio: float = 0.5):
+def cluster_rows(ocr_results, y_overlap_ratio: float = 0.15, center_tolerance: float = 0.50):
     # (bbox, text, prob) 리스트를 같은 행(row)끼리 묶는다
     # y중심 기준으로 먼저 정렬해두면 근처 행부터 비교하게 되어 효율적
     items_with_metrics = []
@@ -291,19 +258,31 @@ def cluster_rows(ocr_results, y_overlap_ratio: float = 0.5):
         )
     items_with_metrics.sort(key=lambda d: (d["y_min"] + d["y_max"]) / 2)
 
-    rows = []  # 각 원소: {"y_min":.., "y_max":.., "boxes":[...]}
+    rows = []
     for item in items_with_metrics:
-        assigned = False
+        best_row = None
+        best_score = -1.0
         for row in rows:
-            overlap = min(row["y_max"], item["y_max"]) - max(row["y_min"], item["y_min"])
-            if overlap > 0 and overlap / max(item["height"], 1) > y_overlap_ratio:
-                row["boxes"].append(item)
-                row["y_min"] = min(row["y_min"], item["y_min"])
-                row["y_max"] = max(row["y_max"], item["y_max"])
-                assigned = True
-                break
-        if not assigned:
+            row_center = median((box["y_min"] + box["y_max"]) / 2 for box in row["boxes"])
+            row_height = median(box["height"] for box in row["boxes"])
+            overlap = max(
+                max(0, min(box["y_max"], item["y_max"]) - max(box["y_min"], item["y_min"]))
+                / max(1, min(box["height"], item["height"]))
+                for box in row["boxes"]
+            )
+            center_distance = abs(
+                ((item["y_min"] + item["y_max"]) / 2) - row_center
+            ) / max(item["height"], row_height, 1)
+            if overlap >= y_overlap_ratio and center_distance <= center_tolerance:
+                score = overlap - center_distance * 0.1
+                if score > best_score:
+                    best_row, best_score = row, score
+        if best_row is None:
             rows.append({"y_min": item["y_min"], "y_max": item["y_max"], "boxes": [item]})
+        else:
+            best_row["boxes"].append(item)
+            best_row["y_min"] = min(best_row["y_min"], item["y_min"])
+            best_row["y_max"] = max(best_row["y_max"], item["y_max"])
 
     result_rows = []
     for row in rows:
@@ -391,7 +370,7 @@ def extract_items(ocr_results):
 
         # 헤더/합계/결제 정보 등이 섞인 행은 품목 후보에서 제외하고,
         # 이런 행을 만나면 직전에 대기 중이던 이름 후보도 무효화(다른 섹션으로 넘어간 것이므로)
-        if any(kw in row_joined for kw in NON_ITEM_ROW_KEYWORDS):
+        if is_non_item_row(texts):
             pending_name_tokens = []
             continue
 

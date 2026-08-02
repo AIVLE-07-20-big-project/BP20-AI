@@ -2,11 +2,12 @@
 
 import os
 import tempfile
+import json
 from datetime import date
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -103,7 +104,10 @@ def _orders_to_df(orders: List[Dict[str, Any]]) -> pd.DataFrame:
 # 1) 영수증 OCR
 # ------------------------------------------------------------------
 @router.post("/api/v1/receipts/parse")
-async def parse_receipt(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def parse_receipt(
+    file: UploadFile = File(...),
+    productCatalog: Optional[str] = Form(None),
+) -> Dict[str, Any]:
     # 영수증 이미지를 업로드하면 OCR + 좌표기반 추출 + 검증까지 마친
     validate_upload_type(
         file,
@@ -127,6 +131,19 @@ async def parse_receipt(file: UploadFile = File(...)) -> Dict[str, Any]:
             preprocess_and_ocr,
             validate_and_reflect,
         )
+        from app.ocr.product_matching import correct_item_names, parse_catalog
+
+        catalog = []
+        if productCatalog:
+            try:
+                catalog_payload = json.loads(productCatalog)
+            except json.JSONDecodeError as exc:
+                raise ValueError("productCatalog는 JSON 배열이어야 합니다") from exc
+            if not isinstance(catalog_payload, list):
+                raise ValueError("productCatalog는 JSON 배열이어야 합니다")
+            if len(catalog_payload) > 5000:
+                raise ValueError("productCatalog는 최대 5000개까지 전달할 수 있습니다")
+            catalog = parse_catalog(catalog_payload)
 
         ocr_texts, ocr_results, image_height = preprocess_and_ocr(tmp_path)
         document_type = classify_document_type(ocr_texts)
@@ -136,7 +153,7 @@ async def parse_receipt(file: UploadFile = File(...)) -> Dict[str, Any]:
         if store_name:
             structured["storeName"] = store_name
 
-        structured["items"] = extract_items(ocr_results)
+        structured["items"] = correct_item_names(extract_items(ocr_results), catalog)
         final_result = validate_and_reflect(structured, ocr_texts)
 
         return {
