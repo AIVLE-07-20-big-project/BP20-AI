@@ -18,6 +18,7 @@ class RecommendationState(TypedDict, total=False):
     문제유형: str | None
 
     candidate_actions: list[dict]
+    recommended_actions: list[dict]
     candidate_scores: dict[str, dict] | None
     candidate_status: dict[str, str] | None
     candidate_safety: dict[str, dict] | None

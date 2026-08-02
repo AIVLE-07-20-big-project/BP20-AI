@@ -21,7 +21,7 @@ JOBS_DB = MODEL / "analysis_jobs.sqlite3"  # 비동기 작업 상태 저장소
 BANDIT_MODEL_DIR = MODEL / "bandit"
 # v2 캠페인 로그: 추천 실행 결과·OPE·Bandit 학습의 단일 운영 로그
 CAMPAIGN_LOGS_V2 = AGENT_DATA / "campaign_logs_v2.csv"
-RAG_INDEX_EXPORT = MODEL / "rag_index" / "export"
+RAG_INDEX_EXPORT = ROOT / "rag" / "index" / "export"
 
 SALES_ESTIMATE = SOURCE_DATA / "sales_estimate.csv"
 STORE_STATS = SOURCE_DATA / "store_stats.csv"

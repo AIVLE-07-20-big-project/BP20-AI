@@ -171,6 +171,35 @@ def _build_shadow_report(등급: str, context: np.ndarray, selectable: list[str]
     return comparison.as_dict() if comparison else None
 
 
+def _build_recommended_actions(
+    candidates: list[dict], selectable: list[str], candidate_scores: dict[str, dict] | None,
+    candidate_status: dict[str, str] | None, *, model_loaded: bool,
+) -> list[dict]:
+    """안전성 검증을 통과한 후보 중 사용자가 고를 상위 2개를 구성한다."""
+    candidate_by_name = {candidate["방안"]: candidate for candidate in candidates}
+    original_order = {name: index for index, name in enumerate(selectable)}
+
+    def score(name: str) -> float:
+        value = (candidate_scores or {}).get(name, {}).get("expected_reward")
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float("-inf")
+
+    names = list(selectable)
+    if model_loaded:
+        names.sort(key=lambda name: (-score(name), original_order[name]))
+
+    recommendations = []
+    for rank, name in enumerate(names[:2], start=1):
+        recommendation = dict(candidate_by_name[name])
+        recommendation.update({
+            "recommendation_rank": rank,
+            "policy_score": (candidate_scores or {}).get(name),
+            "safety_status": (candidate_status or {}).get(name, "unknown"),
+        })
+        recommendations.append(recommendation)
+    return recommendations
 # coldstart(학습된 active 모델 없음)면 미학습 모델의 argmax 대신 비즈니스 우선순위
 # 기본값으로 fallback한다(설계 §10). 학습된 모델이 있으면 BanditPolicy로 선택한다.
 def _select_action(state: RecommendationState) -> dict:
@@ -190,6 +219,10 @@ def _select_action(state: RecommendationState) -> dict:
     if not model_loaded:
         action = action_rules.coldstart_default_action(등급, selectable)
         selected = next(c for c in candidates if c["방안"] == action)
+        recommended_actions = _build_recommended_actions(
+            candidates, selectable, state.get("candidate_scores"), state.get("candidate_status"),
+            model_loaded=False,
+        )
         return {
             "policy_decision": {
                 "policy_mode": "coldstart", "policy_selected_action": action,
@@ -198,6 +231,7 @@ def _select_action(state: RecommendationState) -> dict:
             },
             "policy_selected_action": action,
             "selected_action": selected,
+            "recommended_actions": recommended_actions,
             "decision_source": "policy",
             "selection_source": "business_rule_fallback",
             "shadow_report": shadow_report,
@@ -210,11 +244,16 @@ def _select_action(state: RecommendationState) -> dict:
     )
     decision = policy.choose(context, selectable, mode="serve", rng=np.random.default_rng())
     selected = next(c for c in candidates if c["방안"] == decision.selected_action)
+    recommended_actions = _build_recommended_actions(
+        candidates, selectable, state.get("candidate_scores"), state.get("candidate_status"),
+        model_loaded=True,
+    )
 
     return {
         "policy_decision": decision.as_dict(),
         "policy_selected_action": decision.selected_action,
         "selected_action": selected,
+        "recommended_actions": recommended_actions,
         "decision_source": "policy",
         "selection_source": "policy",
         "shadow_report": shadow_report,

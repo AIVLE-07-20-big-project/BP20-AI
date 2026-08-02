@@ -109,7 +109,11 @@ class RagIndex:
         if tier:
             mask &= np.array([c["tier"] == tier for c in self.chunks])
         if axis:
-            mask &= np.array([c["axis"] == axis or c.get("axis_extra") == axis for c in self.chunks])
+            mask &= np.array([
+                c["axis"] == axis or c.get("axis_extra") == axis
+                or axis in (c.get("axis_extra") or [])
+                for c in self.chunks
+            ])
         if require_stat:
             mask &= np.array([c["contains_stat"] for c in self.chunks])
         return mask
