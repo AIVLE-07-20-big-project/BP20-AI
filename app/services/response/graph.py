@@ -14,6 +14,8 @@ from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
 from app.core.config import AGENT_RUNS_DB, BANDIT_V2_SHADOW_ENABLED, CAMPAIGN_LOGS_V2
+from app.core.database import using_mysql
+from app.services.response.mysql_checkpointer import MySQLCheckpointer
 from app.services.response import action_rules, bandit_store, shadow
 from app.services.response.context import CONTEXT_DIM, CONTEXT_SCHEMA_VERSION, build_context_vector
 from app.services.response.policy import BanditPolicy
@@ -106,6 +108,9 @@ def _route_after_score_candidates(state: RecommendationState) -> str:
 
 # 후보 전체를 ActionSafetyOPE로 검증해 eligible/unknown/blocked를 매긴다(blocked는 선택 제외)
 def _validate_candidates(state: RecommendationState) -> dict:
+    from app.services.response.campaign_logs import ensure_campaign_logs_snapshot
+
+    ensure_campaign_logs_snapshot()
     등급 = state.get("문제유형")
     candidates = state.get("candidate_actions") or []
     arms = [c["방안"] for c in candidates]
@@ -399,7 +404,11 @@ def _generate_report(state: RecommendationState) -> dict:
 
 
 @lru_cache(maxsize=1)
-def _checkpointer() -> SqliteSaver:
+def _checkpointer() -> SqliteSaver | MySQLCheckpointer:
+    if using_mysql():
+        saver = MySQLCheckpointer()
+        saver.setup()
+        return saver
     AGENT_RUNS_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(AGENT_RUNS_DB), check_same_thread=False)
     saver = SqliteSaver(conn)
