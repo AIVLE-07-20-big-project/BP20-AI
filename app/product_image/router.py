@@ -1,10 +1,3 @@
-"""
-AI 상품 이미지 생성 - API 라우터
-
-(기존에는 이 폴더가 독립된 FastAPI 앱이었으나, online-trend와 하나의 앱으로
-통합되면서 APIRouter로 전환됨. 실제 앱 정의/실행은 app/main.py에서 담당.)
-"""
-
 from fastapi import APIRouter, UploadFile, Form, HTTPException, File
 from fastapi.responses import Response
 
@@ -24,11 +17,6 @@ async def generate(
     file: UploadFile = File(..., description="원본 상품 사진 (jpg/png 등)"),
     category: str = Form(..., description="메뉴명. /categories 에서 조회 가능한 값 중 하나"),
 ):
-    """
-    상품 사진 + 메뉴명을 받아 배경이 합성된 최종 이미지를 반환한다.
-
-    응답: image/png 바이너리 (성공 시)
-    """
     if category not in CATEGORY_PROMPTS:
         raise HTTPException(
             status_code=400,

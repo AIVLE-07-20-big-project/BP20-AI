@@ -277,7 +277,7 @@ def build_simple_report(row: pd.DataFrame, df: pd.DataFrame, diag: dict) -> dict
             "성별": _ratio_payload(row, df, gender_sales, "금액"),
             "연령대": _ratio_payload(row, df, age_sales, "금액"),
         },
-        "분석결과 해설": " ".join(explanation_parts) if explanation_parts else None,
+        "분석결과 해설": "\n".join(explanation_parts) if explanation_parts else None,
     }
 
 

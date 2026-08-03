@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from app.core.config import settings
+from app.core.huggingface_assets import sync_huggingface_assets
 from app.core import bootstrap  # noqa: F401
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.ocr import router as ocr
@@ -19,9 +20,13 @@ from app.routers import (
     agent_runs,
     analysis,
     campaign_logs,
+    ai_learning,
     effect_verification_router,
+    forecast,
     review,
     jobs,
+    locations,
+    industries,
 )
 
 ERROR_RESPONSES = {
@@ -39,6 +44,8 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    asset_status = sync_huggingface_assets()
+    print(f"Hugging Face 아티팩트 상태: {asset_status}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"RoBERTa ABSA is loading (Device: {device})")
 
@@ -87,9 +94,13 @@ app.include_router(review.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
+app.include_router(ai_learning.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(locations.router, prefix="/api/v1")
+app.include_router(industries.router, prefix="/api/v1")
 app.include_router(ocr.router)
 app.include_router(effect_verification_router.router)
+app.include_router(forecast.router)
 app.include_router(online_trend.router)
 app.include_router(product_image.router)
 

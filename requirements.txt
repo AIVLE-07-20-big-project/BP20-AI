@@ -35,9 +35,12 @@ torch>=2.2
 
 # RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요
 sentence-transformers>=3.0
+pypdf>=6.0
 
-# AI 상품 이미지 생성(app/product_image)에 필요. 
-rembg>=2.0
+# AI 상품 이미지 생성(app/product_image)에 필요.
+# rembg 2.0.77부터 onnxruntime이 install_requires에서 빠져 extras로 분리됨 — 명시하지 않으면
+# 백엔드 없이 설치되어 임포트 시점에 sys.exit(1)로 죽는다(CPU 전용, GPU는 이 프로젝트 범위 밖).
+rembg[cpu]>=2.0
 pillow>=10.0
 requests>=2.31
 python-dotenv>=1.0

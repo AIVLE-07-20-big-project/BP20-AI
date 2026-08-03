@@ -1,12 +1,3 @@
-"""
-AI 상품 이미지 생성 - 핵심 파이프라인 (API 서비스용)
-
-CLI 스크립트(generate_product_image_openai.py)와 로직은 동일하지만,
-웹 서비스에서 여러 요청이 동시에 들어올 수 있다는 점을 감안해
-파일 경로 대신 바이트(bytes) 데이터를 주고받도록 리팩터링함.
-또한 임시 파일명에 uuid를 붙여 동시 요청 간 충돌을 방지함.
-"""
-
 import os
 import uuid
 import base64
@@ -67,8 +58,6 @@ def _to_square(img: Image.Image, size, fill=(0, 0, 0, 0)) -> Image.Image:
 
 
 def _prepare_image_and_mask(image_bytes: bytes) -> tuple:
-    """업로드된 원본 이미지 바이트로부터, OpenAI에 보낼 (원본 정사각형 이미지 경로, 마스크 경로)를 생성.
-    rembg 결과(상품=불투명/배경=투명)를 별도 변환 없이 그대로 마스크로 재활용함."""
     import io
 
     request_id = uuid.uuid4().hex

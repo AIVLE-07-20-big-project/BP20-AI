@@ -31,6 +31,46 @@ def get_ai_analyzer():
     return _ai_analyzer
 
 
+# ExternalFactorAnalyzer도 생성자가 고정 경로 json·csv 3개를 읽기만 해서 요청 파라미터에
+# 의존하지 않는다 — get_ai_analyzer와 같은 이유로 프로세스당 한 번만 만들어 재사용한다.
+_external_factor_analyzer = None
+_external_factor_analyzer_lock = threading.Lock()
+
+
+def get_external_factor_analyzer():
+    global _external_factor_analyzer
+    if _external_factor_analyzer is None:
+        from scripts.modeling.external_factor_analysis import ExternalFactorAnalyzer
+
+        with _external_factor_analyzer_lock:
+            if _external_factor_analyzer is None:
+                _external_factor_analyzer = ExternalFactorAnalyzer()
+    return _external_factor_analyzer
+
+
+# Diagnoser(build_panel(combined_df))는 combined_df 전체에 대한 groupby·share·위험모델
+# 스코어링이라 요청마다 다시 만들면 비싸다. combined_df가 매 요청 동일 객체(ingestion.
+# get_base_merged() 캐시)면 재사용하고, /reports처럼 매번 새 DataFrame이 오면 identity가
+# 달라져 자동으로 다시 만든다(정확성 유지).
+_diagnoser_cache: tuple[int, Diagnoser] | None = None
+_diagnoser_lock = threading.Lock()
+
+
+def get_diagnoser(combined_df: pd.DataFrame) -> Diagnoser:
+    global _diagnoser_cache
+    key = id(combined_df)
+    cached = _diagnoser_cache
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    with _diagnoser_lock:
+        cached = _diagnoser_cache
+        if cached is not None and cached[0] == key:  # 락 대기 중 다른 스레드가 만들었을 수 있다
+            return cached[1]
+        diagnoser = Diagnoser(panel=build_panel(combined_df, out=None))
+        _diagnoser_cache = (key, diagnoser)
+        return diagnoser
+
+
 # 대상 상권x업종x분기 조합을 패널에서 찾을 수 없을 때
 class CellNotFoundError(Exception):
     pass
@@ -65,7 +105,7 @@ def run_pipeline(trdar_cd: str, svc_induty_cd: str, yyqu_cd: int | None,
     row["sales_qoq"] = pct_change(current_amt, prev_amt)
     row["sales_yoy"] = pct_change(current_amt, yoy_amt)
 
-    diagnoser = Diagnoser(panel=build_panel(combined_df, out=None))
+    diagnoser = get_diagnoser(combined_df)
     raw_diag = diagnoser.diagnose(trdar_cd, svc_induty_cd, target_q)
     if "error" in raw_diag:
         raise CellNotFoundError(raw_diag["error"])
@@ -95,8 +135,7 @@ def run_pipeline(trdar_cd: str, svc_induty_cd: str, yyqu_cd: int | None,
     external_block = None
     if EXTERNAL_RESULT_PATH.exists():
         try:
-            from scripts.modeling.external_factor_analysis import ExternalFactorAnalyzer
-            external = ExternalFactorAnalyzer().analyze(trdar_cd, target_q)
+            external = get_external_factor_analyzer().analyze(trdar_cd, target_q)
             external_block = {
                 "데이터해상도": external.get("데이터해상도"),
                 "인과추정": False,

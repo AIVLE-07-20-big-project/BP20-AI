@@ -22,4 +22,8 @@ class RecommendationFromAnalysisRequest(BaseModel):
         default=None, validation_alias=AliasChoices("yyquCd", "yyqu_cd"),
     )
     diagnosis: dict[str, Any]
+    report: dict[str, Any] | None = Field(default=None)
+    detailed_analysis: dict[str, Any] | None = Field(
+        default=None, validation_alias=AliasChoices("detailedAnalysis", "detailed_analysis"),
+    )
     warnings: list[str] = Field(default_factory=list)

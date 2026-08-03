@@ -1,0 +1,23 @@
+.git/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.tmp/
+
+# 원본 데이터·모델 — 이미지에 굽지 않고 볼륨으로 마운트한다
+data/
+model/
+
+# 실행 시 생성물
+reports/
+sales_report*.html
+sales_report*.json
+
+# 이미지 실행에 불필요
+tests/
+docs/
+samples/
+rag/eval/
+.env
+.env.example
