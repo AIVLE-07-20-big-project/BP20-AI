@@ -50,9 +50,9 @@ BANDIT_V2_SHADOW_ENABLED = _bool_env("BANDIT_V2_SHADOW_ENABLED", True)
 BANDIT_EXPERIMENT_ENABLED = _bool_env("BANDIT_EXPERIMENT_ENABLED", False)
 BANDIT_EXPERIMENT_EPSILON = float(os.environ.get("BANDIT_EXPERIMENT_EPSILON", "0.10"))
 class ABSASettings:    
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "thadus2/roberta-absa-best-4class")
+    ROBERTA_MODEL_PATH: str = os.getenv("ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class")
 
-    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+    ROBERTA_HF_TOKEN: str = os.getenv("ROBERTA_HF_TOKEN", "")
     HF_MODEL_REPO_ID: str = os.getenv("HF_MODEL_REPO_ID", "")
     HF_DATASET_REPO_ID: str = os.getenv("HF_DATASET_REPO_ID", "")
     HF_ASSET_REVISION: str = os.getenv("HF_ASSET_REVISION", "main")

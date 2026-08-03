@@ -33,7 +33,7 @@ def sync_huggingface_assets(*, force: bool = False) -> dict[str, str]:
     if not settings.HF_AUTO_DOWNLOAD_ASSETS:
         return {"status": "disabled"}
 
-    token = settings.HF_TOKEN or None
+    token = settings.ROBERTA_HF_TOKEN or None
     synced: dict[str, str] = {}
 
     if settings.HF_MODEL_REPO_ID and (force or _missing_model_assets()):
