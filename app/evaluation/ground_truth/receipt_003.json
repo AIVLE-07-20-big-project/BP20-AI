@@ -1,0 +1,30 @@
+{
+  "image": "receipt_003.jpg",
+  "items": [
+    {
+      "itemName": "룸바이홈 발에 착감기는 욕실화",
+      "quantity": 1,
+      "unitPrice": 5900,
+      "totalPrice": 5900
+    },
+    {
+      "itemName": "국산 데친 문어",
+      "quantity": 1,
+      "unitPrice": 20263,
+      "totalPrice": 20263
+    },
+    {
+      "itemName": "해태 맛동산",
+      "quantity": 1,
+      "unitPrice": 2590,
+      "totalPrice": 2590
+    },
+    {
+      "itemName": "비락 수정과",
+      "quantity": 1,
+      "unitPrice": 2680,
+      "totalPrice": 2680
+    }
+  ],
+  "totalAmount": 31430
+}

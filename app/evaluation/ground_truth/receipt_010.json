@@ -1,0 +1,24 @@
+{
+  "image": "receipt_010.jpg",
+  "items": [
+    {
+      "itemName": "탐스 클래식슈즈 (CANVAS)",
+      "quantity": 1,
+      "unitPrice": 35000,
+      "totalPrice": 35000
+    },
+    {
+      "itemName": "미니멜리사 아동 젤리슈즈",
+      "quantity": 1,
+      "unitPrice": 39000,
+      "totalPrice": 39000
+    },
+    {
+      "itemName": "미니멜리사 아동 젤리슈즈",
+      "quantity": 1,
+      "unitPrice": 39000,
+      "totalPrice": 39000
+    }
+  ],
+  "totalAmount": 113000
+}

@@ -1,0 +1,49 @@
+{
+  "receiptCount": 16,
+  "missingPredictions": [],
+  "configuration": {
+    "itemMatchThreshold": 0.72,
+    "fuzzyNameThreshold": 0.85
+  },
+  "items": {
+    "groundTruthCount": 76,
+    "predictedCount": 66,
+    "matchedCount": 52,
+    "precision": 0.7879,
+    "recall": 0.6842,
+    "f1": 0.7324,
+    "nameExactAccuracy": 0.2692,
+    "nameNormalizedAccuracy": 0.3654,
+    "nameContainmentAccuracy": 0.5962,
+    "nameFuzzyAccuracy": 0.6538,
+    "quantityAccuracy": 0.9423,
+    "unitPriceAccuracy": 0.9231,
+    "totalPriceAccuracy": 0.9808,
+    "allFieldsAccuracy": 0.5385,
+    "receiptPerfectMatchRate": 0.1875,
+    "itemNameCharacters": {
+      "groundTruthCountWithSpaces": 837,
+      "editCountWithSpaces": 512,
+      "cerWithSpaces": 0.6117,
+      "characterAccuracyWithSpaces": 0.3883,
+      "groundTruthCountWithoutSpaces": 725,
+      "editCountWithoutSpaces": 430,
+      "cerWithoutSpaces": 0.5931,
+      "characterAccuracyWithoutSpaces": 0.4069,
+      "matchedItemsOnly": {
+        "cerWithSpaces": 0.2908,
+        "characterAccuracyWithSpaces": 0.7092,
+        "cerWithoutSpaces": 0.2633,
+        "characterAccuracyWithoutSpaces": 0.7367
+      }
+    }
+  },
+  "totalAmount": {
+    "accuracy": 0.75,
+    "mae": 1860.12
+  },
+  "performance": {
+    "averageSeconds": 33.2655,
+    "p95Seconds": 51.7976
+  }
+}

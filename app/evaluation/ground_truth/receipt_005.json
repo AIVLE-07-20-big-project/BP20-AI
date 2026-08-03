@@ -1,0 +1,18 @@
+{
+  "image": "receipt_005.jpg",
+  "items": [
+    {
+      "itemName": "빠삐코",
+      "quantity": 1,
+      "unitPrice": 790,
+      "totalPrice": 790
+    },
+    {
+      "itemName": "고산지_감숙왕바나",
+      "quantity": 1,
+      "unitPrice": 1990,
+      "totalPrice": 1990
+    }
+  ],
+  "totalAmount": 2780
+}

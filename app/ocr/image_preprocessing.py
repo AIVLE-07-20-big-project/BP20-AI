@@ -18,9 +18,9 @@ from PIL import Image, ImageOps
 @dataclass(frozen=True)
 class ReceiptPreprocessConfig:
     long_side: int = 1800
-    max_upscale: float = 2.0
+    max_upscale: float = 1.5
     min_receipt_area_ratio: float = 0.20
-    max_skew_degrees: float = 7.0
+    max_skew_degrees: float = 15.0
     denoise_strength: int = 5
     clahe_clip_limit: float = 2.0
     enhancement_passes: int = 2
@@ -117,6 +117,13 @@ def _horizontal_text_score(binary: np.ndarray) -> float:
 
 def correct_document_axis(image: np.ndarray) -> tuple[np.ndarray, int]:
     """Correct a 90-degree axis error; image-only logic cannot resolve 180 degrees."""
+    height, width = image.shape[:2]
+    # 영수증 영역 검출/원근 보정이 끝난 결과가 세로형이면 이미 정상 축이다.
+    # 표의 긴 세로선이나 촘촘한 열 때문에 horizontal score가 잘못 높아져
+    # 정상 영수증을 90도로 회전시키는 오판을 방지한다.
+    if height >= width:
+        return image, 0
+
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     if max(gray.shape) > 1200:
         ratio = 1200 / max(gray.shape)

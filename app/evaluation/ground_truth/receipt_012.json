@@ -1,0 +1,12 @@
+{
+  "image": "receipt_012.jpg",
+  "items": [
+    {
+      "itemName": "P대파",
+      "quantity": 1,
+      "unitPrice": 2950,
+      "totalPrice": 2950
+    }
+  ],
+  "totalAmount": 2950
+}

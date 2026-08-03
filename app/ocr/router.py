@@ -125,6 +125,7 @@ async def parse_receipt(
         # 무거운 OCR 의존성은 영수증 처리 요청이 들어올 때만 로드한다.
         from app.ocr.pipeline import (
             classify_document_type,
+            extract_discounts,
             extract_items,
             extract_store_name,
             native_nlp_parser,
@@ -153,7 +154,8 @@ async def parse_receipt(
         if store_name:
             structured["storeName"] = store_name
 
-        structured["items"] = correct_item_names(extract_items(ocr_results), catalog)
+        product_items = correct_item_names(extract_items(ocr_results), catalog)
+        structured["items"] = product_items + extract_discounts(ocr_results)
         final_result = validate_and_reflect(structured, ocr_texts)
 
         return {

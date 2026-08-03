@@ -1,0 +1,56 @@
+{
+  "ocrText": [
+    "심환명",
+    "년 기 수량",
+    "2",
+    "급이",
+    "백섬 부집기루",
+    "초이스인 대구성",
+    "한복생생란(대란)",
+    "5,780",
+    "이깨통부 '국산용",
+    "전일염",
+    "1",
+    "4,280",
+    "면세",
+    "가의",
+    "1",
+    "과세",
+    "남기의",
+    "제",
+    "21:640"
+  ],
+  "result": {
+    "documentType": "UNKNOWN",
+    "storeName": "심환명",
+    "businessNumber": null,
+    "transactionDate": "2026-08-03",
+    "transactionTime": "21:64",
+    "paymentMethod": "현금",
+    "items": [
+      {
+        "itemName": "초이스인 대구성 한복생생란(대란)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 5780,
+        "totalPrice": 5780
+      },
+      {
+        "itemName": "이깨통부 '국산용 전일염",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 4280,
+        "totalPrice": 4280
+      }
+    ],
+    "supplyAmount": null,
+    "vat": null,
+    "taxFreeAmount": null,
+    "totalAmount": 5780,
+    "category": "기타운영비"
+  },
+  "evaluationMeta": {
+    "image": "receipt_004.jpg",
+    "elapsedSeconds": 13.5093
+  }
+}

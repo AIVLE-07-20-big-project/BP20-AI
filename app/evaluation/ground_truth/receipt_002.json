@@ -1,0 +1,12 @@
+{
+  "image": "receipt_002.jpg",
+  "items": [
+    {
+      "itemName": "우리수박주스",
+      "quantity": 1,
+      "unitPrice": 4000,
+      "totalPrice": 4000
+    }
+  ],
+  "totalAmount": 4000
+}

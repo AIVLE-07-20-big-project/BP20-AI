@@ -1,0 +1,70 @@
+{
+  "ocrText": [
+    "못세망(주못마트롯대들 수지지",
+    "221-85-19613",
+    "2E",
+    "못데마트 청23138",
+    "TE031-517e-2500",
+    "영수 미지참신 교확/완동 늘기(30일내)",
+    "교육/환분 구매심에서기능(일제키드지장)",
+    "크가드취쓰대은 데소요",
+    "[05] 2019-09-11 1452",
+    "PoS:",
+    "\"0008-0369",
+    "상품명",
+    "단",
+    "가수량",
+    "금의",
+    "움바이홈 발에 착감기는",
+    "유실화",
+    "900",
+    "25",
+    "국산 데친 문이",
+    "20.263",
+    "해터맛동산",
+    "2.590",
+    "비략 수정기",
+    "2,680",
+    "먼세 몰기와",
+    "20,268",
+    "과세 동가의",
+    "10.155",
+    "세",
+    "1015",
+    "카계",
+    "단수항인"
+  ],
+  "result": {
+    "documentType": "UNKNOWN",
+    "storeName": "못세망(주못마트롯대들 수지지",
+    "businessNumber": "019-09-11145",
+    "transactionDate": "2019-09-11",
+    "transactionTime": null,
+    "paymentMethod": "현금",
+    "items": [
+      {
+        "itemName": "해터맛동산 비략 수정기",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 2680,
+        "totalPrice": 2680
+      },
+      {
+        "itemName": "먼세 몰기와",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 20268,
+        "totalPrice": 20268
+      }
+    ],
+    "supplyAmount": null,
+    "vat": null,
+    "taxFreeAmount": null,
+    "totalAmount": 20268,
+    "category": "기타운영비"
+  },
+  "evaluationMeta": {
+    "image": "receipt_003.jpg",
+    "elapsedSeconds": 21.1987
+  }
+}

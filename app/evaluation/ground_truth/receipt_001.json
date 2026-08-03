@@ -1,0 +1,12 @@
+{
+  "image": "receipt_001.jpg",
+  "items": [
+    {
+      "itemName": "카페라떼(HOT)",
+      "quantity": 1,
+      "unitPrice": 3200,
+      "totalPrice": 3200
+    }
+  ],
+  "totalAmount": 3700
+}

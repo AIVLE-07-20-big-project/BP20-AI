@@ -1,0 +1,96 @@
+{
+  "ocrText": [
+    "글능협합나로마트",
+    "지",
+    "20:061312-2083",
+    "시업자408-82-03172",
+    "박해나",
+    "2019-01-09-12:19:1 001-00056",
+    "상(드)",
+    "수량",
+    "금액",
+    "001 P쓰I기EOL5OL",
+    "*210009823E19",
+    "920",
+    "18,400",
+    "PDC",
+    "18,400",
+    "18K00",
+    "1BR00",
+    "가세물가",
+    "18,400",
+    "바크드일P C 영시 상플 P포인트",
+    " e",
+    "R8Z포O",
+    "나음((일)소이음인",
+    "조이트 사시 ",
+    "(",
+    "O(0)",
+    "-00",
+    "18-100원",
+    "90137552435",
+    "2H0007295788",
+    "20180109",
+    "AKFTE()",
+    "장성한률",
+    "정치추원금 기부하고,",
+    "울은 로 려 받으세요",
+    "인터내 경참에서 정후원금센터를",
+    "검하요Ove0O.k",
+    "0129921901090001000580"
+  ],
+  "result": {
+    "documentType": "UNKNOWN",
+    "storeName": "글능협합나로마트",
+    "businessNumber": "408-82-03172",
+    "transactionDate": "2019-01-09",
+    "transactionTime": "20:06",
+    "paymentMethod": "현금",
+    "items": [
+      {
+        "itemName": "001 P쓰I기EOL5OL *210009823E19",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 18400,
+        "totalPrice": 18400
+      },
+      {
+        "itemName": "PDC",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 18400,
+        "totalPrice": 18400
+      },
+      {
+        "itemName": "1BR00 가세물가",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 18400,
+        "totalPrice": 18400
+      },
+      {
+        "itemName": "PDC",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": -18400,
+        "totalPrice": -18400
+      },
+      {
+        "itemName": "할인",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": -18,
+        "totalPrice": -18
+      }
+    ],
+    "supplyAmount": null,
+    "vat": null,
+    "taxFreeAmount": null,
+    "totalAmount": 18400,
+    "category": "기타운영비"
+  },
+  "evaluationMeta": {
+    "image": "receipt_014.jpg",
+    "elapsedSeconds": 24.1544
+  }
+}
