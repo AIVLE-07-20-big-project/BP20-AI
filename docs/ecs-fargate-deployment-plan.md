@@ -28,6 +28,34 @@
 | FE/BE/AI 운영 이미지 | ⏳ 대기 | ECS 배포용 Dockerfile/이미지 필요 |
 | ECS Fargate·CI/CD | ⏳ 대기 | 팀 인프라 구성 후 진행 |
 
+### AWS 인프라 확인 기록
+
+```text
+계정: 팀 공동계정
+리전: ap-southeast-2 (Sydney)
+S3 버킷: aivle20-prod-assets
+ECS 테스트 클러스터: aivle20-test-cluster
+```
+
+완료된 AWS 작업:
+
+- ✅ S3 버킷 생성
+- ✅ S3 Versioning 활성화
+- ✅ SSE-S3 암호화 설정
+- ✅ 퍼블릭 액세스 차단 유지
+- ✅ 모델·RAG·Dataset 8개 업로드
+- ✅ `bp20-ecsTaskExecutionRole` 생성
+- ✅ `bp20-aiTaskRole` 생성
+- ✅ `bp20-beTaskRole` 생성
+- ✅ ECS 테스트 Task에서 AI Task Role로 S3 객체 조회 확인
+- ✅ ECS Exec용 SSM 권한 추가 및 접속 문제 해결
+
+S3 권한 검증 결과:
+
+```text
+aws s3 ls로 모델 파일 2개 조회 성공
+```
+
 ---
 
 ## 2. 현재 구조
@@ -392,6 +420,7 @@ ECS Task Definition에서 Secrets Manager 또는 SSM Parameter Store 값을 주�
 - ✅ S3 bucket 생성
 - ✅ S3 모델·RAG·Dataset 업로드
 - ✅ ECS IAM Role 생성
+- ✅ 테스트 ECS Cluster에서 S3 권한 검증
 - ⏳ Secrets Manager 또는 SSM 파라미터 생성
 - ALB와 target group 생성
 
