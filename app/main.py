@@ -1,12 +1,16 @@
 import sys
 import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import torch
 from fastapi import FastAPI
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from app.core.config import settings
+from app.core.huggingface_assets import sync_huggingface_assets
 from app.core import bootstrap  # noqa: F401
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.ocr import router as ocr
@@ -16,10 +20,13 @@ from app.routers import (
     agent_runs,
     analysis,
     campaign_logs,
+    ai_learning,
     effect_verification_router,
     forecast,
     review,
     jobs,
+    locations,
+    industries,
 )
 
 ERROR_RESPONSES = {
@@ -37,6 +44,12 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        asset_status = sync_huggingface_assets()
+        print(f"Hugging Face 아티팩트 상태: {asset_status}")
+    except Exception as error:
+        # 분석 아티팩트 동기화 실패가 OCR 등 독립 API의 시작을 막지 않게 한다.
+        print(f"Hugging Face 아티팩트 동기화 실패. 서버를 계속 시작합니다: {error}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     app.state.device = device
     app.state.tokenizer = None
@@ -47,8 +60,12 @@ async def lifespan(app: FastAPI):
     }
     if absa_enabled:
         print(f"RoBERTa ABSA is loading (Device: {device})")
-        model_path = getattr(settings, "MODEL_PATH", "thadus2/roberta-absa-best-4class")
-        hf_token = getattr(settings, "HF_TOKEN", None) or os.getenv("HF_TOKEN")
+        model_path = getattr(
+            settings, "ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class"
+        )
+        hf_token = getattr(settings, "ROBERTA_HF_TOKEN", None) or os.getenv(
+            "ROBERTA_HF_TOKEN"
+        )
         try:
             tokenizer = AutoTokenizer.from_pretrained(model_path, token=hf_token or None)
             model = AutoModelForSequenceClassification.from_pretrained(
@@ -95,7 +112,10 @@ app.include_router(review.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
+app.include_router(ai_learning.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(locations.router, prefix="/api/v1")
+app.include_router(industries.router, prefix="/api/v1")
 app.include_router(ocr.router)
 app.include_router(effect_verification_router.router)
 app.include_router(forecast.router)
@@ -103,5 +123,6 @@ app.include_router(online_trend.router)
 app.include_router(product_image.router)
 
 @app.get("/")
+@app.get("/health")
 def health_check():
     return {"status": "ok", "message": "BP Team 20 AI Server is running!"}

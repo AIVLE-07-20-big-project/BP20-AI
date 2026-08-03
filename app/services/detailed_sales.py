@@ -10,6 +10,7 @@ from app.core.config import (
     ROOT,
     FOOT_TRAFFIC,
     SEOUL_EVENT_EXPOSURE,
+    SEOUL_EVENT_DETAILS,
     SEOUL_SUBWAY_EXPOSURE,
     SEOUL_WEATHER_DAILY,
     SEOUL_WEATHER_MONTHLY,
@@ -23,6 +24,10 @@ from scripts.modeling.detailed_sales_external_analysis import (
     load_pos_transactions,
     run_analysis,
 )
+from app.services.pos_verification_aggregates import (
+    PosVerificationDataError,
+    build_verification_aggregates,
+)
 
 
 def _quarter_code(dates: pd.Series) -> pd.Series:
@@ -34,9 +39,12 @@ def _lookup_by_quarter(path, trdar_cd: str, columns: list[str]) -> pd.DataFrame:
         return pd.DataFrame()
     frame = pd.read_csv(path)
     frame["TRDAR_CD"] = pd.to_numeric(frame["TRDAR_CD"], errors="coerce")
+    available_columns = [column for column in columns if column in frame.columns]
+    if not available_columns or "STDR_YYQU_CD" not in frame.columns:
+        return pd.DataFrame()
     selected = frame.loc[
         frame["TRDAR_CD"].eq(int(trdar_cd)),
-        ["STDR_YYQU_CD", *columns],
+        ["STDR_YYQU_CD", *available_columns],
     ].copy()
     return selected.drop_duplicates("STDR_YYQU_CD")
 
@@ -149,11 +157,12 @@ def _build_seoul_factors(
         (FOOT_TRAFFIC, ["TOT_FLPOP_CO"], {"TOT_FLPOP_CO": "foot_traffic_quarterly"}),
         (
             SEOUL_EVENT_EXPOSURE,
-            ["event_count", "event_days", "event_exposure"],
+            ["event_count", "event_days", "event_exposure", "event_details_json"],
             {
                 "event_count": "event_count_quarterly",
                 "event_days": "event_days_quarterly",
                 "event_exposure": "event_exposure_quarterly",
+                "event_details_json": "event_details_quarterly",
             },
         ),
         (
@@ -165,6 +174,19 @@ def _build_seoul_factors(
             },
         ),
     ]
+    if SEOUL_EVENT_DETAILS.exists():
+        event_details = _lookup_by_quarter(
+            SEOUL_EVENT_DETAILS,
+            trdar_cd,
+            ["event_details_json"],
+        )
+        if not event_details.empty:
+            dates = dates.merge(
+                event_details.rename(columns={"event_details_json": "event_details_quarterly"}),
+                on="STDR_YYQU_CD",
+                how="left",
+                validate="many_to_one",
+            )
     matched_quarterly = False
     for path, columns, rename in quarterly_sources:
         lookup = _lookup_by_quarter(path, trdar_cd, columns)
@@ -185,7 +207,14 @@ def _build_seoul_factors(
 
     factor_columns = [
         column for column in dates.columns
-        if column not in {"date", "STDR_YYQU_CD"} and dates[column].notna().any()
+        if column not in {
+            "date",
+            "STDR_YYQU_CD",
+            # 행사 상세 JSON은 보고서 표시용 메타데이터이며
+            # 숫자형 외부요인 분석 대상이 아니다.
+            "event_details_quarterly",
+        }
+        and dates[column].notna().any()
     ]
     return dates[["date", *factor_columns]], limitations
 
@@ -202,6 +231,16 @@ def analyze_uploaded_sales(file_bytes: bytes, trdar_cd: str) -> dict[str, Any]:
     )
     result["dataQuality"]["externalDataRegion"] = "서울"
     result["dataQuality"]["warnings"].extend(limitations)
+
+    try:
+        result["verificationAggregates"] = build_verification_aggregates(file_bytes)
+    except PosVerificationDataError as exc:
+        result["verificationAggregates"] = None
+        result["dataQuality"]["warnings"].append(
+            f"매출형 전략검증용 집계를 만들 수 없습니다({exc}) — "
+            "이 분석은 나중에 전략검증 비교 대상으로 쓸 수 없습니다.",
+        )
+
     root_cause = result["rootCauseAnalysis"]
     root_cause["limitations"] = list(dict.fromkeys(result["dataQuality"]["warnings"]))
     return result
