@@ -13,6 +13,9 @@ from celery import Celery
 
 # 워커는 main.py를 거치지 않으므로 여기서 .env를 로드한다.
 from app.core import bootstrap  # noqa: F401
+from app.core.huggingface_assets import sync_huggingface_assets
+
+sync_huggingface_assets()
 
 BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")

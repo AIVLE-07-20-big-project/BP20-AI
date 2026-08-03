@@ -190,6 +190,8 @@ def create_recommendation_from_analysis(
         "svc_induty_cd": payload.svc_induty_cd,
         "yyqu_cd": payload.yyqu_cd,
         "diagnosis": payload.diagnosis,
+        "report": payload.report,
+        "detailed_analysis": payload.detailed_analysis,
         "warnings": payload.warnings,
     })
 
@@ -206,21 +208,26 @@ def get_analysis(analysis_id: str, x_user_id: Optional[str] = Header(None, alias
 # 저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다
 @router.post("/analyses/{analysis_id}/recommendations", tags=["전략 추천"])
 def create_analysis_recommendation(
-    analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    analysis_id: str,
+    store_id: Optional[str] = Query(None),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ) -> dict:
 
     analysis = analyses.get_analysis(analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")
     _assert_owner(analysis, x_user_id)
+    resolved_store_id = store_id or analysis.get("store_id")
     return start_agent_run({
         "analysis_id": analysis_id,
         "user_id": analysis.get("user_id"),
-        "store_id": analysis.get("store_id"),
+        "store_id": resolved_store_id,
         "trdar_cd": analysis["trdar_cd"],
         "svc_induty_cd": analysis["svc_induty_cd"],
         "yyqu_cd": analysis["yyqu_cd"],
         "diagnosis": analysis["diagnosis"],
+        "report": analysis.get("report"),
+        "detailed_analysis": analysis.get("detailed_analysis"),
         "warnings": analysis["warnings"],
     })
 

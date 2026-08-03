@@ -18,6 +18,7 @@ from app.services.response import action_rules, bandit_store, shadow
 from app.services.response.context import CONTEXT_DIM, CONTEXT_SCHEMA_VERSION, build_context_vector
 from app.services.response.policy import BanditPolicy
 from app.services.response.state import RecommendationState
+from app.services.sales_summary import build_diagnosis_facts
 from rag.generator import generate_report
 from rag.retriever import get_index
 
@@ -170,22 +171,58 @@ def _build_shadow_report(등급: str, context: np.ndarray, selectable: list[str]
     return comparison.as_dict() if comparison else None
 
 
+def _build_recommended_actions(
+    candidates: list[dict], selectable: list[str], candidate_scores: dict[str, dict] | None,
+    candidate_status: dict[str, str] | None, *, model_loaded: bool,
+) -> list[dict]:
+    """안전성 검증을 통과한 후보 중 사용자가 고를 상위 2개를 구성한다."""
+    candidate_by_name = {candidate["방안"]: candidate for candidate in candidates}
+    original_order = {name: index for index, name in enumerate(selectable)}
+
+    def score(name: str) -> float:
+        value = (candidate_scores or {}).get(name, {}).get("expected_reward")
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float("-inf")
+
+    names = list(selectable)
+    if model_loaded:
+        names.sort(key=lambda name: (-score(name), original_order[name]))
+
+    recommendations = []
+    for rank, name in enumerate(names[:2], start=1):
+        recommendation = dict(candidate_by_name[name])
+        recommendation.update({
+            "recommendation_rank": rank,
+            "policy_score": (candidate_scores or {}).get(name),
+            "safety_status": (candidate_status or {}).get(name, "unknown"),
+        })
+        recommendations.append(recommendation)
+    return recommendations
 # coldstart(학습된 active 모델 없음)면 미학습 모델의 argmax 대신 비즈니스 우선순위
 # 기본값으로 fallback한다(설계 §10). 학습된 모델이 있으면 BanditPolicy로 선택한다.
 def _select_action(state: RecommendationState) -> dict:
     등급 = state.get("문제유형")
     candidates = state.get("candidate_actions") or []
-    arms = [c["방안"] for c in candidates]
+    # candidate_actions는 validate_candidates가 이미 selectable로만 좁혀놨다 — 모델은
+    # 등급 전체 arm 집합으로 저장돼 있으므로, 로딩은 항상 전체 arm으로 해야 한다
+    # (아니면 arm 수가 달라 BanditLoadMismatch로 매번 콜드스타트된다).
+    full_arms = [c["방안"] for c in action_rules.candidate_actions(등급)]
     selectable = state.get("selectable_actions") or []
     warnings = list(state.get("warnings", []))
 
     context = np.asarray(state["context_vector"], dtype=np.float32)
-    bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=arms)
+    bandit, model_loaded = bandit_store.load_or_coldstart(등급, context_dim=CONTEXT_DIM, arms=full_arms)
     shadow_report = _build_shadow_report(등급, context, selectable)
 
     if not model_loaded:
         action = action_rules.coldstart_default_action(등급, selectable)
         selected = next(c for c in candidates if c["방안"] == action)
+        recommended_actions = _build_recommended_actions(
+            candidates, selectable, state.get("candidate_scores"), state.get("candidate_status"),
+            model_loaded=False,
+        )
         return {
             "policy_decision": {
                 "policy_mode": "coldstart", "policy_selected_action": action,
@@ -194,6 +231,7 @@ def _select_action(state: RecommendationState) -> dict:
             },
             "policy_selected_action": action,
             "selected_action": selected,
+            "recommended_actions": recommended_actions,
             "decision_source": "policy",
             "selection_source": "business_rule_fallback",
             "shadow_report": shadow_report,
@@ -206,11 +244,16 @@ def _select_action(state: RecommendationState) -> dict:
     )
     decision = policy.choose(context, selectable, mode="serve", rng=np.random.default_rng())
     selected = next(c for c in candidates if c["방안"] == decision.selected_action)
+    recommended_actions = _build_recommended_actions(
+        candidates, selectable, state.get("candidate_scores"), state.get("candidate_status"),
+        model_loaded=True,
+    )
 
     return {
         "policy_decision": decision.as_dict(),
         "policy_selected_action": decision.selected_action,
         "selected_action": selected,
+        "recommended_actions": recommended_actions,
         "decision_source": "policy",
         "selection_source": "policy",
         "shadow_report": shadow_report,
@@ -269,12 +312,16 @@ def _await_approval(state: RecommendationState) -> dict:
         candidate_status = state.get("candidate_status") or {}
         if candidate is None:
             warnings.append(f"edit 방안 '{방안명}' — 후보 목록에 없어 반려 처리")
-            return {"approval_status": "rejected", "warnings": warnings, "status": "종료: 잘못된 edit 요청으로 반려"}
+            return {
+                "approval_status": "needs_revision",
+                "warnings": warnings,
+                "status": "수정 필요: 잘못된 edit 요청",
+            }
         if candidate_status.get(방안명) == "blocked":
             warnings.append(f"edit 방안 '{방안명}' — OPE 안전성 검사에서 차단(blocked)되어 반려 처리")
             return {
-                "approval_status": "rejected", "warnings": warnings,
-                "status": "종료: 차단된 방안으로 edit 요청되어 반려",
+                "approval_status": "needs_revision", "warnings": warnings,
+                "status": "수정 필요: 차단된 방안으로 edit 요청됨",
             }
         return {
             "approval_status": "edited", "selected_action": candidate,
@@ -292,12 +339,12 @@ def _await_approval(state: RecommendationState) -> dict:
             candidate_status = state.get("candidate_status") or {}
             if candidate is None:
                 warnings.append(f"approve 방안 '{선택방안}' — 후보 목록에 없어 반려 처리")
-                return {"approval_status": "rejected", "warnings": warnings,
-                        "status": "종료: 잘못된 승인 방안으로 반려"}
+                return {"approval_status": "needs_revision", "warnings": warnings,
+                        "status": "수정 필요: 잘못된 승인 방안"}
             if candidate_status.get(선택방안) == "blocked":
                 warnings.append(f"approve 방안 '{선택방안}' — OPE 안전성 검사에서 차단되어 반려 처리")
-                return {"approval_status": "rejected", "warnings": warnings,
-                        "status": "종료: 차단된 방안으로 승인 요청되어 반려 처리"}
+                return {"approval_status": "needs_revision", "warnings": warnings,
+                        "status": "수정 필요: 차단된 방안은 승인할 수 없음"}
             # 바로 승인한 경우에도 선택 방안이 최종 상태가 되도록 한다.
             selected_action_update = candidate
             decision_source = "human_edit"
@@ -325,6 +372,9 @@ def _route_after_approval(state: RecommendationState) -> str:
         return "generate_report"
     if status == "edited":
         return ["estimate", "evidence"]
+    # 수정이 필요한 입력은 같은 thread에서 다시 승인할 수 있도록 승인 대기를 유지한다.
+    if status == "needs_revision":
+        return "await_approval"
     return END
 
 
@@ -332,8 +382,11 @@ def _generate_report(state: RecommendationState) -> dict:
     action = state["selected_action"]["방안"]
     target = (state.get("diagnosis") or {}).get("대상", {})
     shop_context = ", ".join(v for v in (target.get("업종명"), target.get("상권명")) if v)
+    diagnosis_facts = build_diagnosis_facts(
+        state.get("report") or {}, state.get("detailed_analysis") or {},
+    )
 
-    out = generate_report(state.get("rag_evidence") or {}, action, shop_context)
+    out = generate_report(state.get("rag_evidence") or {}, action, diagnosis_facts, shop_context)
     warnings = list(state.get("warnings", []))
     if not out["verified"]:
         warnings.append("리포트 수치 검증 실패(재생성 후에도 위반) — 방향성만 신뢰하고 수치는 재확인 필요")
@@ -386,7 +439,11 @@ def get_graph():
     g.add_edge("prepare_approval", "await_approval")
     g.add_conditional_edges(
         "await_approval", _route_after_approval,
-        {"generate_report": "generate_report", "estimate": "estimate", "evidence": "evidence", END: END},
+        {
+            "generate_report": "generate_report", "estimate": "estimate", "evidence": "evidence",
+            # 잘못된 입력(needs_revision)은 같은 스레드에서 다시 승인할 수 있도록 대기한다.
+            "await_approval": "await_approval", END: END,
+        },
     )
     g.add_edge("generate_report", END)
 

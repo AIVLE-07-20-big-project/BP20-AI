@@ -297,8 +297,13 @@ def _update_bandit_online(state: dict, action_id: str, context_vector: list,
     if reward is None or any(v is None for v in context_vector):
         return
     등급 = state.get("문제유형")
-    arms = [c["방안"] for c in state.get("candidate_actions") or []]
-    if not 등급 or action_id not in arms:
+    if not 등급:
+        return
+    # state의 candidate_actions는 validate_candidates가 selectable로 좁혀놓은 목록이라,
+    # 저장된 모델(등급 전체 arm으로 학습됨)을 불러올 때 그대로 쓰면 arm 수가 달라
+    # BanditLoadMismatch로 콜드스타트되어 학습이 조용히 스킵된다. 항상 전체 arm으로 불러온다.
+    arms = [c["방안"] for c in action_rules.candidate_actions(등급)]
+    if action_id not in arms:
         return
     try:
         model_file = bandit_store.model_path(등급)

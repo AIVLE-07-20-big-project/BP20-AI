@@ -35,6 +35,7 @@ torch>=2.2
 
 # RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요
 sentence-transformers>=3.0
+pypdf>=6.0
 
 # AI 상품 이미지 생성(app/product_image)에 필요.
 # rembg 2.0.77부터 onnxruntime이 install_requires에서 빠져 extras로 분리됨 — 명시하지 않으면
