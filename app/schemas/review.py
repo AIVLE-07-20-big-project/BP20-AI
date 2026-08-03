@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
 from typing import List, Any, Dict, Optional
 
@@ -55,13 +57,7 @@ class ABSAClusterReport(BaseModel):
     )
     keyword_clusters: List[KeywordClusterItem]
 
-class StoreImprovementReport(BaseModel):
-    executive_summary: str = Field(
-        description="점주를 위한 종합 총평 및 이번 달 매장 운영 핵심 한줄 가이드"
-    )
-    action_items: List[PriorityActionItem] = Field(
-        description="우선순위 순으로 정렬된 개선 과제 리스트"
-    )
+
     
 class ABSAAgentResponse(BaseModel):
     store_id: int
@@ -100,6 +96,14 @@ class PriorityActionItem(BaseModel):
     )
     expected_outcome: str = Field(
         description="개선 실행 시 예상되는 효과"
+    )
+
+class StoreImprovementReport(BaseModel):
+    executive_summary: str = Field(
+        description="점주를 위한 종합 총평 및 이번 달 매장 운영 핵심 한줄 가이드"
+    )
+    action_items: List[PriorityActionItem] = Field(
+        description="우선순위 순으로 정렬된 개선 과제 리스트"
     )
 
 class ReviewAgentState(BaseModel):
