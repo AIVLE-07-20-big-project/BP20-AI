@@ -1,6 +1,9 @@
 import sys
 import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import torch
 from fastapi import FastAPI
@@ -46,10 +49,10 @@ async def lifespan(app: FastAPI):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"RoBERTa ABSA is loading (Device: {device})")
 
-    model_path = getattr(settings, "MODEL_PATH", "thadus2/roberta-absa-best-4class")
-    hf_token = getattr(settings, "HF_TOKEN", None) or os.getenv("HF_TOKEN")
+    model_path = getattr(settings, "ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class")
+    hf_token = getattr(settings, "ROBERTA_HF_TOKEN", None) or os.getenv("ROBERTA_HF_TOKEN")
 
-    token_arg = hf_token if hf_token else None
+    token_arg = hf_token.strip() if (hf_token and hf_token.strip()) else None
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, token=token_arg)
     model = AutoModelForSequenceClassification.from_pretrained(model_path, token=token_arg)
@@ -102,6 +105,7 @@ app.include_router(online_trend.router)
 app.include_router(product_image.router)
 
 @app.get("/")
+@app.get("/health")
 def health_check():
     return {"status": "ok", "message": "BP Team 20 AI Server is running!"}
 
