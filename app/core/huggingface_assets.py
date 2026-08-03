@@ -5,14 +5,16 @@ from pathlib import Path
 
 from huggingface_hub import snapshot_download
 
-from app.core.config import DATA, MODEL, settings
+from app.core.config import DATA, MODEL, RAG_INDEX_EXPORT, settings
 
 
 def _missing_model_assets() -> bool:
     required = (
         MODEL / "ai_sales_model.pkl",
         MODEL / "cox_risk.pkl",
-        MODEL / "rag_index" / "export" / "embeddings.npy",
+        RAG_INDEX_EXPORT / "embeddings.npy",
+        RAG_INDEX_EXPORT / "chunks.jsonl",
+        RAG_INDEX_EXPORT / "manifest.json",
     )
     return any(not path.exists() for path in required)
 
