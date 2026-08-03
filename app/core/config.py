@@ -14,6 +14,16 @@ AGENT_DATA = DATA / "agent"
 PROCESSED_DATA = DATA / "processed"
 SOURCE_DATA = DATA / "source"
 UPLOAD_DATA = DATA / "uploads"  # API와 워커가 공유하는 업로드 저장소
+# 운영에서는 MySQL URL을 주입하고, 비워두면 개발용 SQLite를 사용한다.
+AI_DATABASE_URL = os.getenv("AI_DATABASE_URL", "")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
+MODEL_S3_PREFIX = os.getenv("MODEL_S3_PREFIX", "models")
+RAG_S3_PREFIX = os.getenv("RAG_S3_PREFIX", "rag")
+DATA_S3_PREFIX = os.getenv("DATA_S3_PREFIX", "data")
+FEEDBACK_S3_PREFIX = os.getenv("FEEDBACK_S3_PREFIX", "feedback/v1")
+BANDIT_S3_PREFIX = os.getenv("BANDIT_S3_PREFIX", "bandit/v1")
+UPLOAD_S3_PREFIX = os.getenv("UPLOAD_S3_PREFIX", "uploads/v1")
+CAMPAIGN_LOGS_S3_PREFIX = os.getenv("CAMPAIGN_LOGS_S3_PREFIX", "logs/v2")
 
 AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
 ANALYSES_DB = MODEL / "analyses.sqlite3"
