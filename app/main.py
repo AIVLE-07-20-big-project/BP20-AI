@@ -104,3 +104,9 @@ app.include_router(product_image.router)
 @app.get("/")
 def health_check():
     return {"status": "ok", "message": "BP Team 20 AI Server is running!"}
+
+
+@app.get("/health")
+def health_probe():
+    """ALB/ECS/Docker가 사용하는 경량 liveness probe."""
+    return {"status": "ok"}
