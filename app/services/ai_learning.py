@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import datetime, timezone
+from uuid import uuid4
 
-from app.core.config import AGENT_DATA
+from app.core.config import AGENT_DATA, FEEDBACK_S3_PREFIX
+from app.core.object_storage import enabled as s3_enabled, upload_bytes
 from app.services.response.campaign_logs import _update_bandit_online
 from app.services.response.graph import get_graph
 
@@ -54,4 +57,14 @@ def record_sales_feedback(
         if header:
             writer.writeheader()
         writer.writerow(row)
+    # S3에는 append 대신 이벤트 단위 JSON 객체로 보관한다. 여러 Worker가 동시에
+    # 하나의 CSV를 덮어쓰는 race condition을 피하고, 추후 배치에서 JSONL/CSV로 합칠 수 있다.
+    if s3_enabled():
+        date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        upload_bytes(
+            (json.dumps(row, ensure_ascii=False) + "\n").encode("utf-8"),
+            prefix=f"{FEEDBACK_S3_PREFIX}/{date_prefix}",
+            name=f"{thread_id}-{uuid4().hex}.jsonl",
+            content_type="application/x-ndjson",
+        )
     return row

@@ -6,7 +6,8 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.core.config import BANDIT_MODEL_DIR, CAMPAIGN_LOGS_V2
+from app.core.config import BANDIT_MODEL_DIR, BANDIT_S3_PREFIX, CAMPAIGN_LOGS_V2
+from app.core.object_storage import download_file, enabled as s3_enabled, upload_file
 from app.services.response import action_rules
 from app.services.response.activation import ActivationCriteria, check_activation
 from app.services.response.context import CONTEXT_SCHEMA_VERSION
@@ -40,6 +41,16 @@ def model_sha256(등급: str) -> str | None:
 # 저장된 모델이 없거나, arm 집합이 바뀌었거나, shadow 전용 모델이면 콜드스타트한다
 def load_or_coldstart(등급: str, context_dim: int, arms: list[str]) -> tuple[NeuralContextualBandit, bool]:
     path = model_path(등급)
+    if s3_enabled() and not path.exists():
+        try:
+            download_file(
+                prefix=f"{BANDIT_S3_PREFIX}/{등급}",
+                name="active.pt",
+                local_path=path,
+            )
+        except Exception:
+            # S3에 아직 활성 모델이 없으면 정상적으로 coldstart한다.
+            pass
     if path.exists():
         try:
             bandit = NeuralContextualBandit.load(path, context_dim=context_dim, arms=arms)
@@ -56,7 +67,10 @@ def load_or_coldstart(등급: str, context_dim: int, arms: list[str]) -> tuple[N
 
 
 def save(등급: str, bandit: NeuralContextualBandit) -> None:
-    bandit.save(model_path(등급))
+    path = model_path(등급)
+    bandit.save(path)
+    if s3_enabled():
+        upload_file(path, prefix=f"{BANDIT_S3_PREFIX}/{등급}", name="active.pt")
 
 
 def candidate_path(등급: str, version: str) -> Path:
@@ -98,6 +112,9 @@ def promote_candidate(
         raise FileNotFoundError(f"후보 모델을 찾을 수 없음: {src}")
 
     arms = action_rules.ACTION_RULES.get(등급, [])
+    from app.services.response.campaign_logs import ensure_campaign_logs_snapshot
+
+    ensure_campaign_logs_snapshot()
     activation = check_activation(
         CAMPAIGN_LOGS_V2, problem_type=등급, arms=arms,
         reward_definition_version=REWARD_DEFINITION_VERSION,

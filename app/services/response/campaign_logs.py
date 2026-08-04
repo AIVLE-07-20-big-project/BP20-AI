@@ -13,7 +13,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from app.core.config import CAMPAIGN_LOGS_V2
+from app.core.config import CAMPAIGN_LOGS_S3_PREFIX, CAMPAIGN_LOGS_V2
+from app.core.object_storage import (
+    download_file,
+    enabled as s3_enabled,
+    upload_file,
+)
 from app.services.response import action_rules, bandit_store
 from app.services.response.context import CONTEXT_DIM
 from app.services.response.graph import get_graph
@@ -104,7 +109,24 @@ def _lookup_revenue(trdar_cd, svc_induty_cd, yyqu_cd, panel=PANEL) -> float | No
     return float(row.iloc[0][AMT]) if not row.empty else None
 
 
+def ensure_campaign_logs_snapshot(campaign_logs: Path | None = None) -> Path:
+    """S3 snapshot이 있으면 로컬 분석 경로로 복구한다."""
+    path = Path(campaign_logs) if campaign_logs is not None else CAMPAIGN_LOGS_V2
+    if s3_enabled() and not path.exists():
+        try:
+            download_file(
+                prefix=CAMPAIGN_LOGS_S3_PREFIX,
+                name="campaign_logs_v2.csv",
+                local_path=path,
+            )
+        except Exception:
+            # 아직 로그가 없는 첫 배포에서는 빈 상태로 시작할 수 있다.
+            pass
+    return path
+
+
 def _append_row_atomic(row: dict, campaign_logs: Path) -> None:
+    ensure_campaign_logs_snapshot(campaign_logs)
     campaign_logs.parent.mkdir(parents=True, exist_ok=True)
     new_row = pd.DataFrame([row], columns=SCHEMA_COLUMNS)
     with _file_lock(campaign_logs):
@@ -116,6 +138,12 @@ def _append_row_atomic(row: dict, campaign_logs: Path) -> None:
         tmp_path = campaign_logs.with_suffix(".tmp")
         combined.to_csv(tmp_path, index=False)
         tmp_path.replace(campaign_logs)
+    if s3_enabled() and campaign_logs == CAMPAIGN_LOGS_V2:
+        upload_file(
+            campaign_logs,
+            prefix=CAMPAIGN_LOGS_S3_PREFIX,
+            name="campaign_logs_v2.csv",
+        )
 
 
 def _actions_by_status(candidate_status: dict[str, str], status: str) -> list[str]:
@@ -324,7 +352,7 @@ def _update_bandit_online(state: dict, action_id: str, context_vector: list,
 
 # 스키마·타입·중복·propensity 범위·reward 재계산 일치 여부를 검사해 유효/제외 행을 센다
 def validate_logs(campaign_logs: Path | None = None) -> dict:
-    path = Path(campaign_logs) if campaign_logs is not None else CAMPAIGN_LOGS_V2
+    path = ensure_campaign_logs_snapshot(campaign_logs)
     if not path.exists():
         return {"총행수": 0, "유효행수": 0, "제외행수": 0, "제외사유": {}}
 
