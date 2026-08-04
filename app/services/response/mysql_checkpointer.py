@@ -34,10 +34,10 @@ class MySQLCheckpointer(BaseCheckpointSaver[str]):
             cursor = connection.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ai_agent_checkpoints (
-                    thread_id VARCHAR(255) NOT NULL,
-                    checkpoint_ns VARCHAR(255) NOT NULL,
-                    checkpoint_id VARCHAR(255) NOT NULL,
-                    parent_checkpoint_id VARCHAR(255),
+                    thread_id VARCHAR(191) NOT NULL,
+                    checkpoint_ns VARCHAR(191) NOT NULL,
+                    checkpoint_id VARCHAR(191) NOT NULL,
+                    parent_checkpoint_id VARCHAR(191),
                     type VARCHAR(255) NOT NULL,
                     checkpoint LONGBLOB NOT NULL,
                     metadata LONGTEXT,
@@ -46,13 +46,13 @@ class MySQLCheckpointer(BaseCheckpointSaver[str]):
             """)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ai_agent_writes (
-                    thread_id VARCHAR(255) NOT NULL,
-                    checkpoint_ns VARCHAR(255) NOT NULL,
-                    checkpoint_id VARCHAR(255) NOT NULL,
-                    task_id VARCHAR(255) NOT NULL,
+                    thread_id VARCHAR(191) NOT NULL,
+                    checkpoint_ns VARCHAR(191) NOT NULL,
+                    checkpoint_id VARCHAR(191) NOT NULL,
+                    task_id VARCHAR(191) NOT NULL,
                     idx INT NOT NULL,
-                    channel VARCHAR(255) NOT NULL,
-                    type VARCHAR(255) NOT NULL,
+                    channel VARCHAR(191) NOT NULL,
+                    type VARCHAR(191) NOT NULL,
                     value LONGBLOB NOT NULL,
                     PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
