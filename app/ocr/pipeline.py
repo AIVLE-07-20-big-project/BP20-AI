@@ -202,7 +202,7 @@ def preprocess_and_ocr(img_path: str):
     filtered_results = [item for row in ordered_rows for item in row]
     extracted_texts = [text for _, text, _ in filtered_results]
     image_height = processed_img.shape[0]
-    return extracted_texts, filtered_results, image_height
+    return extracted_texts, filtered_results, image_height, processed_img
 
 
 # ------------------------------------------------------------------

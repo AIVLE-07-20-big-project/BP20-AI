@@ -2,10 +2,12 @@
 
 import os
 import tempfile
+import base64
 import json
 from datetime import date
 from typing import Any, Dict, List, Optional
 
+import cv2
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
@@ -146,7 +148,7 @@ async def parse_receipt(
                 raise ValueError("productCatalog는 최대 5000개까지 전달할 수 있습니다")
             catalog = parse_catalog(catalog_payload)
 
-        ocr_texts, ocr_results, image_height = preprocess_and_ocr(tmp_path)
+        ocr_texts, ocr_results, image_height, processed_img = preprocess_and_ocr(tmp_path)
         document_type = classify_document_type(ocr_texts)
         structured = native_nlp_parser(ocr_texts, document_type=document_type)
 
@@ -158,8 +160,13 @@ async def parse_receipt(
         structured["items"] = product_items + extract_discounts(ocr_results)
         final_result = validate_and_reflect(structured, ocr_texts)
 
+        encoded, image_buffer = cv2.imencode(".jpg", processed_img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        if not encoded:
+            raise ValueError("전처리 이미지 인코딩에 실패했습니다.")
+
         return {
             "ocrText": ocr_texts,
+            "processedImage": "data:image/jpeg;base64," + base64.b64encode(image_buffer).decode("ascii"),
             "result": final_result,
         }
     except Exception as e:  # noqa: BLE001
