@@ -3,6 +3,8 @@
 # BE(Spring Boot)와의 왕복 통신 클라이언트 2개.
 #   BackendStoreRegistryClient — GET /api/internal/stores/registry (자사 가맹점 목록 조회)
 #   SalesTargetIngestClient    — POST /api/internal/sales-targets/bulk (배치 결과 반영)
+#                                 GET  /api/internal/sales-targets/excluded (5단계: 피드백 루프,
+#                                 영업팀이 EXCLUDED 처리한 후보 주소 조회)
 
 from __future__ import annotations
 
@@ -47,6 +49,17 @@ class SalesTargetIngestClient:
                 headers={"X-Internal-Api-Key": self.api_key},
                 json={"sourceBatchId": source_batch_id, "items": items},
                 timeout=60.0,
+            )
+        res.raise_for_status()
+        payload = res.json()
+        return payload.get("data", payload) if isinstance(payload, dict) else payload
+
+    async def fetch_excluded_addresses(self) -> list[str]:
+        async with httpx.AsyncClient() as client:
+            res = await client.get(
+                f"{self.base_url}/api/internal/sales-targets/excluded",
+                headers={"X-Internal-Api-Key": self.api_key},
+                timeout=30.0,
             )
         res.raise_for_status()
         payload = res.json()

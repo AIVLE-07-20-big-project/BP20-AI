@@ -7,9 +7,12 @@
 # 절대값 기준으로 정규화하지 않는 이유는 설계 가이드에 적어둔 대로다 — 공공데이터 갱신 주기(분기)에
 # 따라 절대 스케일이 흔들릴 수 있어서, 상대 순위가 배치마다 더 안정적인 기준이 된다.
 #
-# 리뷰 활성도 점수는 아직 리뷰 수집기가 없어서 임시로 중간값(50)을 채우는 자리만 만들어뒀다.
-# 리뷰 수집기가 만들어지면 review_activity_score()로 교체하면 되고, 최종 가중합 로직은
-# 건드릴 필요 없다(입력 Series만 바뀌는 구조로 분리해뒀다).
+# 리뷰 활성도 점수는 2단계(구글 플레이스 조회, google_places.py)를 거쳐야만 실값이 나온다.
+# 상위 후보(top_n)를 추리는 1차 스코어링 시점엔 아직 이 데이터가 없으므로, 가짜 중간값을
+# 채워 넣는 대신 review 축을 아예 빼고 나머지 세 축(growth/traffic/similarity)만으로
+# preliminary_scores()를 계산한다(과거엔 review=50 placeholder를 넣었었는데, 상수라 순위엔
+# 영향이 없어도 프론트에 "리뷰 활성도 50점"이라는 가짜 값이 그대로 노출되는 문제가 있었다).
+# 2단계에서 review_activity_score()로 실값을 구한 후보만 final_scores()(4축)로 다시 계산한다.
 
 from __future__ import annotations
 
@@ -78,8 +81,8 @@ def review_activity_score(
     """리뷰 활성도 점수. 과제정의서 산식: 리뷰수×0.4 + 평균평점×0.3 + 최신리뷰×0.2 + 증가추세×0.1.
     네 입력 모두 이미 0~100으로 정규화된 백분위 점수여야 한다(percentile_score로 변환한 값을 넣는다).
 
-    리뷰 수집기가 아직 없어서 지금은 이 함수를 호출할 데이터가 없다 — 대신 review_activity_placeholder()를
-    임시로 쓴다.
+    2단계(google_places.py로 리뷰 데이터를 수집한 후, pipeline.apply_review_scores())에서만
+    호출된다 — 그 전까지(1차 스코어링)는 review 축 자체를 빼고 preliminary_scores()를 쓴다.
     """
     return (
         review_count_pct * 0.4
@@ -87,12 +90,6 @@ def review_activity_score(
         + recency_pct * 0.2
         + growth_trend_pct * 0.1
     )
-
-
-def review_activity_placeholder(n: int) -> pd.Series:
-    """리뷰 수집기 완성 전까지 쓰는 임시 중간값(50점). 최종 점수 계산 로직을 리뷰 데이터 없이도
-    돌려볼 수 있게 하기 위한 자리 채우기용이며, 실제 서비스에 이 값을 그대로 노출하면 안 된다."""
-    return pd.Series([50.0] * n)
 
 
 def cosine_similarity_scores(
@@ -132,10 +129,30 @@ def final_scores(
     review: pd.Series,
     similarity: pd.Series,
 ) -> pd.Series:
-    """네 서브 점수(모두 0~100 스케일)를 과제정의서 가중치로 합산한다."""
+    """네 서브 점수(모두 0~100 스케일)를 과제정의서 가중치로 합산한다. review_score가 실값으로
+    채워진 후보(2단계 완료)에만 쓴다."""
     return (
         growth * WEIGHTS["growth"]
         + traffic * WEIGHTS["traffic"]
         + review * WEIGHTS["review"]
         + similarity * WEIGHTS["similarity"]
+    )
+
+
+_PRELIMINARY_WEIGHT_SUM = WEIGHTS["growth"] + WEIGHTS["traffic"] + WEIGHTS["similarity"]  # 0.80
+
+
+def preliminary_scores(
+    growth: pd.Series,
+    traffic: pd.Series,
+    similarity: pd.Series,
+) -> pd.Series:
+    """1차 스코어링(리뷰 데이터 수집 전) 가중합. review 축을 빼고, 나머지 세 축의 원래 비율
+    (growth 0.30 : traffic 0.25 : similarity 0.25)은 유지한 채 가중치 합이 1이 되도록
+    재정규화한다(0.30/0.80, 0.25/0.80, 0.25/0.80). top_n 선정과, 2단계에서도 리뷰 매칭에
+    실패한 후보의 final_score 계산에 그대로 쓰인다."""
+    return (
+        growth * (WEIGHTS["growth"] / _PRELIMINARY_WEIGHT_SUM)
+        + traffic * (WEIGHTS["traffic"] / _PRELIMINARY_WEIGHT_SUM)
+        + similarity * (WEIGHTS["similarity"] / _PRELIMINARY_WEIGHT_SUM)
     )

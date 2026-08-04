@@ -39,14 +39,16 @@ def _require_env(name: str) -> str:
 
 
 async def main(top_n: int, output_path: str, skip_backend_push: bool) -> None:
-    from scripts.collection.collectors import all_quarter_codes
+    from scripts.collection.collectors import latest_quarter_codes
 
     store_registry_api_key = _require_env("PUBLIC_DATA_STORE_API_KEY")
     seoul_api_key = _require_env("SEOUL_API_KEY")
     backend_base_url = os.environ.get("BACKEND_INTERNAL_BASE_URL", "http://localhost:8080")
     backend_internal_api_key = _require_env("INTERNAL_API_KEY")
 
-    quarter_codes = all_quarter_codes()
+    # district_metrics는 상권별 최근 2개 분기만 쓰므로 21개 전체 대신 최근 4개(1년치, 여유분
+    # 포함)만 받는다 — 배치 소요시간이 여기서 가장 크게 줄어든다.
+    quarter_codes = latest_quarter_codes()
     print(f"[1/2] 파이프라인 시작 (분기 코드: {quarter_codes})", flush=True)
 
     try:

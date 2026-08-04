@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pandas as pd
 
-from app.sales_target.backend_client import BackendStoreRegistryClient
+from app.sales_target.backend_client import BackendStoreRegistryClient, SalesTargetIngestClient
 
 
 def _fake_response(status_code=200, json_body=None, raise_exc=None):
@@ -89,6 +89,51 @@ class BackendStoreRegistryClientTests(unittest.IsolatedAsyncioTestCase):
     def test_base_url_trailing_slash_is_stripped(self):
         client = BackendStoreRegistryClient(base_url="http://localhost:8080/", api_key="k")
         self.assertEqual(client.base_url, "http://localhost:8080")
+
+
+class SalesTargetIngestClientExcludedAddressesTests(unittest.IsolatedAsyncioTestCase):
+    """5단계(피드백 루프): GET /api/internal/sales-targets/excluded 클라이언트."""
+
+    async def test_fetch_excluded_addresses_parses_api_response_envelope(self):
+        client = SalesTargetIngestClient(base_url="http://localhost:8080", api_key="test-key")
+        envelope = {"status": 200, "success": True, "data": ["서울 마포구 1", "서울 강남구 2"]}
+        captured = {}
+
+        async def fake_get(_client, url, headers=None, **kwargs):
+            captured["url"] = url
+            captured["headers"] = headers
+            return _fake_response(json_body=envelope)
+
+        with patch.object(httpx.AsyncClient, "get", new=fake_get):
+            addresses = await client.fetch_excluded_addresses()
+
+        self.assertEqual(addresses, ["서울 마포구 1", "서울 강남구 2"])
+        self.assertTrue(captured["url"].endswith("/api/internal/sales-targets/excluded"))
+        self.assertEqual(captured["headers"]["X-Internal-Api-Key"], "test-key")
+
+    async def test_fetch_excluded_addresses_empty_data_returns_empty_list(self):
+        client = SalesTargetIngestClient(base_url="http://localhost:8080", api_key="test-key")
+
+        async def fake_get(*_args, **_kwargs):
+            return _fake_response(json_body={"status": 200, "success": True, "data": []})
+
+        with patch.object(httpx.AsyncClient, "get", new=fake_get):
+            addresses = await client.fetch_excluded_addresses()
+
+        self.assertEqual(addresses, [])
+
+    async def test_fetch_excluded_addresses_raises_on_http_error(self):
+        client = SalesTargetIngestClient(base_url="http://localhost:8080", api_key="wrong-key")
+
+        async def fake_get(*_args, **_kwargs):
+            return _fake_response(
+                status_code=401,
+                raise_exc=httpx.HTTPStatusError("401", request=MagicMock(), response=MagicMock()),
+            )
+
+        with patch.object(httpx.AsyncClient, "get", new=fake_get):
+            with self.assertRaises(httpx.HTTPStatusError):
+                await client.fetch_excluded_addresses()
 
 
 if __name__ == "__main__":

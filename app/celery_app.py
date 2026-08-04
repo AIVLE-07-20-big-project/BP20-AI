@@ -20,6 +20,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from celery import Celery
+from celery.schedules import crontab
 
 # 워커는 main.py를 거치지 않으므로 여기서 .env를 로드한다.
 from app.core import bootstrap  # noqa: F401
@@ -31,7 +32,7 @@ celery_app = Celery(
     "bp20_ai",
     broker=BROKER_URL,
     backend=RESULT_BACKEND,
-    include=["app.tasks.analysis", "app.tasks.jobs"],
+    include=["app.tasks.analysis", "app.tasks.jobs", "app.tasks.sales_target"],
 )
 
 celery_app.conf.update(
@@ -51,6 +52,13 @@ celery_app.conf.update(
             "task": "jobs.cleanup_stale",
             "schedule": 60.0,
             "kwargs": {"queued_max_age_minutes": 5, "running_max_age_minutes": 15},
+        },
+        # AI_Agent_전환_가이드라인.md 4단계 — 완료/반려된 지 오래된 영업 타겟 그래프 thread의
+        # 체크포인트 데이터를 매일 새벽 4시(Asia/Seoul)에 정리한다. 보존 기간은
+        # SALES_TARGET_CHECKPOINT_RETENTION_DAYS(기본 30일)로 조절.
+        "cleanup-sales-target-checkpoints": {
+            "task": "sales_target.cleanup_checkpoints",
+            "schedule": crontab(hour=4, minute=0),
         },
     },
 )

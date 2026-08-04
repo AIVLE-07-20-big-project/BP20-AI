@@ -22,6 +22,8 @@
 
 from __future__ import annotations
 
+import os
+
 import httpx
 import pandas as pd
 
@@ -36,6 +38,53 @@ SEOUL_SIGUNGU_CODES: dict[str, str] = {
     "관악구": "11620", "서초구": "11650", "강남구": "11680", "송파구": "11710",
     "강동구": "11740",
 }
+
+# 공공데이터포털 웹사이트에서 직접 내려받는 CSV(예: "소상공인시장진흥공단_상가(상권)정보_서울_
+# 202603.csv")의 한글 헤더 -> 이 API 응답의 실제 필드명. 값 자체는 API/CSV 둘 다 같은 원본
+# 데이터라 동일하고, 컬럼명만 다르다. 이 매핑에 없는 CSV 컬럼(지번코드/우편번호 등)은 이 모듈
+# 어디서도 안 쓰여서 그냥 버린다.
+_CSV_COLUMN_MAP: dict[str, str] = {
+    "상가업소번호": "bizesId",
+    "상호명": "bizesNm",
+    "지점명": "brchNm",
+    "상권업종대분류코드": "indsLclsCd",
+    "상권업종대분류명": "indsLclsNm",
+    "상권업종중분류코드": "indsMclsCd",
+    "상권업종중분류명": "indsMclsNm",
+    "상권업종소분류코드": "indsSclsCd",
+    "상권업종소분류명": "indsSclsNm",
+    "표준산업분류코드": "ksicCd",
+    "표준산업분류명": "ksicNm",
+    "시도코드": "ctprvnCd",
+    "시도명": "ctprvnNm",
+    "시군구코드": "signguCd",
+    "시군구명": "signguNm",
+    "행정동코드": "adongCd",
+    "행정동명": "adongNm",
+    "법정동코드": "ldongCd",
+    "법정동명": "ldongNm",
+    "지번주소": "lnoAdr",
+    "건물명": "bldNm",
+    "도로명주소": "rdnmAdr",
+    "경도": "lon",
+    "위도": "lat",
+}
+
+
+def load_local_registry_csv(path: str) -> pd.DataFrame:
+    """공공데이터포털에서 직접 다운로드한 상가업소 CSV를 읽어 API 응답과 동일한 컬럼명으로 맞춘다.
+
+    apis.data.go.kr 게이트웨이 장애로 실제 API 호출이 안 될 때, 같은 원본 데이터를 파일로
+    받아 로컬 테스트에 쓰기 위한 우회 경로(fetch_sigungus()의 STORE_REGISTRY_LOCAL_CSV 참고).
+    이 함수가 반환하는 DataFrame은 매칭/지오매칭/스코어링 등 이 패키지의 나머지 코드가
+    그대로 쓸 수 있는 컬럼명(bizesNm/rdnmAdr/lon/lat/indsLclsNm/indsMclsNm/signguNm 등)을 가진다.
+    """
+    df = pd.read_csv(path, dtype=str, usecols=lambda c: c in _CSV_COLUMN_MAP)
+    df = df.rename(columns=_CSV_COLUMN_MAP)
+    for col in ("lon", "lat"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
 
 
 class StoreRegistryCollector:
@@ -114,7 +163,18 @@ class StoreRegistryCollector:
         sigungu_codes: list[str] | None = None,
         inds_lcls_cd: str | None = None,
     ) -> pd.DataFrame:
-        """구 단위로 순회 수집한다. 기본값은 서울 25개 구 전체."""
+        """구 단위로 순회 수집한다. 기본값은 서울 25개 구 전체.
+
+        STORE_REGISTRY_LOCAL_CSV 환경변수가 설정돼 있으면 apis.data.go.kr는 아예 호출하지 않고
+        곧바로 공공데이터포털에서 직접 내려받은 CSV를 읽는다(load_local_registry_csv). 일부 구만
+        느리게 응답하거나 실패해도 나머지 구는 정상 반영되는 부분 장애 상황에서는 "몇 개 구가
+        빠진 채로 절반만 쓰는" 대신, 아예 API를 안 타서 매번 안정적으로 같은 결과를 준다.
+        운영 환경에서는 이 변수를 안 쓰므로(=파일 경로가 없으므로) 항상 기존처럼 실시간 API를 쓴다.
+        """
+        local_csv = os.getenv("STORE_REGISTRY_LOCAL_CSV")
+        if local_csv:
+            return load_local_registry_csv(local_csv)
+
         codes = sigungu_codes or list(SEOUL_SIGUNGU_CODES.values())
         return await self._fetch_many(codes, "signguCd", inds_lcls_cd)
 

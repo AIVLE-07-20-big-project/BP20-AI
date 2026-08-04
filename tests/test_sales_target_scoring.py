@@ -12,7 +12,7 @@ from app.sales_target.scoring import (
     foot_traffic_index,
     growth_scores,
     percentile_score,
-    review_activity_placeholder,
+    preliminary_scores,
     review_activity_score,
 )
 
@@ -80,10 +80,6 @@ class ReviewActivityScoreTests(unittest.TestCase):
         )
         self.assertAlmostEqual(result_zero.iloc[0], 0.0)
 
-    def test_placeholder_returns_midpoint_for_n_rows(self):
-        result = review_activity_placeholder(3)
-        self.assertEqual(len(result), 3)
-        self.assertTrue((result == 50.0).all())
 
 
 class CosineSimilarityScoresTests(unittest.TestCase):
@@ -131,6 +127,28 @@ class FinalScoresTests(unittest.TestCase):
             similarity=pd.Series([0.0]),
         )
         self.assertAlmostEqual(result.iloc[0], 30.0)  # growth 가중치 0.30만 반영
+
+
+class PreliminaryScoresTests(unittest.TestCase):
+    """1차 스코어링(리뷰 제외 3축) — scoring.preliminary_scores()."""
+
+    def test_all_100_gives_100(self):
+        hundred = pd.Series([100.0])
+        result = preliminary_scores(hundred, hundred, hundred)
+        self.assertAlmostEqual(result.iloc[0], 100.0)
+
+    def test_weights_renormalized_without_review(self):
+        # growth=100, traffic=0, similarity=0 -> growth 가중치(0.30)를 0.80으로 나눈 비율만 반영.
+        result = preliminary_scores(pd.Series([100.0]), pd.Series([0.0]), pd.Series([0.0]))
+        self.assertAlmostEqual(result.iloc[0], 100.0 * (0.30 / 0.80))
+
+    def test_matches_final_scores_when_review_is_neutral_midpoint(self):
+        # review=50(중간값)을 final_scores에 넣은 값과는 다르다는 것을 확인 — preliminary_scores는
+        # review 축 자체가 없는 것처럼 재정규화하므로, review=50을 끼워 넣는 것과 결과가 같지 않다.
+        growth, traffic, similarity = pd.Series([80.0]), pd.Series([60.0]), pd.Series([40.0])
+        via_final_with_neutral_review = final_scores(growth, traffic, pd.Series([50.0]), similarity)
+        via_preliminary = preliminary_scores(growth, traffic, similarity)
+        self.assertNotAlmostEqual(via_preliminary.iloc[0], via_final_with_neutral_review.iloc[0])
 
 
 if __name__ == "__main__":
