@@ -44,27 +44,45 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asset_status = sync_huggingface_assets()
-    print(f"Hugging Face 아티팩트 상태: {asset_status}")
+    try:
+        asset_status = sync_huggingface_assets()
+        print(f"Hugging Face 아티팩트 상태: {asset_status}")
+    except Exception as error:
+        # 분석 아티팩트 동기화 실패가 OCR 등 독립 API의 시작을 막지 않게 한다.
+        print(f"Hugging Face 아티팩트 동기화 실패. 서버를 계속 시작합니다: {error}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"RoBERTa ABSA is loading (Device: {device})")
-
-    model_path = getattr(settings, "ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class")
-    hf_token = getattr(settings, "ROBERTA_HF_TOKEN", None) or os.getenv("ROBERTA_HF_TOKEN")
-
-    token_arg = hf_token.strip() if (hf_token and hf_token.strip()) else None
-
-    tokenizer = AutoTokenizer.from_pretrained(model_path, token=token_arg)
-    model = AutoModelForSequenceClassification.from_pretrained(model_path, token=token_arg)
-    
-    model.to(device)
-    model.eval()
-
-    app.state.tokenizer = tokenizer
-    app.state.model = model
     app.state.device = device
-    
-    print("RoBERTa 모델 로드 완료!")
+    app.state.tokenizer = None
+    app.state.model = None
+
+    absa_enabled = os.getenv("ABSA_ENABLED", "true").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+    if absa_enabled:
+        print(f"RoBERTa ABSA is loading (Device: {device})")
+        model_path = getattr(
+            settings, "ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class"
+        )
+        hf_token = getattr(settings, "ROBERTA_HF_TOKEN", None) or os.getenv(
+            "ROBERTA_HF_TOKEN"
+        )
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_path, token=hf_token or None)
+            model = AutoModelForSequenceClassification.from_pretrained(
+                model_path, token=hf_token or None
+            )
+            model.to(device)
+            model.eval()
+            app.state.tokenizer = tokenizer
+            app.state.model = model
+            print("RoBERTa 모델 로드 완료!")
+        except Exception as error:  # ABSA is optional; OCR and other APIs must still start.
+            print(
+                "RoBERTa ABSA 모델을 불러오지 못했습니다. "
+                f"리뷰 분석만 비활성화하고 서버를 계속 시작합니다: {error}"
+            )
+    else:
+        print("ABSA_ENABLED=false: RoBERTa 리뷰 분석 모델 로딩을 건너뜁니다.")
     try:
         from app.ocr.pipeline import _get_ocr_engine
 
@@ -76,8 +94,8 @@ async def lifespan(app: FastAPI):
 
     yield
     
-    del app.state.tokenizer
-    del app.state.model
+    app.state.tokenizer = None
+    app.state.model = None
 
 app = FastAPI(
     title="20BG AI 서비스",

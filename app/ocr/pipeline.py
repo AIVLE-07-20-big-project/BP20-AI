@@ -3,10 +3,12 @@
 import datetime
 import json
 import re
+from statistics import median
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
+
+from app.ocr.image_preprocessing import preprocess_receipt
 
 
 # ------------------------------------------------------------------
@@ -15,6 +17,7 @@ import numpy as np
 def setup_korean_font():
     # ocr_result.png 시각화에 한글 라벨이 네모(□)로 깨지는 걸 방지
     import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
 
     candidates = [
         "Malgun Gothic",   # Windows 기본 내장
@@ -187,70 +190,19 @@ def _get_ocr_engine():
 
 
 def preprocess_and_ocr(img_path: str):
-    setup_korean_font()
-
-    original_img = cv2.imread(img_path)
-    if original_img is None:
-        raise FileNotFoundError(f"이미지를 불러올 수 없습니다: {img_path}")
-
+    # preparation에서 검증한 기하 보정 + CLAHE + sharpen 파이프라인을 사용한다.
+    # OCR은 가장 성능이 좋았던 단일 후보에 한 번만 실행해 지연시간을 줄인다.
+    processed_img, metadata = preprocess_receipt(img_path)
     ocr_engine = _get_ocr_engine()
-
-    # 패스 1: 가벼운 전처리 (큰 글자/숫자에 유리)
-    light_img = enhance_receipt_image_light(original_img)
-    rgb_light = cv2.cvtColor(light_img, cv2.COLOR_BGR2RGB)
-    print("텍스트 추출 시작 (1/2: 원본에 가까운 버전)...")
-    results_light = run_paddle_ocr(ocr_engine, rgb_light)
-
-    # 패스 2: 강한 전처리 (닷매트릭스 작은 글자 복원에 유리)
-    heavy_img = enhance_receipt_image(original_img)
-    rgb_heavy = cv2.cvtColor(heavy_img, cv2.COLOR_BGR2RGB)
-    print("텍스트 추출 시작 (2/2: 점 연결 보정 버전)...")
-    results_heavy = run_paddle_ocr(ocr_engine, rgb_heavy)
-
-    # 두 결과 병합 (겹치는 영역은 confidence 높은 쪽 채택)
-    ocr_results = merge_ocr_results(results_light, results_heavy)
-
-    # 시각화는 가벼운 버전(원본에 가까운 화질) 위에 그린다
-    rgb_img = rgb_light
-
-    plt.figure(figsize=(12, 12))
-    plt.imshow(rgb_img)
-    ax = plt.gca()
-
-    extracted_texts = []
-
-    for (bbox, text, prob) in ocr_results:
-        if prob > 0.2:  # 임계값을 0.3 -> 0.2로 낮춰서 더 많이 잡되, 결과에서 prob도 같이 확인
-            extracted_texts.append(text)
-
-            top_left = [int(val) for val in bbox[0]]
-            bottom_right = [int(val) for val in bbox[2]]
-
-            rect = plt.Rectangle(
-                (top_left[0], top_left[1]),
-                bottom_right[0] - top_left[0],
-                bottom_right[1] - top_left[1],
-                fill=False,
-                edgecolor="red",
-                linewidth=2,
-            )
-            ax.add_patch(rect)
-            plt.text(
-                top_left[0],
-                top_left[1] - 5,
-                f"{text} ({prob:.2f})",
-                bbox=dict(facecolor="yellow", alpha=0.5),
-                fontsize=9,
-            )
-
-    plt.axis("off")
-    plt.savefig("ocr_result.png", bbox_inches="tight", dpi=150)
-    print("OCR 시각화 결과를 ocr_result.png 로 저장했습니다.")
-
-    image_height = rgb_img.shape[0]
-    filtered_results = [(bbox, text, prob) for (bbox, text, prob) in ocr_results if prob > 0.2]
-
-    return extracted_texts, filtered_results, image_height
+    rgb_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
+    print(f"텍스트 추출 시작 (CLAHE+Sharpen, 전처리={metadata})...")
+    ocr_results = run_paddle_ocr(ocr_engine, rgb_img)
+    filtered_results = [item for item in ocr_results if item[2] > 0.2]
+    ordered_rows = cluster_rows(filtered_results)
+    filtered_results = [item for row in ordered_rows for item in row]
+    extracted_texts = [text for _, text, _ in filtered_results]
+    image_height = processed_img.shape[0]
+    return extracted_texts, filtered_results, image_height, processed_img
 
 
 # ------------------------------------------------------------------
@@ -260,14 +212,65 @@ def preprocess_and_ocr(img_path: str):
 # 이 키워드가 포함된 행(row)은 품목이 아니라 헤더/합계/결제 정보 등이므로
 # 품목 추출 대상에서 제외한다.
 NON_ITEM_ROW_KEYWORDS = [
-    "합계", "총매출", "부가세", "공급가액", "면세금액", "과세금액",
+    "합계", "총매출", "총액", "총구매", "구매액", "구매억",
+    "실결제", "실결금", "내실금", "부가", "부가세", "세액", "공급가액",
+    "면세", "면세금액", "면세물품가액", "과세", "과세금액", "과세물품가액",
+    "물품가액", "물품금액",
     "결제금액", "받은금액", "거스름", "카드", "승인", "영수증",
     "사업자", "대표", "전화", "주소", "제품명", "상품명", "품목",
-    "수량", "단가", "금액", "할인",
+    "등록", "pos", "tel", "전화번호", "매장번호", "점포번호", "계산원", "캐셔",
+    "수량", "단가", "금액", "할인", "청구", "포인트",
+]
+
+DISCOUNT_KEYWORDS = [
+    "할인", "행사할인", "즉시할인", "회원할인", "카드할인", "쿠폰",
+    "에누리", "프로모션", "discount", "d/c", "dc",
+]
+
+# 이 문구들은 영수증의 품목 목록이 끝나고 세금/결제 요약 영역이 시작됐음을 뜻한다.
+# 한 번 나타나면 이후 행은 개별 상품이나 상품 할인으로 해석하지 않는다.
+ITEM_SECTION_END_KEYWORDS = [
+    "물품가액", "물품금액", "면세", "면세물품", "면세물품가액",
+    "과세물품", "과세물품가액", "과세금액",
+    # 합계 영역 라벨과 실제 OCR에서 반복 관찰된 오인식 형태
+    "총구매", "총구매액", "구매액", "구매억", "충구매억",
+    "실결제", "실결제금액", "실결금액", "내실금액", "내실금백",
+]
+
+_DISCOUNT_MARKERS = "-−–△▲"
+
+NON_DISCOUNT_ROW_KEYWORDS = [
+    "등록", "pos", "tel", "전화", "전화번호", "주소", "사업자", "대표",
+    "매장번호", "점포번호", "영수증번호", "승인번호", "계산원", "캐셔",
 ]
 
 # 행 안에서 "품목명"으로 볼 수 있는 토큰 판별 - 숫자만 있거나 너무 짧으면 품목명 아님
 _ITEM_NAME_MIN_LEN = 2
+
+
+def _normalize_row_label(text: str) -> str:
+    """Remove OCR spacing/punctuation before testing non-item labels.
+
+    Examples: ``부'가 세`` -> ``부가세``, ``합 계`` -> ``합계``.
+    """
+    return re.sub(r"[^가-힣A-Za-z0-9]", "", text).casefold()
+
+
+def is_non_item_row(texts) -> bool:
+    joined = " ".join(texts).strip()
+    normalized = _normalize_row_label(joined)
+    if any(_normalize_row_label(keyword) in normalized for keyword in NON_ITEM_ROW_KEYWORDS):
+        return True
+    # ``-T 홍길동``처럼 계산원 코드와 이름으로 구성된 관리 행을 제외한다.
+    return bool(re.match(r"^-?\s*[A-Za-z]\s*[가-힣]{2,5}(?:\s|$)", joined))
+
+
+def is_item_section_end_row(texts) -> bool:
+    normalized = _normalize_row_label("".join(texts))
+    return any(
+        _normalize_row_label(keyword) in normalized
+        for keyword in ITEM_SECTION_END_KEYWORDS
+    )
 
 
 def _bbox_metrics(bbox):
@@ -279,7 +282,7 @@ def _bbox_metrics(bbox):
     return x_min, y_min, x_max, y_max, (y_min + y_max) / 2, (y_max - y_min)
 
 
-def cluster_rows(ocr_results, y_overlap_ratio: float = 0.5):
+def cluster_rows(ocr_results, y_overlap_ratio: float = 0.50, center_tolerance: float = 0.32):
     # (bbox, text, prob) 리스트를 같은 행(row)끼리 묶는다
     # y중심 기준으로 먼저 정렬해두면 근처 행부터 비교하게 되어 효율적
     items_with_metrics = []
@@ -290,20 +293,42 @@ def cluster_rows(ocr_results, y_overlap_ratio: float = 0.5):
              "x_min": x_min, "y_min": y_min, "y_max": y_max, "height": height}
         )
     items_with_metrics.sort(key=lambda d: (d["y_min"] + d["y_max"]) / 2)
+    typical_height = median(
+        item["height"] for item in items_with_metrics if item["height"] > 0
+    ) if items_with_metrics else 1.0
 
-    rows = []  # 각 원소: {"y_min":.., "y_max":.., "boxes":[...]}
+    rows = []
     for item in items_with_metrics:
-        assigned = False
+        best_row = None
+        best_score = -1.0
         for row in rows:
-            overlap = min(row["y_max"], item["y_max"]) - max(row["y_min"], item["y_min"])
-            if overlap > 0 and overlap / max(item["height"], 1) > y_overlap_ratio:
-                row["boxes"].append(item)
-                row["y_min"] = min(row["y_min"], item["y_min"])
-                row["y_max"] = max(row["y_max"], item["y_max"])
-                assigned = True
-                break
-        if not assigned:
+            row_center = median((box["y_min"] + box["y_max"]) / 2 for box in row["boxes"])
+            row_height = median(box["height"] for box in row["boxes"])
+            overlap = max(
+                max(0, min(box["y_max"], item["y_max"]) - max(box["y_min"], item["y_min"]))
+                / max(1, min(box["height"], item["height"]))
+                for box in row["boxes"]
+            )
+            # 큰 검출 박스가 인접한 두 상품 행을 하나로 이어 붙이지 못하도록
+            # 분모를 대표 글자 높이의 1.5배 이하로 제한한다. 기존의 max(height)
+            # 방식은 박스가 클수록 다른 줄까지 같은 줄로 판정하는 문제가 있었다.
+            center_scale = max(
+                1.0,
+                min(item["height"], row_height, typical_height * 1.5),
+            )
+            center_distance = abs(
+                ((item["y_min"] + item["y_max"]) / 2) - row_center
+            ) / center_scale
+            if overlap >= y_overlap_ratio and center_distance <= center_tolerance:
+                score = overlap - center_distance * 0.1
+                if score > best_score:
+                    best_row, best_score = row, score
+        if best_row is None:
             rows.append({"y_min": item["y_min"], "y_max": item["y_max"], "boxes": [item]})
+        else:
+            best_row["boxes"].append(item)
+            best_row["y_min"] = min(best_row["y_min"], item["y_min"])
+            best_row["y_max"] = max(best_row["y_max"], item["y_max"])
 
     result_rows = []
     for row in rows:
@@ -389,9 +414,14 @@ def extract_items(ocr_results):
         texts = [text.strip() for _, text, _ in row]
         row_joined = "".join(texts)
 
+        # 세금/물품가액 요약 영역이 시작되면 이후 모든 행은 품목 후보에서 제외한다.
+        if is_item_section_end_row(texts):
+            pending_name_tokens = []
+            break
+
         # 헤더/합계/결제 정보 등이 섞인 행은 품목 후보에서 제외하고,
         # 이런 행을 만나면 직전에 대기 중이던 이름 후보도 무효화(다른 섹션으로 넘어간 것이므로)
-        if any(kw in row_joined for kw in NON_ITEM_ROW_KEYWORDS):
+        if is_non_item_row(texts):
             pending_name_tokens = []
             continue
 
@@ -448,6 +478,95 @@ def extract_items(ocr_results):
         })
 
     return items
+
+
+def _parse_discount_amount(text: str, has_discount_keyword: bool) -> int | None:
+    """Return a negative discount amount from common receipt notations.
+
+    Supported examples: ``-500``, ``- 500``, ``500-``, ``(500)``,
+    ``△500`` and keyword-labelled positive amounts such as ``할인 500``.
+    """
+    compact = text.replace(" ", "").replace("원", "")
+    number = r"(\d{1,3}(?:,\d{3})+|\d+)"
+    patterns = [
+        # 전화번호/날짜의 하이픈은 제외하고 독립된 음수 부호만 허용한다.
+        rf"(?<![\dA-Za-z])[{re.escape(_DISCOUNT_MARKERS)}]({number})(?!\d)",
+        rf"(?<!\d)({number})-(?!\d)",
+        rf"\(({number})\)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, compact)
+        if match:
+            digits = next(group for group in match.groups() if group is not None)
+            return -abs(int(digits.replace(",", "")))
+
+    if has_discount_keyword:
+        amounts = re.findall(number, compact)
+        if amounts:
+            # 할인율(예: 10%)만 있는 행은 금액으로 만들지 않는다.
+            amount = amounts[-1]
+            if f"{amount}%" not in compact:
+                return -abs(int(amount.replace(",", "")))
+    return None
+
+
+def extract_discounts(ocr_results):
+    """Extract discount rows as negative receipt items.
+
+    Discounts deliberately use the existing item schema so they are visible in
+    the review UI, persisted in ``receipt_items`` and included in total checks.
+    """
+    discounts = []
+    for row in cluster_rows(ocr_results):
+        texts = [text.strip() for _, text, _ in row if text.strip()]
+        if not texts:
+            continue
+        if is_item_section_end_row(texts):
+            break
+        row_text = " ".join(texts)
+        normalized = _normalize_row_label(row_text)
+
+        # 매장/등록/POS/연락처 행과 할인율 안내는 금액 할인 품목이 아니다.
+        if re.match(r"^-?\s*[A-Za-z]\s*[가-힣]{2,5}(?:\s|$)", row_text):
+            continue
+        if any(_normalize_row_label(keyword) in normalized for keyword in NON_DISCOUNT_ROW_KEYWORDS):
+            continue
+        if "%" in row_text or "％" in row_text:
+            continue
+        if re.search(r"\d{2,4}[-/.]\d{1,2}[-/.]\d{1,4}", row_text):
+            continue
+        if re.search(r"\d{2,4}-\d{3,4}-\d{4}", row_text):
+            continue
+
+        matched_keyword = next(
+            (keyword for keyword in DISCOUNT_KEYWORDS
+             if _normalize_row_label(keyword) in normalized),
+            None,
+        )
+        has_negative_marker = any(marker in row_text for marker in _DISCOUNT_MARKERS) or bool(
+            re.search(r"\([\d,]+\)|[\d,]+\s*-", row_text)
+        )
+        if matched_keyword is None and not has_negative_marker:
+            continue
+
+        amount = _parse_discount_amount(row_text, matched_keyword is not None)
+        if amount is None or amount == 0:
+            continue
+
+        label_tokens = [
+            text for text in texts
+            if re.search(r"[가-힣A-Za-z]", text)
+            and not re.fullmatch(r"[\d,()%원+\-−–△▲]+", text.replace(" ", ""))
+        ]
+        label = " ".join(label_tokens).strip() or matched_keyword or "할인"
+        discounts.append({
+            "itemName": label,
+            "quantity": 1,
+            "unit": None,
+            "unitPrice": amount,
+            "totalPrice": amount,
+        })
+    return discounts
 
 
 # ------------------------------------------------------------------
@@ -516,7 +635,11 @@ LABEL_FIELD_MAP = {
     "supplyAmount": ["공급가액", "과세금액"],
     "vat": ["부가세", "부가가치세"],
     "taxFreeAmount": ["면세금액"],
-    "totalAmount": ["합계금액", "총매출액", "결제금액", "요금총액", "총액"],
+    "totalAmount": [
+        "합계금액", "총매출액", "총구매액", "총구매억", "충구매억",
+        "실결제금액", "실결금액", "내실금액", "내실금백",
+        "결제금액", "요금총액", "총액",
+    ],
 }
 
 # 라벨 다음에 오는 값은 "9,091"처럼 콤마가 있을 수도, "909"처럼 없을 수도 있어서

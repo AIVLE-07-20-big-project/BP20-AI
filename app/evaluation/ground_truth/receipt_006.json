@@ -1,0 +1,78 @@
+{
+  "image": "receipt_006.jpg",
+  "items": [
+    {
+      "itemName": "룸바이홈 도통한 기하학 무릎담요(그레이)",
+      "quantity": 1,
+      "unitPrice": 4130,
+      "totalPrice": 4130
+    },
+    {
+      "itemName": "헬로우 베어 담요",
+      "quantity": 1,
+      "unitPrice": 7630,
+      "totalPrice": 7630
+    },
+    {
+      "itemName": "마스킹 테이브 (흑색)",
+      "quantity": 1,
+      "unitPrice": 1000,
+      "totalPrice": 1000
+    },
+    {
+      "itemName": "종이봉투 특 100원",
+      "quantity": 1,
+      "unitPrice": 100,
+      "totalPrice": 100
+    },
+    {
+      "itemName": "모닝 마하펜세트 (흑색)",
+      "quantity": 1,
+      "unitPrice": 2800,
+      "totalPrice": 2800
+    },
+    {
+      "itemName": "3M 박스테이프 (투명, 2+1)",
+      "quantity": 1,
+      "unitPrice": 6000,
+      "totalPrice": 6000
+    },
+    {
+      "itemName": "롯데 이지온 투명테이프",
+      "quantity": 1,
+      "unitPrice": 1000,
+      "totalPrice": 1000
+    },
+    {
+      "itemName": "불스원 스프레이 체인",
+      "quantity": 1,
+      "unitPrice": 7000,
+      "totalPrice": 7000
+    },
+    {
+      "itemName": "초이스엘 면 테이프",
+      "quantity": 2,
+      "unitPrice": 1300,
+      "totalPrice": 2600
+    },
+    {
+      "itemName": "초이스엘 월드 바인더 클립 (소)",
+      "quantity": 1,
+      "unitPrice": 3300,
+      "totalPrice": 3300
+    },
+    {
+      "itemName": "3M 다용도 테이프 기확 (3+1)",
+      "quantity": 1,
+      "unitPrice": 3800,
+      "totalPrice": 3800
+    },
+    {
+      "itemName": "오피스디포 오피스가위",
+      "quantity": 1,
+      "unitPrice": 2700,
+      "totalPrice": 2700
+    }
+  ],
+  "totalAmount": 42060
+}

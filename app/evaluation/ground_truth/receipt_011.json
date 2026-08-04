@@ -1,0 +1,90 @@
+{
+  "image": "receipt_011.jpg",
+  "items": [
+    {
+      "itemName": "모짜렐라 슈레드 피자치즈",
+      "quantity": 1,
+      "unitPrice": 13980,
+      "totalPrice": 13980
+    },
+    {
+      "itemName": "그린피스 와사비",
+      "quantity": 1,
+      "unitPrice": 3980,
+      "totalPrice": 3980
+    },
+    {
+      "itemName": "삼양 까르보불닭볶음면",
+      "quantity": 2,
+      "unitPrice": 5180,
+      "totalPrice": 10360
+    },
+    {
+      "itemName": "벤토 멀티팩",
+      "quantity": 1,
+      "unitPrice": 9980,
+      "totalPrice": 9980
+    },
+    {
+      "itemName": "스윗텔 스낵토마토",
+      "quantity": 1,
+      "unitPrice": 14980,
+      "totalPrice": 14980
+    },
+    {
+      "itemName": "마운틴 바나나",
+      "quantity": 1,
+      "unitPrice": 2980,
+      "totalPrice": 2980
+    },
+    {
+      "itemName": "MAXX 1A 신선한우유",
+      "quantity": 1,
+      "unitPrice": 3980,
+      "totalPrice": 3980
+    },
+    {
+      "itemName": "매일 멸균딸기우유(24입)",
+      "quantity": 1,
+      "unitPrice": 10880,
+      "totalPrice": 10880
+    },
+    {
+      "itemName": "고야 피티드 그린올리브",
+      "quantity": 1,
+      "unitPrice": 5480,
+      "totalPrice": 5480
+    },
+    {
+      "itemName": "퀴네 딜슈니텐 슬라이스피클",
+      "quantity": 1,
+      "unitPrice": 7180,
+      "totalPrice": 7180
+    },
+    {
+      "itemName": "하림 동물복지 닭볶음탕",
+      "quantity": 1,
+      "unitPrice": 7480,
+      "totalPrice": 7480
+    },
+    {
+      "itemName": "[M+N] 1+1덤",
+      "quantity": 1,
+      "unitPrice": -5180,
+      "totalPrice": -5180
+    },
+    {
+      "itemName": "[카드]가 2000원",
+      "quantity": 1,
+      "unitPrice": -2000,
+      "totalPrice": -2000
+    },
+    {
+      "itemName": "[할인쿠폰] 10%",
+      "quantity": 1,
+      "unitPrice": -748,
+      "totalPrice": -748
+    }
+  ],
+  "totalAmount": 99010
+}

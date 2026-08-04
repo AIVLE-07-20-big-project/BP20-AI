@@ -1,0 +1,12 @@
+{
+  "image": "receipt_003.jpg",
+  "items": [
+    {
+      "itemName": "P쓰레기봉투 50L 50L",
+      "quantity": 20,
+      "unitPrice": 920,
+      "totalPrice": 18400
+    }
+  ],
+  "totalAmount": 18400
+}

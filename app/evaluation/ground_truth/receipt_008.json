@@ -1,0 +1,24 @@
+{
+  "image": "receipt_008.jpg",
+  "items": [
+    {
+      "itemName": "고소한옥수수식빵",
+      "quantity": 1,
+      "unitPrice": 3900,
+      "totalPrice": 3900
+    },
+    {
+      "itemName": "굿모닝롤",
+      "quantity": 1,
+      "unitPrice": 3900,
+      "totalPrice": 3900
+    },
+    {
+      "itemName": "할인금액",
+      "quantity": 1,
+      "unitPrice": -700,
+      "totalPrice": -700
+    }
+  ],
+  "totalAmount": 7100
+}
