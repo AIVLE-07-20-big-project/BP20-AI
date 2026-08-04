@@ -1,6 +1,10 @@
 """매출 분석 비동기 태스크."""
 from __future__ import annotations
 
+import sqlite3
+
+from celery.exceptions import MaxRetriesExceededError
+
 from app.celery_app import celery_app
 
 
@@ -55,6 +59,13 @@ def run_analysis_task(
     except CellNotFoundError as exc:
         jobs.mark_failed(job_id, "MARKET_CELL_NOT_FOUND", str(exc))
         raise
+    except sqlite3.OperationalError as exc:
+        # DB 잠금 등 일시적 오류만 제한된 횟수로 재시도한다 — 소진되면 내부 오류로 기록한다.
+        try:
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries, max_retries=3)
+        except MaxRetriesExceededError:
+            jobs.mark_failed(job_id, "INTERNAL_ERROR", str(exc))
+            raise
     except Exception as exc:  # noqa: BLE001 - 그 밖의 오류는 내부 오류로 기록한다.
         jobs.mark_failed(job_id, "INTERNAL_ERROR", str(exc))
         raise

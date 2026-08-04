@@ -1,7 +1,3 @@
-"""
-AI 상품 이미지 생성 - API 라우터
-"""
-
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, Form, HTTPException, File

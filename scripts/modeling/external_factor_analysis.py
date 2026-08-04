@@ -25,6 +25,7 @@ AREA_COORDS = SOURCE_DATA / "area_coords.csv"
 EVENTS = SOURCE_DATA / "cultural_event.csv"
 WEATHER = SOURCE_DATA / "weather_seoul_quarterly.csv"
 EVENT_FEATURES = PROCESSED_DATA / "event_exposure_quarterly.csv"
+EVENT_DETAILS = PROCESSED_DATA / "event_details_quarterly.csv"
 ANCHOR_RAW = SOURCE_DATA / "big_store.csv"
 ANCHOR_FEATURES = PROCESSED_DATA / "anchor_exposure_quarterly.csv"
 SUBWAY_RAW_DIR = SOURCE_DATA / "subway_data"
@@ -141,6 +142,11 @@ def build_event_features(
     tree = cKDTree(area[["XCNTS_VALUE", "YDNTS_VALUE"]].to_numpy(dtype=float))
 
     records = []
+    detail_records = []
+    name_columns = [
+        column for column in ("TITLE", "EVENT_NAME", "EVENT_NM", "CODENAME")
+        if column in events.columns
+    ]
     for event_idx, event in events.reset_index(drop=True).iterrows():
         nearby = tree.query_ball_point([ex[event_idx], ey[event_idx]], r=RADIUS_M)
         if not nearby:
@@ -154,6 +160,20 @@ def build_event_features(
             weights = active_days * np.exp(-distances / 1_000.0)
             for trdar_cd, distance, weight in zip(points["TRDAR_CD"], distances, weights):
                 records.append((int(trdar_cd), quarter, 1, active_days, float(distance), float(weight)))
+                event_name = None
+                for column in name_columns:
+                    value = event.get(column)
+                    if pd.notna(value) and str(value).strip():
+                        event_name = str(value).strip()
+                        break
+                detail_records.append({
+                    "TRDAR_CD": int(trdar_cd),
+                    "STDR_YYQU_CD": quarter,
+                    "eventName": event_name,
+                    "startDate": event["start"].date().isoformat(),
+                    "endDate": event["end"].date().isoformat(),
+                    "distanceM": round(float(distance), 1),
+                })
 
     columns = [
         "TRDAR_CD", "STDR_YYQU_CD", "event_count", "event_days",
@@ -169,8 +189,87 @@ def build_event_features(
             nearest_event_m=("nearest_event_m", "min"),
             event_exposure=("event_exposure", "sum"),
         )
+        details = pd.DataFrame(detail_records)
+        if not details.empty:
+            details = details.drop_duplicates(
+                ["TRDAR_CD", "STDR_YYQU_CD", "eventName", "startDate", "endDate", "distanceM"]
+            )
+            detail_rows = []
+            for (trdar_cd, quarter), group in details.groupby(
+                ["TRDAR_CD", "STDR_YYQU_CD"],
+            ):
+                event_items = group[["eventName", "startDate", "endDate", "distanceM"]].copy()
+                event_items = event_items.astype(object).where(pd.notna(event_items), None)
+                detail_rows.append({
+                    "TRDAR_CD": trdar_cd,
+                    "STDR_YYQU_CD": quarter,
+                    "event_details_json": json.dumps(
+                        event_items.to_dict("records"), ensure_ascii=False,
+                    ),
+                })
+            details = pd.DataFrame(detail_rows)
+            result = result.merge(details, on=["TRDAR_CD", "STDR_YYQU_CD"], how="left")
+    if "event_details_json" not in result:
+        result["event_details_json"] = None
     result.to_csv(out_path, index=False, encoding="utf-8-sig")
     return result
+
+
+def build_event_details(
+    area_path=AREA_COORDS, event_path=EVENTS, feature_path=EVENT_DETAILS,
+) -> pd.DataFrame:
+    """기존 행사 집계값을 유지하면서 행사 상세정보만 효율적으로 추가한다."""
+    area = pd.read_csv(area_path).dropna(subset=["TRDAR_CD", "XCNTS_VALUE", "YDNTS_VALUE"])
+    events = pd.read_csv(event_path)
+    events["LAT"] = pd.to_numeric(events["LAT"], errors="coerce")
+    events["LOT"] = pd.to_numeric(events["LOT"], errors="coerce")
+    events["start"] = pd.to_datetime(events["STRTDATE"], errors="coerce").dt.normalize()
+    events["end"] = pd.to_datetime(events["END_DATE"], errors="coerce").dt.normalize()
+    events["end"] = events["end"].fillna(events["start"])
+    events.loc[events["end"] < events["start"], "end"] = events["start"]
+    events = events.dropna(subset=["LAT", "LOT", "start"])
+
+    to_5181 = Transformer.from_crs("EPSG:4326", "EPSG:5181", always_xy=True)
+    ex, ey = to_5181.transform(events["LOT"].to_numpy(), events["LAT"].to_numpy())
+    tree = cKDTree(area[["XCNTS_VALUE", "YDNTS_VALUE"]].to_numpy(dtype=float))
+    distances, indices = tree.query(np.column_stack([ex, ey]))
+    name_column = next(
+        (column for column in ("TITLE", "EVENT_NAME", "EVENT_NM", "CODENAME") if column in events),
+        None,
+    )
+    detail_records = []
+    for event_idx, event in events.reset_index(drop=True).iterrows():
+        distance = float(distances[event_idx])
+        if distance > RADIUS_M:
+            continue
+        area_row = area.iloc[int(indices[event_idx])]
+        event_name = str(event[name_column]).strip() if name_column and pd.notna(event[name_column]) else None
+        for quarter, _active_days in _event_quarters(event["start"], event["end"]):
+            detail_records.append({
+                "TRDAR_CD": int(area_row["TRDAR_CD"]),
+                "STDR_YYQU_CD": quarter,
+                "eventName": event_name,
+                "startDate": event["start"].date().isoformat(),
+                "endDate": event["end"].date().isoformat(),
+                "distanceM": round(distance, 1),
+            })
+    details = pd.DataFrame(detail_records)
+    if details.empty:
+        return pd.DataFrame()
+    details = details.drop_duplicates()
+    rows = []
+    for (trdar_cd, quarter), group in details.groupby(["TRDAR_CD", "STDR_YYQU_CD"]):
+        rows.append({
+            "TRDAR_CD": trdar_cd,
+            "STDR_YYQU_CD": quarter,
+            "event_details_json": json.dumps(
+                group[["eventName", "startDate", "endDate", "distanceM"]].to_dict("records"),
+                ensure_ascii=False,
+            ),
+        })
+    detail_frame = pd.DataFrame(rows)
+    detail_frame.to_csv(feature_path, index=False, encoding="utf-8-sig")
+    return detail_frame
 
 
 # 대형 앵커시설(대규모점포) 개업/폐업 이벤트의 상권별 공간 노출
@@ -679,6 +778,8 @@ def main():
     args = sys.argv[1:]
     if args == ["build-events"]:
         print(build_event_features())
+    elif args == ["build-event-details"]:
+        print(build_event_details())
     elif args == ["build-anchor"]:
         print(build_anchor_events())
     elif args == ["build-subway"]:

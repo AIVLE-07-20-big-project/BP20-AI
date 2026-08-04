@@ -1,12 +1,16 @@
 import sys
 import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import torch
 from fastapi import FastAPI
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from app.core.config import settings
+from app.core.huggingface_assets import sync_huggingface_assets
 from app.core import bootstrap  # noqa: F401
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.ocr import router as ocr
@@ -17,9 +21,13 @@ from app.routers import (
     agent_runs,
     analysis,
     campaign_logs,
+    ai_learning,
     effect_verification_router,
+    forecast,
     review,
     jobs,
+    locations,
+    industries,
 )
 
 ERROR_RESPONSES = {
@@ -38,33 +46,45 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        asset_status = sync_huggingface_assets()
+        print(f"Hugging Face 아티팩트 상태: {asset_status}")
+    except Exception as error:
+        # 분석 아티팩트 동기화 실패가 OCR 등 독립 API의 시작을 막지 않게 한다.
+        print(f"Hugging Face 아티팩트 동기화 실패. 서버를 계속 시작합니다: {error}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"RoBERTa ABSA is loading (Device: {device})")
-
-    model_path = getattr(settings, "MODEL_PATH", "thadus2/roberta-absa-best-4class")
-    hf_token = getattr(settings, "HF_TOKEN", None) or os.getenv("HF_TOKEN")
-
-    token_arg = hf_token if hf_token else None
-
+    app.state.device = device
     app.state.tokenizer = None
     app.state.model = None
-    app.state.device = device
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(model_path, token=token_arg)
-        model = AutoModelForSequenceClassification.from_pretrained(model_path, token=token_arg)
 
-        model.to(device)
-        model.eval()
-
-        app.state.tokenizer = tokenizer
-        app.state.model = model
-
-        print("RoBERTa 모델 로드 완료!")
-    except Exception as e:
-        # ABSA(리뷰 감성분석) 전용 모델이라 다른 라우터(신규 가맹점 영업 타겟 등)와 무관하다.
-        # HF_TOKEN 미설정/만료 등으로 여기서 죽으면 서버 전체가 못 뜨는 게 더 큰 문제라서,
-        # 로드 실패 시 경고만 남기고 계속 진행한다 — /api/v1/review* 엔드포인트만 영향받는다.
-        print(f"RoBERTa ABSA 로드 실패, 리뷰 감성분석 기능 없이 계속 진행합니다: {type(e).__name__}: {e}")
+    absa_enabled = os.getenv("ABSA_ENABLED", "true").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+    if absa_enabled:
+        print(f"RoBERTa ABSA is loading (Device: {device})")
+        model_path = getattr(
+            settings, "ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class"
+        )
+        hf_token = getattr(settings, "ROBERTA_HF_TOKEN", None) or os.getenv(
+            "ROBERTA_HF_TOKEN"
+        )
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_path, token=hf_token or None)
+            model = AutoModelForSequenceClassification.from_pretrained(
+                model_path, token=hf_token or None
+            )
+            model.to(device)
+            model.eval()
+            app.state.tokenizer = tokenizer
+            app.state.model = model
+            print("RoBERTa 모델 로드 완료!")
+        except Exception as error:  # ABSA is optional; OCR and other APIs must still start.
+            print(
+                "RoBERTa ABSA 모델을 불러오지 못했습니다. "
+                f"리뷰 분석만 비활성화하고 서버를 계속 시작합니다: {error}"
+            )
+    else:
+        print("ABSA_ENABLED=false: RoBERTa 리뷰 분석 모델 로딩을 건너뜁니다.")
     try:
         from app.ocr.pipeline import _get_ocr_engine
 
@@ -76,8 +96,8 @@ async def lifespan(app: FastAPI):
 
     yield
     
-    del app.state.tokenizer
-    del app.state.model
+    app.state.tokenizer = None
+    app.state.model = None
 
 app = FastAPI(
     title="20BG AI 서비스",
@@ -94,13 +114,24 @@ app.include_router(review.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(agent_runs.router, prefix="/api/v1")
 app.include_router(campaign_logs.router, prefix="/api/v1")
+app.include_router(ai_learning.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(locations.router, prefix="/api/v1")
+app.include_router(industries.router, prefix="/api/v1")
 app.include_router(ocr.router)
 app.include_router(effect_verification_router.router)
+app.include_router(forecast.router)
 app.include_router(online_trend.router)
 app.include_router(product_image.router)
 app.include_router(sales_target.router, prefix="/api/v1")
 
 @app.get("/")
+@app.get("/health")
 def health_check():
     return {"status": "ok", "message": "BP Team 20 AI Server is running!"}
+
+
+@app.get("/health")
+def health_probe():
+    """ALB/ECS/Docker가 사용하는 경량 liveness probe."""
+    return {"status": "ok"}

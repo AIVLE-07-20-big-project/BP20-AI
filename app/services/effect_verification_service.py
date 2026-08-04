@@ -1,21 +1,21 @@
 from app.schemas.effect_verification_schema import (
+    EffectVerificationFromAnalysesResponse,
     EffectVerificationRequest,
     EffectVerificationResponse,
     MetricResult,
+    PeriodMetrics,
     RecommendationType,
+    VerificationCondition,
 )
+from app.services.pos_verification_aggregates import sales_metrics_from_aggregates
+from app.services.strategy_validation_report import generate_strategy_report
+
+
+class MissingVerificationAggregatesError(ValueError):
+    """분석 결과에 매출형 전략검증용 집계가 없을 때 발생한다."""
 
 
 def calculate_change_rate(before: float, after: float) -> float | None:
-    """
-    실행 전 대비 실행 후 증감률을 계산한다.
-
-    예:
-    100 -> 120 = 20%
-    100 -> 80 = -20%
-
-    실행 전 값이 0이면 증감률을 계산할 수 없으므로 None을 반환한다.
-    """
     if before == 0:
         return None
 
@@ -58,11 +58,6 @@ def normalize_positive_change(
     change_rate: float | None,
     target_rate: float,
 ) -> float:
-    """
-    증가할수록 좋은 지표를 0~100점으로 변환한다.
-
-    목표 증가율만큼 증가하면 100점이다.
-    """
     if change_rate is None or change_rate <= 0:
         return 0.0
 
@@ -76,13 +71,6 @@ def normalize_negative_change(
     change_rate: float | None,
     target_decrease_rate: float,
 ) -> float:
-    """
-    감소할수록 좋은 지표를 0~100점으로 변환한다.
-
-    예:
-    실제 감소율 -30%, 목표 감소율 30%
-    -> 100점
-    """
     if change_rate is None or change_rate >= 0:
         return 0.0
 
@@ -103,9 +91,6 @@ def normalize_point_increase(
     after: float,
     target_point: float,
 ) -> float:
-    """
-    별점, 재방문율처럼 차이값으로 판단하는 지표를 점수화한다.
-    """
     point_change = after - before
 
     if point_change <= 0:
@@ -481,4 +466,71 @@ def verify_effect(
         verdict=verdict,
         metric_results=metric_results,
         summary=final_summary,
+    )
+
+
+def _verification_aggregates_or_raise(analysis: dict, role: str) -> dict:
+    aggregates = (analysis.get("detailed_analysis") or {}).get("verificationAggregates")
+    if aggregates is None:
+        raise MissingVerificationAggregatesError(
+            f"{role} 분석(analysis_id={analysis['analysis_id']})에는 매출형 전략검증용 집계가 "
+            "없습니다 — 해당 분석의 POS CSV에 customer_id/coupon_used 컬럼이 없었을 수 있습니다."
+        )
+    return aggregates
+
+
+def verify_effect_from_analyses(
+    before_analysis: dict,
+    after_analysis: dict,
+    *,
+    store_id: int,
+    recommendation_id: int,
+    start_hour: int | None = None,
+    end_hour: int | None = None,
+    period_days: int | None = None,
+) -> EffectVerificationFromAnalysesResponse:
+    """/analyses로 이미 저장된 두 분석(적용전·적용후)을 비교해 매출형 전략검증을 수행한다."""
+
+    before_aggregates = _verification_aggregates_or_raise(before_analysis, "적용전")
+    after_aggregates = _verification_aggregates_or_raise(after_analysis, "적용후")
+
+    before_customer_ids = set(before_aggregates["customer_ids"])
+    before_metrics = sales_metrics_from_aggregates(
+        before_aggregates, start_hour=start_hour, end_hour=end_hour, known_customer_ids=None,
+    )
+    after_metrics = sales_metrics_from_aggregates(
+        after_aggregates, start_hour=start_hour, end_hour=end_hour,
+        known_customer_ids=before_customer_ids,
+    )
+
+    request = EffectVerificationRequest(
+        store_id=store_id,
+        recommendation_id=recommendation_id,
+        recommendation_type=RecommendationType.SALES,
+        condition=VerificationCondition(
+            period_days=(
+                period_days
+                or after_aggregates.get("period_days")
+                or before_aggregates.get("period_days")
+                or 1
+            ),
+            start_hour=start_hour,
+            end_hour=end_hour,
+        ),
+        before=PeriodMetrics(sales=before_metrics),
+        after=PeriodMetrics(sales=after_metrics),
+    )
+    response = verify_effect(request)
+
+    computation_notes = [
+        "new_customer_count(적용전)은 비교할 이전 이력이 없어 항상 0으로 계산됩니다.",
+        "dormant_customer_return_count는 적용전·적용후 두 분석만으로는 "
+        "'장기 미방문 후 재방문'을 판별할 수 없어 항상 0으로 계산됩니다"
+        "(효과 점수 가중치 10%가 이 지표에서는 실질적으로 반영되지 않습니다).",
+    ]
+    strategy_report = generate_strategy_report(response.metric_results)
+    return EffectVerificationFromAnalysesResponse(
+        **response.model_dump(),
+        computation_notes=computation_notes,
+        strategy_report=strategy_report,
     )

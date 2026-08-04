@@ -7,8 +7,15 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
-from app.core.config import UPLOAD_DATA
+from app.core.config import UPLOAD_DATA, UPLOAD_S3_PREFIX
 from app.core.errors import api_error
+from app.core.object_storage import (
+    delete_object,
+    download_bytes,
+    enabled as s3_enabled,
+    list_objects,
+    upload_bytes,
+)
 
 
 MIB = 1024 * 1024
@@ -100,6 +107,15 @@ def _upload_path(job_id: str) -> Path:
 
 def save_job_upload(job_id: str, raw_bytes: bytes) -> Path:
     """업로드 원본을 저장하고 경로를 반환한다(enqueue 전에 API가 호출)."""
+    _upload_path(job_id)  # job_id 형식 검증
+    if s3_enabled():
+        upload_bytes(
+            raw_bytes,
+            prefix=UPLOAD_S3_PREFIX,
+            name=f"{job_id}.csv",
+            content_type="text/csv",
+        )
+        return _upload_path(job_id)
     path = _upload_path(job_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     # 임시 파일을 교체해 워커의 불완전한 파일 읽기를 막는다.
@@ -111,6 +127,12 @@ def save_job_upload(job_id: str, raw_bytes: bytes) -> Path:
 
 def read_job_upload(job_id: str) -> bytes:
     """저장된 업로드 원본을 읽는다(워커가 호출)."""
+    _upload_path(job_id)  # job_id 형식 검증
+    if s3_enabled():
+        try:
+            return download_bytes(prefix=UPLOAD_S3_PREFIX, name=f"{job_id}.csv")
+        except Exception as exc:
+            raise UploadNotFoundError(f"업로드 원본을 찾을 수 없습니다: {job_id}") from exc
     path = _upload_path(job_id)
     try:
         return path.read_bytes()
@@ -120,11 +142,19 @@ def read_job_upload(job_id: str) -> bytes:
 
 def delete_job_upload(job_id: str) -> None:
     """업로드 원본을 삭제한다(성공한 잡의 정리용). 이미 없으면 조용히 넘어간다."""
+    _upload_path(job_id)  # job_id 형식 검증
+    if s3_enabled():
+        delete_object(prefix=UPLOAD_S3_PREFIX, name=f"{job_id}.csv")
+        return
     _upload_path(job_id).unlink(missing_ok=True)
 
 
 def purge_expired_uploads(max_age_days: int = 7) -> int:
     """보존 기간이 지난 업로드 원본을 정리하고 삭제한 개수를 반환한다."""
+    if s3_enabled():
+        # S3에서는 Lifecycle 정책이 삭제를 담당한다. 애플리케이션이 목록을
+        # 전부 스캔해 삭제하지 않도록 0을 반환한다.
+        return 0
     if not UPLOAD_DATA.exists():
         return 0
     cutoff = time.time() - max_age_days * 86400

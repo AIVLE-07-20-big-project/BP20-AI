@@ -1,7 +1,3 @@
-"""
-AI 상품 이미지 생성 - 핵심 파이프라인 (API 서비스용)
-"""
-
 import os
 import uuid
 import base64
@@ -121,8 +117,6 @@ def _to_square(img: Image.Image, size, fill=(0, 0, 0, 0)) -> Image.Image:
 
 
 def _prepare_image_and_mask(image_bytes: bytes) -> tuple:
-    """업로드된 원본 이미지 바이트로부터, OpenAI에 보낼 (원본 정사각형 이미지 경로, 마스크 경로)를 생성.
-    rembg 결과(상품=불투명/배경=투명)를 별도 변환 없이 그대로 마스크로 재활용함."""
     import io
 
     request_id = uuid.uuid4().hex

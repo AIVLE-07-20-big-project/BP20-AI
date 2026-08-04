@@ -19,6 +19,9 @@ ACTIONS: dict[str, dict] = {
 
 ACTION_TO_AXIS: dict[str, str] = {name: v["axis"] for name, v in ACTIONS.items()}
 
+# 고비용·비가역적 action은 experiment로 자동 탐색하지 않는다(serve·수동 선택은 가능)
+EXPLORATION_EXCLUDED_ACTIONS: frozenset[str] = frozenset({"매장 리뉴얼"})
+
 ACTION_RULES: dict[str, list[str]] = {
     "고객_회복": ["즉시할인", "쿠폰발행", "타임세일", "세트메뉴 도입", "사이드메뉴 추가", "배달채널 확대"],
     "차별화": ["매장 리뉴얼", "신메뉴 출시", "배달채널 확대"],
@@ -30,9 +33,13 @@ ACTION_RULES: dict[str, list[str]] = {
 
 # 등급(`5_처방.등급`) → Bandit arm 후보 목록
 def candidate_actions(등급: str) -> list[dict]:
-
-
-
-
     names = ACTION_RULES.get(등급, [])
     return [{"방안": name, "axis": ACTIONS[name]["axis"]} for name in names]
+
+
+# coldstart(학습된 모델 없음)일 때 쓰는 비즈니스 우선순위 기본값 — ACTION_RULES의
+# 등급별 목록 순서를 그대로 우선순위로 쓴다(첫 항목이 최우선)
+def coldstart_default_action(등급: str, selectable: list[str] | None = None) -> str | None:
+    ordered = ACTION_RULES.get(등급, [])
+    candidates = [a for a in ordered if selectable is None or a in selectable]
+    return candidates[0] if candidates else None

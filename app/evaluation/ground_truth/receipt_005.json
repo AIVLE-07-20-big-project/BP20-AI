@@ -1,0 +1,30 @@
+{
+  "image": "receipt_005.jpg",
+  "items": [
+    {
+      "itemName": "P만감(귤로향) 100g",
+      "quantity": 1,
+      "unitPrice": 11900,
+      "totalPrice": 11900
+    },
+    {
+      "itemName": "P한라봉(실속) 1.2Kg/10내/봉지/국산",
+      "quantity": 1,
+      "unitPrice": 11900,
+      "totalPrice": 11900
+    },
+    {
+      "itemName": "P빙어(국내산)",
+      "quantity": 1,
+      "unitPrice": 8800,
+      "totalPrice": 8800
+    },
+    {
+      "itemName": "P초밥 100g",
+      "quantity": 1,
+      "unitPrice": 8800,
+      "totalPrice": 8800
+    }
+  ],
+  "totalAmount": 41400
+}

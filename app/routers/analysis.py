@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from app.schemas.report import ReportResponse
 from app.schemas.recommendation import RecommendationFromAnalysisRequest
 from app.routers.agent_runs import start_agent_run
+from app.core.config import UPLOAD_S3_PREFIX
 from app.core.errors import api_error
 from app.core.uploads import (
     CSV_CONTENT_TYPES,
@@ -120,6 +121,46 @@ async def create_analysis(
     return {"job_id": job_id, "status": "queued"}
 
 
+@router.post("/analyses/from-s3", summary="S3 CSV 매출 분석 실행")
+async def create_analysis_from_s3(
+    response: Response,
+    job_id: str = Form(...),
+    object_key: str = Form(...),
+    trdar_cd: str = Form(...),
+    svc_induty_cd: str = Form(...),
+    yyqu_cd: Optional[int] = Form(None),
+    user_id: Optional[str] = Form(None),
+    store_id: Optional[str] = Form(None),
+) -> dict:
+    """BE가 uploads prefix에 올린 CSV를 Celery 분석 작업에 연결한다."""
+    expected_key = f"{UPLOAD_S3_PREFIX.strip('/')}/{job_id}.csv"
+    if object_key != expected_key:
+        raise HTTPException(status_code=400, detail="허용되지 않은 S3 업로드 경로입니다.")
+    if not job_id or len(job_id) > 64 or not all(
+        char.isalnum() or char in "_-" for char in job_id
+    ):
+        raise HTTPException(status_code=400, detail="유효하지 않은 job_id입니다.")
+
+    jobs.create_job(job_id, user_id=user_id)
+    try:
+        result = run_analysis_task.delay(
+            job_id, trdar_cd, svc_induty_cd, yyqu_cd,
+            user_id=user_id, store_id=store_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        jobs.mark_failed(job_id, "ENQUEUE_FAILED", str(exc))
+        delete_job_upload(job_id)
+        raise api_error(
+            503,
+            "ENQUEUE_FAILED",
+            "분석 작업을 큐에 등록하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        ) from exc
+
+    jobs.set_celery_task_id(job_id, result.id)
+    response.status_code = 202
+    return {"job_id": job_id, "status": "queued"}
+
+
 async def _create_analysis_sync(
     raw_bytes: bytes,
     trdar_cd: str,
@@ -190,6 +231,8 @@ def create_recommendation_from_analysis(
         "svc_induty_cd": payload.svc_induty_cd,
         "yyqu_cd": payload.yyqu_cd,
         "diagnosis": payload.diagnosis,
+        "report": payload.report,
+        "detailed_analysis": payload.detailed_analysis,
         "warnings": payload.warnings,
     })
 
@@ -206,21 +249,26 @@ def get_analysis(analysis_id: str, x_user_id: Optional[str] = Header(None, alias
 # 저장된 매출 분석 결과로 대응방안 추천·검증 에이전트를 실행한다
 @router.post("/analyses/{analysis_id}/recommendations", tags=["전략 추천"])
 def create_analysis_recommendation(
-    analysis_id: str, x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    analysis_id: str,
+    store_id: Optional[str] = Query(None),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ) -> dict:
 
     analysis = analyses.get_analysis(analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail=f"분석 결과를 찾을 수 없음: {analysis_id}")
     _assert_owner(analysis, x_user_id)
+    resolved_store_id = store_id or analysis.get("store_id")
     return start_agent_run({
         "analysis_id": analysis_id,
         "user_id": analysis.get("user_id"),
-        "store_id": analysis.get("store_id"),
+        "store_id": resolved_store_id,
         "trdar_cd": analysis["trdar_cd"],
         "svc_induty_cd": analysis["svc_induty_cd"],
         "yyqu_cd": analysis["yyqu_cd"],
         "diagnosis": analysis["diagnosis"],
+        "report": analysis.get("report"),
+        "detailed_analysis": analysis.get("detailed_analysis"),
         "warnings": analysis["warnings"],
     })
 

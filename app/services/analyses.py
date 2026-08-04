@@ -2,42 +2,45 @@
 from __future__ import annotations
 
 import json
-import sqlite3
-from contextlib import closing
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi.encoders import jsonable_encoder
 
 from app.core.config import ANALYSES_DB
+from app.core.database import connect, execute, fetchall, fetchone, using_mysql
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connection():
     ANALYSES_DB.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(str(ANALYSES_DB))
-    connection.row_factory = sqlite3.Row
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS analyses (
-            analysis_id TEXT PRIMARY KEY,
-            trdar_cd TEXT NOT NULL,
-            svc_induty_cd TEXT NOT NULL,
-            yyqu_cd INTEGER,
-            report_json TEXT NOT NULL,
-            diagnosis_json TEXT NOT NULL,
-            warnings_json TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-    columns = {row["name"] for row in connection.execute("PRAGMA table_info(analyses)")}
-    if "user_id" not in columns:
-        connection.execute("ALTER TABLE analyses ADD COLUMN user_id TEXT")
-    if "store_id" not in columns:
-        connection.execute("ALTER TABLE analyses ADD COLUMN store_id TEXT")
-    if "detailed_analysis_json" not in columns:
-        connection.execute("ALTER TABLE analyses ADD COLUMN detailed_analysis_json TEXT")
-    return connection
+    with connect(str(ANALYSES_DB)) as connection:
+        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        if not using_mysql():
+            execute(connection, "PRAGMA journal_mode=WAL")
+            execute(connection, "PRAGMA busy_timeout=10000")
+        execute(connection, f"""
+            CREATE TABLE IF NOT EXISTS {table} (
+                analysis_id VARCHAR(64) PRIMARY KEY,
+                trdar_cd VARCHAR(64) NOT NULL,
+                svc_induty_cd VARCHAR(64) NOT NULL,
+                yyqu_cd INTEGER,
+                report_json LONGTEXT NOT NULL,
+                diagnosis_json LONGTEXT NOT NULL,
+                warnings_json LONGTEXT NOT NULL,
+                created_at VARCHAR(40) NOT NULL,
+                user_id VARCHAR(255),
+                store_id VARCHAR(255),
+                detailed_analysis_json LONGTEXT
+            )
+        """)
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
 
 
 def _dump(value: object) -> str:
@@ -60,61 +63,60 @@ def create_analysis(
     """지정한 analysis_id는 첫 결과만 저장하고, 없으면 새 ID를 생성한다."""
     analysis_id = analysis_id or str(uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
-    with closing(_connect()) as connection, connection:
-        connection.execute(
-            """
-            INSERT OR IGNORE INTO analyses (
+    with _connection() as connection:
+        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        insert = "INSERT IGNORE" if using_mysql() else "INSERT OR IGNORE"
+        execute(connection, f"""
+            {insert} INTO {table} (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
                 report_json, diagnosis_json, detailed_analysis_json,
                 warnings_json, created_at, user_id, store_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                _dump(report), _dump(diagnosis), _dump(detailed_analysis),
-                _dump(warnings), created_at, user_id, store_id,
-            ),
-        )
+        """, (
+            analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
+            _dump(report), _dump(diagnosis), _dump(detailed_analysis),
+            _dump(warnings), created_at, user_id, store_id,
+        ))
     return get_analysis(analysis_id)
 
 
-def _row_to_dict(row: sqlite3.Row) -> dict:
+def _value(row, key: str):
+    return row[key]
+
+
+def _row_to_dict(row) -> dict:
+    detailed = _value(row, "detailed_analysis_json")
     return {
-        "analysis_id": row["analysis_id"],
-        "user_id": row["user_id"],
-        "store_id": row["store_id"],
-        "trdar_cd": row["trdar_cd"],
-        "svc_induty_cd": row["svc_induty_cd"],
-        "yyqu_cd": row["yyqu_cd"],
-        "report": json.loads(row["report_json"]),
-        "diagnosis": json.loads(row["diagnosis_json"]),
-        "detailed_analysis": (
-            json.loads(row["detailed_analysis_json"])
-            if row["detailed_analysis_json"] is not None
-            else None
-        ),
-        "warnings": json.loads(row["warnings_json"]),
-        "created_at": row["created_at"],
+        "analysis_id": _value(row, "analysis_id"),
+        "user_id": _value(row, "user_id"),
+        "store_id": _value(row, "store_id"),
+        "trdar_cd": _value(row, "trdar_cd"),
+        "svc_induty_cd": _value(row, "svc_induty_cd"),
+        "yyqu_cd": _value(row, "yyqu_cd"),
+        "report": json.loads(_value(row, "report_json")),
+        "diagnosis": json.loads(_value(row, "diagnosis_json")),
+        "detailed_analysis": json.loads(detailed) if detailed is not None else None,
+        "warnings": json.loads(_value(row, "warnings_json")),
+        "created_at": _value(row, "created_at"),
     }
 
 
 def get_analysis(analysis_id: str) -> dict | None:
-    with closing(_connect()) as connection:
-        row = connection.execute(
-            "SELECT * FROM analyses WHERE analysis_id = ?", (analysis_id,),
-        ).fetchone()
+    with _connection() as connection:
+        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        row = fetchone(connection, f"SELECT * FROM {table} WHERE analysis_id = ?", (analysis_id,))
     return _row_to_dict(row) if row is not None else None
 
 
-# 사용자 소유 분석을 최신순으로 반환한다
 def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
-
     query = "SELECT * FROM analyses WHERE user_id = ?"
+    table = "ai_internal_analyses" if using_mysql() else "analyses"
+    query = f"SELECT * FROM {table} WHERE user_id = ?"
     params: list[object] = [user_id]
     if store_id is not None:
         query += " AND store_id = ?"
         params.append(store_id)
     query += " ORDER BY created_at DESC"
-    with closing(_connect()) as connection:
-        rows = connection.execute(query, params).fetchall()
+    with _connection() as connection:
+        rows = fetchall(connection, query, params)
     return [_row_to_dict(row) for row in rows]
