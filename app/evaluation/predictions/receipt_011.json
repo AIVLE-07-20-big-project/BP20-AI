@@ -84,7 +84,7 @@
     "documentType": "UNKNOWN",
     "storeName": "롯데스핑(주) 뜻데마트맥스 참원증앙점",
     "businessNumber": "609-85-35827",
-    "transactionDate": "2026-08-03",
+    "transactionDate": "2026-08-04",
     "transactionTime": null,
     "paymentMethod": "카드",
     "items": [
@@ -188,6 +188,6 @@
   },
   "evaluationMeta": {
     "image": "receipt_011.jpg",
-    "elapsedSeconds": 38.9653
+    "elapsedSeconds": 70.8367
   }
 }

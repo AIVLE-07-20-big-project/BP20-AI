@@ -81,171 +81,139 @@
     {
       "receipt": "receipt_003",
       "itemCounts": {
-        "groundTruth": 4,
-        "predicted": 2,
+        "groundTruth": 1,
+        "predicted": 1,
         "matched": 0
       },
       "matchedItems": [],
       "missingItems": [
         {
-          "itemName": "룸바이홈 발에 착감기는 욕실화",
-          "quantity": 1,
-          "unitPrice": 5900,
-          "totalPrice": 5900
-        },
-        {
-          "itemName": "국산 데친 문어",
-          "quantity": 1,
-          "unitPrice": 20263,
-          "totalPrice": 20263
-        },
-        {
-          "itemName": "해태 맛동산",
-          "quantity": 1,
-          "unitPrice": 2590,
-          "totalPrice": 2590
-        },
-        {
-          "itemName": "비락 수정과",
-          "quantity": 1,
-          "unitPrice": 2680,
-          "totalPrice": 2680
+          "itemName": "P쓰레기봉투 50L 50L",
+          "quantity": 20,
+          "unitPrice": 920,
+          "totalPrice": 18400
         }
       ],
       "falsePositiveItems": [
         {
-          "itemName": "해터맛동산 비략 수정기",
+          "itemName": "001 에세라이트.",
           "quantity": 1,
           "unit": null,
-          "unitPrice": 2680,
-          "totalPrice": 2680
-        },
-        {
-          "itemName": "먼세 몰기와",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 20268,
-          "totalPrice": 20268
+          "unitPrice": 4500,
+          "totalPrice": 4500
         }
       ],
       "receiptPerfectMatch": false,
       "totalAmount": {
-        "expected": 31430,
-        "predicted": 20268,
+        "expected": 18400,
+        "predicted": 4500,
         "correct": false,
-        "absoluteError": 11162
+        "absoluteError": 13900
       }
     },
     {
       "receipt": "receipt_004",
       "itemCounts": {
-        "groundTruth": 4,
-        "predicted": 2,
-        "matched": 1
+        "groundTruth": 1,
+        "predicted": 4,
+        "matched": 0
       },
-      "matchedItems": [
-        {
-          "expected": {
-            "itemName": "행복생생란(대란)",
-            "quantity": 1,
-            "unitPrice": 5780,
-            "totalPrice": 5780
-          },
-          "predicted": {
-            "itemName": "초이스인 대구성 한복생생란(대란)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 5780,
-            "totalPrice": 5780
-          },
-          "nameSimilarity": 0.5714,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 10,
-          "characterErrorsWithoutSpaces": 8,
-          "allFieldsMatch": false
-        }
-      ],
+      "matchedItems": [],
       "missingItems": [
         {
-          "itemName": "백설 부침가루",
+          "itemName": "에쎄라이트",
           "quantity": 1,
-          "unitPrice": 1780,
-          "totalPrice": 1780
-        },
-        {
-          "itemName": "초이스엘 대구살",
-          "quantity": 1,
-          "unitPrice": 9800,
-          "totalPrice": 9800
-        },
-        {
-          "itemName": "어깨동무 국산콩 천일염 두부",
-          "quantity": 1,
-          "unitPrice": 4280,
-          "totalPrice": 4280
+          "unitPrice": 4500,
+          "totalPrice": 4500
         }
       ],
       "falsePositiveItems": [
         {
-          "itemName": "이깨통부 '국산용 전일염",
+          "itemName": "001P만감()100g",
           "quantity": 1,
           "unit": null,
-          "unitPrice": 4280,
-          "totalPrice": 4280
+          "unitPrice": 11900,
+          "totalPrice": 11900
+        },
+        {
+          "itemName": "002P한라동(실속)1.2K/10L/지/국산",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": 11900,
+          "totalPrice": 11900
+        },
+        {
+          "itemName": "003 P방어(국내산)",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": 8800,
+          "totalPrice": 8800
+        },
+        {
+          "itemName": "004P100g",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": 8800,
+          "totalPrice": 8800
         }
       ],
       "receiptPerfectMatch": false,
       "totalAmount": {
-        "expected": 21640,
-        "predicted": 5780,
+        "expected": 4500,
+        "predicted": 41400,
         "correct": false,
-        "absoluteError": 15860
+        "absoluteError": 36900
       }
     },
     {
       "receipt": "receipt_005",
       "itemCounts": {
-        "groundTruth": 2,
+        "groundTruth": 4,
         "predicted": 1,
-        "matched": 1
+        "matched": 0
       },
-      "matchedItems": [
-        {
-          "expected": {
-            "itemName": "고산지_감숙왕바나",
-            "quantity": 1,
-            "unitPrice": 1990,
-            "totalPrice": 1990
-          },
-          "predicted": {
-            "itemName": "01 빠삐코 02*고산지_감숙왕바나",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 1990,
-            "totalPrice": 1990
-          },
-          "nameSimilarity": 0.6957,
-          "nameContained": true,
-          "characterErrorsWithSpaces": 10,
-          "characterErrorsWithoutSpaces": 8,
-          "allFieldsMatch": true
-        }
-      ],
+      "matchedItems": [],
       "missingItems": [
         {
-          "itemName": "빠삐코",
+          "itemName": "P만감(귤로향) 100g",
           "quantity": 1,
-          "unitPrice": 790,
-          "totalPrice": 790
+          "unitPrice": 11900,
+          "totalPrice": 11900
+        },
+        {
+          "itemName": "P한라봉(실속) 1.2Kg/10내/봉지/국산",
+          "quantity": 1,
+          "unitPrice": 11900,
+          "totalPrice": 11900
+        },
+        {
+          "itemName": "P빙어(국내산)",
+          "quantity": 1,
+          "unitPrice": 8800,
+          "totalPrice": 8800
+        },
+        {
+          "itemName": "P초밥 100g",
+          "quantity": 1,
+          "unitPrice": 8800,
+          "totalPrice": 8800
         }
       ],
-      "falsePositiveItems": [],
+      "falsePositiveItems": [
+        {
+          "itemName": "001P대파 2A",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": 2950,
+          "totalPrice": 2950
+        }
+      ],
       "receiptPerfectMatch": false,
       "totalAmount": {
-        "expected": 2780,
-        "predicted": 2780,
-        "correct": true,
-        "absoluteError": 0
+        "expected": 41400,
+        "predicted": 2950,
+        "correct": false,
+        "absoluteError": 38450
       }
     },
     {
@@ -1398,205 +1366,6 @@
       "totalAmount": {
         "expected": 8560,
         "predicted": 8560,
-        "correct": true,
-        "absoluteError": 0
-      }
-    },
-    {
-      "receipt": "receipt_014",
-      "itemCounts": {
-        "groundTruth": 1,
-        "predicted": 5,
-        "matched": 0
-      },
-      "matchedItems": [],
-      "missingItems": [
-        {
-          "itemName": "P쓰레기봉투 50L 50L",
-          "quantity": 20,
-          "unitPrice": 920,
-          "totalPrice": 18400
-        }
-      ],
-      "falsePositiveItems": [
-        {
-          "itemName": "001 P쓰I기EOL5OL *210009823E19",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 18400,
-          "totalPrice": 18400
-        },
-        {
-          "itemName": "PDC",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 18400,
-          "totalPrice": 18400
-        },
-        {
-          "itemName": "1BR00 가세물가",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 18400,
-          "totalPrice": 18400
-        },
-        {
-          "itemName": "PDC",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": -18400,
-          "totalPrice": -18400
-        },
-        {
-          "itemName": "할인",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": -18,
-          "totalPrice": -18
-        }
-      ],
-      "receiptPerfectMatch": false,
-      "totalAmount": {
-        "expected": 18400,
-        "predicted": 18400,
-        "correct": true,
-        "absoluteError": 0
-      }
-    },
-    {
-      "receipt": "receipt_015",
-      "itemCounts": {
-        "groundTruth": 1,
-        "predicted": 1,
-        "matched": 1
-      },
-      "matchedItems": [
-        {
-          "expected": {
-            "itemName": "에쎄라이트",
-            "quantity": 1,
-            "unitPrice": 4500,
-            "totalPrice": 4500
-          },
-          "predicted": {
-            "itemName": "001 에세라이트.",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 4500,
-            "totalPrice": 4500
-          },
-          "nameSimilarity": 0.6154,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 6,
-          "characterErrorsWithoutSpaces": 5,
-          "allFieldsMatch": false
-        }
-      ],
-      "missingItems": [],
-      "falsePositiveItems": [],
-      "receiptPerfectMatch": false,
-      "totalAmount": {
-        "expected": 4500,
-        "predicted": 4500,
-        "correct": true,
-        "absoluteError": 0
-      }
-    },
-    {
-      "receipt": "receipt_016",
-      "itemCounts": {
-        "groundTruth": 4,
-        "predicted": 4,
-        "matched": 4
-      },
-      "matchedItems": [
-        {
-          "expected": {
-            "itemName": "P만감(귤로향) 100g",
-            "quantity": 1,
-            "unitPrice": 11900,
-            "totalPrice": 11900
-          },
-          "predicted": {
-            "itemName": "001P만감()100g",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 11900,
-            "totalPrice": 11900
-          },
-          "nameSimilarity": 0.7,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 7,
-          "characterErrorsWithoutSpaces": 6,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "P한라봉(실속) 1.2Kg/10내/봉지/국산",
-            "quantity": 1,
-            "unitPrice": 11900,
-            "totalPrice": 11900
-          },
-          "predicted": {
-            "itemName": "002P한라동(실속)1.2K/10L/지/국산",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 11900,
-            "totalPrice": 11900
-          },
-          "nameSimilarity": 0.7429,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 8,
-          "characterErrorsWithoutSpaces": 7,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "P빙어(국내산)",
-            "quantity": 1,
-            "unitPrice": 8800,
-            "totalPrice": 8800
-          },
-          "predicted": {
-            "itemName": "003 P방어(국내산)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 8800,
-            "totalPrice": 8800
-          },
-          "nameSimilarity": 0.6667,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 5,
-          "characterErrorsWithoutSpaces": 4,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "P초밥 100g",
-            "quantity": 1,
-            "unitPrice": 8800,
-            "totalPrice": 8800
-          },
-          "predicted": {
-            "itemName": "004P100g",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 8800,
-            "totalPrice": 8800
-          },
-          "nameSimilarity": 0.6667,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 4,
-          "characterErrorsWithoutSpaces": 4,
-          "allFieldsMatch": false
-        }
-      ],
-      "missingItems": [],
-      "falsePositiveItems": [],
-      "receiptPerfectMatch": false,
-      "totalAmount": {
-        "expected": 41400,
-        "predicted": 41400,
         "correct": true,
         "absoluteError": 0
       }

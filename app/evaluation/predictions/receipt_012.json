@@ -53,7 +53,7 @@
     "documentType": "UNKNOWN",
     "storeName": "클고기리반",
     "businessNumber": null,
-    "transactionDate": "2026-08-03",
+    "transactionDate": "2026-08-04",
     "transactionTime": null,
     "paymentMethod": "현금",
     "items": [
@@ -80,6 +80,6 @@
   },
   "evaluationMeta": {
     "image": "receipt_012.jpg",
-    "elapsedSeconds": 25.9851
+    "elapsedSeconds": 36.5474
   }
 }

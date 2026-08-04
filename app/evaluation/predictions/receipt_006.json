@@ -58,7 +58,7 @@
     "documentType": "UNKNOWN",
     "storeName": "움바이홈 도름한 기하학 무릎담요( 그레이)",
     "businessNumber": null,
-    "transactionDate": "2026-08-03",
+    "transactionDate": "2026-08-04",
     "transactionTime": null,
     "paymentMethod": "현금",
     "items": [
@@ -141,6 +141,6 @@
   },
   "evaluationMeta": {
     "image": "receipt_006.jpg",
-    "elapsedSeconds": 27.6277
+    "elapsedSeconds": 25.3535
   }
 }

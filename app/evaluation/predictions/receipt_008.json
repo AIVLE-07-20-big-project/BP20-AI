@@ -55,7 +55,7 @@
     "documentType": "UNKNOWN",
     "storeName": "(말인내적)",
     "businessNumber": null,
-    "transactionDate": "2026-08-03",
+    "transactionDate": "2026-08-04",
     "transactionTime": null,
     "paymentMethod": "카드",
     "items": [
@@ -89,6 +89,6 @@
   },
   "evaluationMeta": {
     "image": "receipt_008.jpg",
-    "elapsedSeconds": 51.7976
+    "elapsedSeconds": 48.585
   }
 }

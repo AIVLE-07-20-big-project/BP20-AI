@@ -2,29 +2,11 @@
   "image": "receipt_004.jpg",
   "items": [
     {
-      "itemName": "백설 부침가루",
+      "itemName": "에쎄라이트",
       "quantity": 1,
-      "unitPrice": 1780,
-      "totalPrice": 1780
-    },
-    {
-      "itemName": "초이스엘 대구살",
-      "quantity": 1,
-      "unitPrice": 9800,
-      "totalPrice": 9800
-    },
-    {
-      "itemName": "행복생생란(대란)",
-      "quantity": 1,
-      "unitPrice": 5780,
-      "totalPrice": 5780
-    },
-    {
-      "itemName": "어깨동무 국산콩 천일염 두부",
-      "quantity": 1,
-      "unitPrice": 4280,
-      "totalPrice": 4280
+      "unitPrice": 4500,
+      "totalPrice": 4500
     }
   ],
-  "totalAmount": 21640
+  "totalAmount": 4500
 }

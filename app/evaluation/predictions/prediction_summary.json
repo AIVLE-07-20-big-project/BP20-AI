@@ -1,7 +1,7 @@
 {
-  "requestedCount": 16,
-  "successCount": 16,
+  "requestedCount": 13,
+  "successCount": 13,
   "failureCount": 0,
-  "averageSeconds": 33.2655,
+  "averageSeconds": 38.5628,
   "failures": []
 }

@@ -67,7 +67,7 @@
     "documentType": "UNKNOWN",
     "storeName": "품바이홈 도통한 기하학 무릎담요(그레이)",
     "businessNumber": null,
-    "transactionDate": "2026-08-03",
+    "transactionDate": "2026-08-04",
     "transactionTime": null,
     "paymentMethod": "현금",
     "items": [
@@ -157,6 +157,6 @@
   },
   "evaluationMeta": {
     "image": "receipt_007.jpg",
-    "elapsedSeconds": 31.7895
+    "elapsedSeconds": 28.8037
   }
 }
