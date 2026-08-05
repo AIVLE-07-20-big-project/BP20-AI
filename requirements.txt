@@ -31,6 +31,17 @@ langgraph>=1.0
 langgraph-checkpoint-sqlite>=3.0
 langsmith>=0.4
 
+# 신규 가맹점 영업 타겟 추천 그래프(app/sales_target/graph.py)의 프로덕션 체크포인터.
+# SALES_TARGET_CHECKPOINT_DB_URL 환경변수가 없으면 위 sqlite 체크포인터로 폴백하므로,
+# 로컬 개발 환경에서는 이 두 패키지가 없어도 동작한다.
+langgraph-checkpoint-postgres>=3.0
+psycopg[binary,pool]>=3.1
+
+# 테스트 전용: tests/test_sales_target_graph.py의 PostgresCheckpointerTests가 root 권한 없이
+# 임베디드 postgres를 띄워 위 PostgresSaver 경로를 실제로 검증하는 데 쓴다. 프로덕션 코드는
+# 이 패키지에 의존하지 않는다 — 없으면 해당 테스트 클래스만 자동으로 skip된다.
+pgserver>=0.1
+
 torch>=2.2
 
 # RAG 검색(rag/retriever.py) — manifest.json 기준 BAAI/bge-m3 서빙에 필요

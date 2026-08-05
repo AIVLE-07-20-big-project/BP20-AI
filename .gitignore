@@ -26,6 +26,10 @@ __pycache__/
 /sales_report*.html
 /sales_report*.json
 
+# 로컬 테스트 실행 결과물
+/ocr_result.png
+/sales_targets_result.csv
+
 # 커밋하지 않는 로컬 문서
 /docs/
 
@@ -42,4 +46,3 @@ tests/
 celery-review-tmp/
 *.stderr.log
 *.stdout.log
-ocr_result.png

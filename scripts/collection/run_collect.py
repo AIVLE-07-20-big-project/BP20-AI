@@ -60,6 +60,9 @@ def load_keys() -> tuple[str, str, str, str, str, str, str, str]:
         get_api_key("SEOUL_API_KEY_BIGDATA_FLATFORM_SUBWAY"),
     )
 
+def load_store_registry_key() -> str:
+    return get_api_key("PUBLIC_DATA_STORE_API_KEY")
+
 # 분기 파라미터를 쓰는 4개 API를 최신 분기(20254) 소량으로 테스트
 async def run_test():
 
@@ -131,53 +134,61 @@ async def run_full(start_year=2024, end_year=2026, end_quarter=1, only="all"):
     print(f"수집 대상 분기: {quarters[0]} ~ {quarters[-1]} ({len(quarters)}개)\n")
 
     if only in {"all", "sales"}:
-        print("[1/8] 추정매출-상권 수집 중...", flush=True)
+        print("[1/9] 추정매출-상권 수집 중...", flush=True)
         sales_df = await SalesEstimateCollector(api_key_sales).fetch_quarters(quarters)
         sales_df.to_csv(DATA_DIR / "sales_estimate.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(sales_df)}행 -> sales_estimate.csv\n", flush=True)
 
     if only in {"all", "store"}:
-        print("[2/8] 점포-상권 수집 중...", flush=True)
+        print("[2/9] 점포-상권 수집 중...", flush=True)
         store_df = await StoreStatsCollector(api_key_store).fetch_quarters(quarters)
         store_df.to_csv(DATA_DIR / "store_stats.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(store_df)}행 -> store_stats.csv\n", flush=True)
 
     if only in {"all", "traffic"}:
-        print("[3/8] 길단위인구-상권 수집 중...", flush=True)
+        print("[3/9] 길단위인구-상권 수집 중...", flush=True)
         pop_df = await FootTrafficCollector(api_key_foot_traffic).fetch_quarters(quarters)
         pop_df.to_csv(DATA_DIR / "foot_traffic.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(pop_df)}행 -> foot_traffic.csv\n", flush=True)
 
     if only in {"all", "resident_pop"}:
-        print("[4/8] 상주인구-상권 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
+        print("[4/9] 상주인구-상권 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
         repop_df = await ResidentPopulationCollector(api_key_resident_pop).fetch_all()
         repop_df.to_csv(DATA_DIR / "resident_population.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(repop_df)}행 -> resident_population.csv\n", flush=True)
 
     if only in {"all", "work_pop"}:
-        print("[5/8] 직장인구-상권 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
+        print("[5/9] 직장인구-상권 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
         work_df = await WorkplacePopulationCollector(api_key_work).fetch_all()
         work_df.to_csv(DATA_DIR / "workplace_population.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(work_df)}행 -> workplace_population.csv\n", flush=True)
 
     if only in {"all", "event"}:
-        print("[6/8] 문화행사 정보 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
+        print("[6/9] 문화행사 정보 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
         event_df = await CulturalEventCollector(api_key_event).fetch_all()
         event_df.to_csv(DATA_DIR / "cultural_event.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(event_df)}행 -> cultural_event.csv\n", flush=True)
 
     if only in {"all", "big_store"}:
-        print("[7/8] 대규모점포 인허가 정보 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
+        print("[7/9] 대규모점포 인허가 정보 수집 중... (분기 파라미터 없음, 전체 한 번에)", flush=True)
         big_store_df = await BigStoreCollector(api_key_big_store).fetch_all()
         big_store_df.to_csv(DATA_DIR / "big_store.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(big_store_df)}행 -> big_store.csv\n", flush=True)
 
     if only in {"all", "subway"}:
-        print("[8/8] 지하철역 좌표 수집 중... (t-data.seoul.go.kr, 전체 한 번에)", flush=True)
+        print("[8/9] 지하철역 좌표 수집 중... (t-data.seoul.go.kr, 전체 한 번에)", flush=True)
         subway_df = await SubwayStationGeomCollector(api_key_subway).fetch_all()
         subway_df.to_csv(DATA_DIR / "subway_stations.csv", index=False, encoding="utf-8-sig")
         print(f"  -> {len(subway_df)}행 -> subway_stations.csv\n", flush=True)
         print("  (승하차인원은 data/subway_data/CARD_SUBWAY_MONTH_YYYYMM.csv 수동 확보 파일 사용)")
+
+    if only in {"all", "store_registry"}:
+        print("[9/9] 상가업소 목록 수집 중... (서울 25개 구, 전 업종)", flush=True)
+        from scripts.collection.store_registry_collector import StoreRegistryCollector
+
+        registry_df = await StoreRegistryCollector(load_store_registry_key()).fetch_sigungus()
+        registry_df.to_csv(DATA_DIR / "store_registry.csv", index=False, encoding="utf-8-sig")
+        print(f"  -> {len(registry_df)}행 -> store_registry.csv\n", flush=True)
 
     print("전체 수집 완료.")
     print("join key: TRDAR_CD(상권코드) + SVC_INDUTY_CD(업종코드, 매출/점포만) + STDR_YYQU_CD(분기)")
@@ -190,7 +201,7 @@ if __name__ == "__main__":
     parser.add_argument("--start-year", type=int, default=2024)
     parser.add_argument("--end-year", type=int, default=2026)
     parser.add_argument("--end-quarter", type=int, choices=range(1, 5), default=1)
-    parser.add_argument("--only", choices=["all", "sales", "store", "traffic", "resident_pop", "work_pop", "event", "big_store", "subway"], default="all")
+    parser.add_argument("--only", choices=["all", "sales", "store", "traffic", "resident_pop", "work_pop", "event", "big_store", "subway", "store_registry"], default="all")
     args = parser.parse_args()
 
     if args.test:
