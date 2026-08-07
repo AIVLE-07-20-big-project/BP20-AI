@@ -3,13 +3,41 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from fastapi.encoders import jsonable_encoder
 
 from app.core.config import ANALYSES_DB
 from app.core.database import connect, execute, fetchall, fetchone, using_mysql
+
+
+# trdar_cd·svc_induty_cd·기준분기(공공데이터 분기)가 같아도 업로드한 POS 실제 기간은
+# 다를 수 있어, "매출 분석 결과 선택" 목록에서 항목을 구분할 사람이 읽는 라벨을 만든다.
+# agent_runs.py의 대상_매장 표시명과 같은 로직을 공유한다.
+def format_analysis_period(detailed_analysis: dict | None) -> str | None:
+    summary = (detailed_analysis or {}).get("dataSummary") or {}
+    start, end = summary.get("startDate"), summary.get("endDate")
+    if not start or not end:
+        return None
+    try:
+        start_dt, end_dt = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError:
+        return None
+    if (start_dt.year, start_dt.month) == (end_dt.year, end_dt.month):
+        return f"{start_dt.year}년 {start_dt.month}월"
+    if start_dt.year == end_dt.year:
+        return f"{start_dt.year}년 {start_dt.month}월~{end_dt.month}월"
+    return f"{start_dt.year}년 {start_dt.month}월~{end_dt.year}년 {end_dt.month}월"
+
+
+# POS 실제 기간을 알 수 없을 때(구버전 데이터 등)의 최후 폴백 — 20261 같은 원시
+# 코드 대신 "2026년 1분기"로 보여준다.
+def format_quarter_label(기준분기: int | None) -> str | None:
+    if not 기준분기:
+        return None
+    year, quarter = divmod(int(기준분기), 10)
+    return f"{year}년 {quarter}분기"
 
 
 @contextmanager
@@ -86,6 +114,9 @@ def _value(row, key: str):
 
 def _row_to_dict(row) -> dict:
     detailed = _value(row, "detailed_analysis_json")
+    detailed_analysis = json.loads(detailed) if detailed is not None else None
+    diagnosis = json.loads(_value(row, "diagnosis_json"))
+    기준분기 = (diagnosis.get("대상") or {}).get("기준분기")
     return {
         "analysis_id": _value(row, "analysis_id"),
         "user_id": _value(row, "user_id"),
@@ -94,10 +125,14 @@ def _row_to_dict(row) -> dict:
         "svc_induty_cd": _value(row, "svc_induty_cd"),
         "yyqu_cd": _value(row, "yyqu_cd"),
         "report": json.loads(_value(row, "report_json")),
-        "diagnosis": json.loads(_value(row, "diagnosis_json")),
-        "detailed_analysis": json.loads(detailed) if detailed is not None else None,
+        "diagnosis": diagnosis,
+        "detailed_analysis": detailed_analysis,
         "warnings": json.loads(_value(row, "warnings_json")),
         "created_at": _value(row, "created_at"),
+        # 목록 화면에서 같은 상권·업종의 여러 분석(예: 전략 전/후 비교)을 구분하기 위한
+        # 사람이 읽는 기간 라벨 — 실제 POS 기간이 있으면 그걸 쓰고, 없으면 공공데이터
+        # 기준분기로 폴백한다.
+        "분석기간": format_analysis_period(detailed_analysis) or format_quarter_label(기준분기),
     }
 
 

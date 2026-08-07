@@ -198,9 +198,13 @@ def _build_seoul_factors(
             how="left",
             validate="many_to_one",
         )
-        matched_columns = list(rename.values())
+        # rename 대상 컬럼이 원본 CSV에 없으면(예: event_details_json 미포함) merge
+        # 후에도 dates에 생기지 않으므로, 실제로 존재하는 컬럼만 검사한다.
+        matched_columns = [c for c in rename.values() if c in dates.columns]
         matched_quarterly = (
-            matched_quarterly or dates[matched_columns].notna().any().any()
+            matched_quarterly or (
+                bool(matched_columns) and dates[matched_columns].notna().any().any()
+            )
         )
     if not matched_quarterly:
         limitations.append("POS 기간·상권에 해당하는 서울 분기 외부요인 데이터가 없습니다.")
