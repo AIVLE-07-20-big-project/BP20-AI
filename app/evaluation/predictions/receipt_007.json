@@ -1,0 +1,162 @@
+{
+  "ocrText": [
+    "-",
+    "상품명",
+    "단 가 수량",
+    "금액",
+    "품바이홈 도통한 기하학 무릎담요(그레이)",
+    "4,130",
+    "1",
+    "4,130",
+    "헬로우 베어 담요",
+    "7,630",
+    "1",
+    "7,630",
+    "마스킹 테이프(흑색) 1,000",
+    "<",
+    "1,000",
+    "종이봉투 특 100원'1",
+    "100",
+    "1",
+    "100",
+    "모닝 마하펜세트혹색)",
+    "2,800",
+    "1",
+    "2,800",
+    "SM 박스테이프(투명,2+1)",
+    "6,000",
+    "1",
+    "6,000",
+    "롯데 이지온 투명테이프",
+    "1,000",
+    "1",
+    "1.000",
+    "블스권 스프레이 체인 7,000",
+    "1",
+    "7,000",
+    "초이스엘 변 테이프",
+    "1,300 2",
+    "2,600",
+    "초이스엘 월드 바인더 클립 (소)",
+    "3,300",
+    "3,300",
+    "3 다용도 테이프 기획(3+1)",
+    "3,800",
+    "1",
+    "3,800",
+    "오피스디포 오피스가위2,700",
+    "1",
+    "2,700",
+    "과세 물품가액",
+    "38,236",
+    "부\"가제",
+    "3,824",
+    "합",
+    "계",
+    "42,060",
+    "결제금액",
+    "42,060",
+    "i",
+    "0003 신합기드(신한)",
+    "***8073 36749383",
+    "청구의(일시) CARD-IC",
+    "42,060",
+    "34190101016065100042060"
+  ],
+  "result": {
+    "documentType": "UNKNOWN",
+    "storeName": "품바이홈 도통한 기하학 무릎담요(그레이)",
+    "businessNumber": null,
+    "transactionDate": "2026-08-04",
+    "transactionTime": null,
+    "paymentMethod": "현금",
+    "items": [
+      {
+        "itemName": "품바이홈 도통한 기하학 무릎담요(그레이)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 4130,
+        "totalPrice": 4130
+      },
+      {
+        "itemName": "헬로우 베어 담요",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 7630,
+        "totalPrice": 7630
+      },
+      {
+        "itemName": "마스킹 테이프(흑색) 1,000",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 1000,
+        "totalPrice": 1000
+      },
+      {
+        "itemName": "모닝 마하펜세트혹색)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 2800,
+        "totalPrice": 2800
+      },
+      {
+        "itemName": "SM 박스테이프(투명,2+1)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 6000,
+        "totalPrice": 6000
+      },
+      {
+        "itemName": "롯데 이지온 투명테이프",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 1000,
+        "totalPrice": 1000
+      },
+      {
+        "itemName": "블스권 스프레이 체인 7,000",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 7000,
+        "totalPrice": 7000
+      },
+      {
+        "itemName": "초이스엘 변 테이프",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 2600,
+        "totalPrice": 2600
+      },
+      {
+        "itemName": "초이스엘 월드 바인더 클립 (소)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 3300,
+        "totalPrice": 3300
+      },
+      {
+        "itemName": "3 다용도 테이프 기획(3+1)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 3800,
+        "totalPrice": 3800
+      },
+      {
+        "itemName": "오피스디포 오피스가위2,700",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 2700,
+        "totalPrice": 2700
+      }
+    ],
+    "supplyAmount": null,
+    "vat": null,
+    "taxFreeAmount": null,
+    "totalAmount": 42060,
+    "category": "포장재비"
+  },
+  "evaluationMeta": {
+    "image": "receipt_007.jpg",
+    "elapsedSeconds": 28.8037
+  }
+}

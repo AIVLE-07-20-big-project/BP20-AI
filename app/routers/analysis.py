@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from app.schemas.report import ReportResponse
 from app.schemas.recommendation import RecommendationFromAnalysisRequest
 from app.routers.agent_runs import start_agent_run
+from app.core.config import UPLOAD_S3_PREFIX
 from app.core.errors import api_error
 from app.core.uploads import (
     CSV_CONTENT_TYPES,
@@ -107,6 +108,46 @@ async def create_analysis(
             job_id, trdar_cd, svc_induty_cd, yyqu_cd, user_id=user_id, store_id=store_id,
         )
     except Exception as exc:  # noqa: BLE001 - 브로커 오류 형식은 전송 계층마다 다르다.
+        jobs.mark_failed(job_id, "ENQUEUE_FAILED", str(exc))
+        delete_job_upload(job_id)
+        raise api_error(
+            503,
+            "ENQUEUE_FAILED",
+            "분석 작업을 큐에 등록하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        ) from exc
+
+    jobs.set_celery_task_id(job_id, result.id)
+    response.status_code = 202
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/analyses/from-s3", summary="S3 CSV 매출 분석 실행")
+async def create_analysis_from_s3(
+    response: Response,
+    job_id: str = Form(...),
+    object_key: str = Form(...),
+    trdar_cd: str = Form(...),
+    svc_induty_cd: str = Form(...),
+    yyqu_cd: Optional[int] = Form(None),
+    user_id: Optional[str] = Form(None),
+    store_id: Optional[str] = Form(None),
+) -> dict:
+    """BE가 uploads prefix에 올린 CSV를 Celery 분석 작업에 연결한다."""
+    expected_key = f"{UPLOAD_S3_PREFIX.strip('/')}/{job_id}.csv"
+    if object_key != expected_key:
+        raise HTTPException(status_code=400, detail="허용되지 않은 S3 업로드 경로입니다.")
+    if not job_id or len(job_id) > 64 or not all(
+        char.isalnum() or char in "_-" for char in job_id
+    ):
+        raise HTTPException(status_code=400, detail="유효하지 않은 job_id입니다.")
+
+    jobs.create_job(job_id, user_id=user_id)
+    try:
+        result = run_analysis_task.delay(
+            job_id, trdar_cd, svc_induty_cd, yyqu_cd,
+            user_id=user_id, store_id=store_id,
+        )
+    except Exception as exc:  # noqa: BLE001
         jobs.mark_failed(job_id, "ENQUEUE_FAILED", str(exc))
         delete_job_upload(job_id)
         raise api_error(

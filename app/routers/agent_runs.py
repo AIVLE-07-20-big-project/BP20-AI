@@ -1,6 +1,7 @@
 # POST /api/v1/agent-runs, GET /api/v1/agent-runs/{thread_id}, POST .../resume
 from __future__ import annotations
 
+from datetime import date
 from uuid import uuid4
 
 from fastapi import APIRouter, Header, HTTPException
@@ -12,6 +13,33 @@ from app.services.response.graph import get_graph
 router = APIRouter(tags=["전략 추천"])
 
 
+# 상권·업종·기준분기(공공데이터 분기)가 같아도 업로드한 POS 실제 기간은 다를 수 있어
+# before/after 실행을 구분하는 표시용 라벨을 실제 POS 기간에서 만든다.
+def _format_analysis_period(detailed_analysis: dict | None) -> str | None:
+    summary = (detailed_analysis or {}).get("dataSummary") or {}
+    start, end = summary.get("startDate"), summary.get("endDate")
+    if not start or not end:
+        return None
+    try:
+        start_dt, end_dt = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError:
+        return None
+    if (start_dt.year, start_dt.month) == (end_dt.year, end_dt.month):
+        return f"{start_dt.year}년 {start_dt.month}월"
+    if start_dt.year == end_dt.year:
+        return f"{start_dt.year}년 {start_dt.month}월~{end_dt.month}월"
+    return f"{start_dt.year}년 {start_dt.month}월~{end_dt.year}년 {end_dt.month}월"
+
+
+# POS 분석 기간을 알 수 없을 때(detailed_analysis 없이 trdar_cd만으로 호출된 경우)의
+# 최후 폴백 — 20261 같은 원시 코드 대신 "2026년 1분기"로 보여준다.
+def _format_quarter_label(기준분기: int | None) -> str | None:
+    if not 기준분기:
+        return None
+    year, quarter = divmod(int(기준분기), 10)
+    return f"{year}년 {quarter}분기"
+
+
 def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> dict:
     payload = dict(values)
     payload["상태"] = payload.pop("status", "알 수 없음")
@@ -21,13 +49,21 @@ def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> 
     trdar_name = target.get("상권명") or payload.get("trdar_cd") or "상권 미지정"
     svc_name = target.get("업종명") or payload.get("svc_induty_cd") or "업종 미지정"
     store_id = payload.get("store_id")
+    기준분기 = target.get("기준분기")
+    분석기간 = _format_analysis_period(payload.get("detailed_analysis")) or _format_quarter_label(기준분기)
+    표시명 = f"{trdar_name} / {svc_name}"
+    if 분석기간:
+        표시명 += f" · {분석기간}"
+    표시명 += f" (매장 ID: {store_id or '미지정'})"
     payload["대상_매장"] = {
-        "표시명": f"{trdar_name} / {svc_name} (매장 ID: {store_id or '미지정'})",
+        "표시명": 표시명,
         "매장_ID": store_id,
         "상권코드": payload.get("trdar_cd"),
         "상권명": trdar_name,
         "업종코드": payload.get("svc_induty_cd"),
         "업종명": svc_name,
+        "분석기간": 분석기간,
+        "기준분기": 기준분기,
     }
     return payload
 

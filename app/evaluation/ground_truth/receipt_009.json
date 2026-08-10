@@ -1,0 +1,48 @@
+{
+  "image": "receipt_009.jpg",
+  "items": [
+    {
+      "itemName": "펩시콜라",
+      "quantity": 1,
+      "unitPrice": 2000,
+      "totalPrice": 2000
+    },
+    {
+      "itemName": "통큰치킨",
+      "quantity": 1,
+      "unitPrice": 7810,
+      "totalPrice": 7810
+    },
+    {
+      "itemName": "Only Price 데일리 요구르트",
+      "quantity": 1,
+      "unitPrice": 1000,
+      "totalPrice": 1000
+    },
+    {
+      "itemName": "치킨무",
+      "quantity": 1,
+      "unitPrice": 600,
+      "totalPrice": 600
+    },
+    {
+      "itemName": "Only Price 물티슈(캡형)",
+      "quantity": 1,
+      "unitPrice": 1000,
+      "totalPrice": 1000
+    },
+    {
+      "itemName": "Only Price 1등급 우유",
+      "quantity": 1,
+      "unitPrice": 3000,
+      "totalPrice": 3000
+    },
+    {
+      "itemName": "[L_할인] 36%",
+      "quantity": 1,
+      "unitPrice": -2812,
+      "totalPrice": -2812
+    }
+  ],
+  "totalAmount": 12590
+}

@@ -1,0 +1,193 @@
+{
+  "ocrText": [
+    "CLOTTE MIR",
+    "롯데스핑(주) 뜻데마트맥스 참원증앙점",
+    "609-85-35827대표이사: 강성현",
+    "정남시생신구중대로23(전와05-74-20)",
+    "금",
+    "액",
+    "상품명",
+    "단가수량",
+    "모짜렐라 슈레드 피자치즈",
+    "13,980",
+    "13,980",
+    "그린피스 와사비",
+    "3,980",
+    "112",
+    "3,980",
+    "삼양 까르보불닭볶음면5,180",
+    "10,360",
+    "[M+N] 1+1덤",
+    "-5,180",
+    "벤토 멀티팩",
+    "9,980",
+    "1",
+    "9,980",
+    "스윗텔스낵토마토",
+    "14,980",
+    "14,980",
+    "[카드]가2000원",
+    "-2,000",
+    "마운틴바나나",
+    "2,980",
+    "1",
+    "2,980",
+    "MAXX 1A 신선한우유",
+    "3,980",
+    "1",
+    "3,980",
+    "매일 명균딸기우유(24입)",
+    "10,880",
+    "1",
+    "10,880",
+    "고야 피티드 그린올리브",
+    "5,480",
+    "1",
+    "5,480",
+    "퀴네딜슈니텐슬라이스피클",
+    "7,180",
+    "1",
+    "7,180",
+    "하림동물복지닭볶음탕",
+    "7,480",
+    "1",
+    "7,480",
+    "[할인쿠폰] 10%",
+    "-748",
+    "캐나다산 돼지 등심덧살",
+    "15,680",
+    "1",
+    "15,680",
+    "면세 물품가액",
+    "40,318",
+    "과세물품가액",
+    "47,904",
+    "부 가 세",
+    "4,790",
+    "부가세제외",
+    "8,000",
+    "합계",
+    "106,940",
+    "자사할인",
+    "7,928",
+    "결제금액",
+    "99,010",
+    "----할인상세내역",
+    "에누리",
+    "-5,928",
+    "카드할인",
+    "-2,000",
+    "단수할인",
+    "-2"
+  ],
+  "result": {
+    "documentType": "UNKNOWN",
+    "storeName": "롯데스핑(주) 뜻데마트맥스 참원증앙점",
+    "businessNumber": "609-85-35827",
+    "transactionDate": "2026-08-04",
+    "transactionTime": null,
+    "paymentMethod": "카드",
+    "items": [
+      {
+        "itemName": "모짜렐라 슈레드 피자치즈",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 13980,
+        "totalPrice": 13980
+      },
+      {
+        "itemName": "그린피스 와사비",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 3980,
+        "totalPrice": 3980
+      },
+      {
+        "itemName": "삼양 까르보불닭볶음면5,180",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 10360,
+        "totalPrice": 10360
+      },
+      {
+        "itemName": "[M+N] 1+1덤 벤토 멀티팩",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 9980,
+        "totalPrice": 9980
+      },
+      {
+        "itemName": "스윗텔스낵토마토",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 14980,
+        "totalPrice": 14980
+      },
+      {
+        "itemName": "마운틴바나나",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 2980,
+        "totalPrice": 2980
+      },
+      {
+        "itemName": "MAXX 1A 신선한우유",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 3980,
+        "totalPrice": 3980
+      },
+      {
+        "itemName": "매일 명균딸기우유(24입)",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 10880,
+        "totalPrice": 10880
+      },
+      {
+        "itemName": "고야 피티드 그린올리브",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 5480,
+        "totalPrice": 5480
+      },
+      {
+        "itemName": "퀴네딜슈니텐슬라이스피클",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 7180,
+        "totalPrice": 7180
+      },
+      {
+        "itemName": "하림동물복지닭볶음탕",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 7480,
+        "totalPrice": 7480
+      },
+      {
+        "itemName": "캐나다산 돼지 등심덧살",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": 15680,
+        "totalPrice": 15680
+      },
+      {
+        "itemName": "[M+N] 1+1덤",
+        "quantity": 1,
+        "unit": null,
+        "unitPrice": -5180,
+        "totalPrice": -5180
+      }
+    ],
+    "supplyAmount": null,
+    "vat": 4790,
+    "taxFreeAmount": null,
+    "totalAmount": 99010,
+    "category": "식재료비"
+  },
+  "evaluationMeta": {
+    "image": "receipt_011.jpg",
+    "elapsedSeconds": 70.8367
+  }
+}

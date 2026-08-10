@@ -56,6 +56,11 @@ async def analyze_reviews(payloads: List[ReviewRequest], request: Request):
     model = request.app.state.model
     tokenizer = request.app.state.tokenizer
     device = request.app.state.device
+    if model is None or tokenizer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="리뷰 감성분석 모델을 사용할 수 없습니다. ROBERTA_MODEL_PATH와 ROBERTA_HF_TOKEN을 확인하세요.",
+        )
     service = ABSAService(model=model, tokenizer=tokenizer, device=device)
 
     responses = []
@@ -76,7 +81,6 @@ async def analyze_reviews(payloads: List[ReviewRequest], request: Request):
         )
 
     return responses
-
 
 @router.post("/monthly-report", response_model=ABSAAgentResponse)
 async def generate_monthly_review_report(

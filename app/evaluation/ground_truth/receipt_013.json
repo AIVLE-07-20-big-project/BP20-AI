@@ -1,0 +1,42 @@
+{
+  "image": "receipt_013.jpg",
+  "items": [
+    {
+      "itemName": "P굿노밍우유 900ML",
+      "quantity": 1,
+      "unitPrice": 1350,
+      "totalPrice": 1350
+    },
+    {
+      "itemName": "P양파",
+      "quantity": 1,
+      "unitPrice": 3300,
+      "totalPrice": 3300
+    },
+    {
+      "itemName": "P무",
+      "quantity": 1,
+      "unitPrice": 500,
+      "totalPrice": 500
+    },
+    {
+      "itemName": "P깻잎",
+      "quantity": 1,
+      "unitPrice": 750,
+      "totalPrice": 750
+    },
+    {
+      "itemName": "P하선정 바로먹기좋은장아찌 150g",
+      "quantity": 1,
+      "unitPrice": 1380,
+      "totalPrice": 1380
+    },
+    {
+      "itemName": "P브로커리",
+      "quantity": 1,
+      "unitPrice": 1280,
+      "totalPrice": 1280
+    }
+  ],
+  "totalAmount": 8560
+}

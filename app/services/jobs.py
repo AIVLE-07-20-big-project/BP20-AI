@@ -8,6 +8,13 @@ from app.core.config import JOBS_DB
 from app.core.database import connect, execute, fetchall, fetchone, using_mysql
 
 
+def _affected_rows(result: object) -> int:
+    """Return affected-row count for both sqlite3 and PyMySQL execute()."""
+    if isinstance(result, int):
+        return result
+    return int(getattr(result, "rowcount", 0))
+
+
 @contextmanager
 def _connection():
     JOBS_DB.parent.mkdir(parents=True, exist_ok=True)
@@ -81,7 +88,7 @@ def mark_running(job_id: str) -> bool:
             UPDATE {table} SET status='running', started_at=?
              WHERE job_id=? AND status IN ('queued', 'running')
         """.format(table=table), (_now(), job_id))
-    return cursor.rowcount > 0
+    return _affected_rows(cursor) > 0
 
 
 def mark_completed(job_id: str, analysis_id: str) -> bool:
@@ -92,7 +99,7 @@ def mark_completed(job_id: str, analysis_id: str) -> bool:
             UPDATE {table} SET status='completed', analysis_id=?, completed_at=?
              WHERE job_id=? AND status='running'
         """.format(table=table), (analysis_id, _now(), job_id))
-    return cursor.rowcount > 0
+    return _affected_rows(cursor) > 0
 
 
 def mark_failed(job_id: str, error_code: str, error_message: str) -> bool:
@@ -103,7 +110,7 @@ def mark_failed(job_id: str, error_code: str, error_message: str) -> bool:
             UPDATE {table} SET status='failed', error_code=?, error_message=?, completed_at=?
              WHERE job_id=? AND status IN ('queued', 'running')
         """.format(table=table), (error_code, error_message, _now(), job_id))
-    return cursor.rowcount > 0
+    return _affected_rows(cursor) > 0
 
 
 def _cleanup(status: str, max_age_minutes: int, error_code: str, message: str, field: str) -> list[str]:
