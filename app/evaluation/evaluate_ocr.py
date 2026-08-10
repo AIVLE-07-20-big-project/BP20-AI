@@ -265,7 +265,8 @@ def evaluate_predictions(args: argparse.Namespace) -> dict[str, Any]:
 
     aggregate = {
         "truth": 0, "predicted": 0, "matched": 0, "nameExact": 0,
-        "nameNormalized": 0, "nameContained": 0, "nameFuzzy": 0, "quantity": 0,
+        "nameNormalized": 0, "nameContained": 0, "nameFuzzy": 0,
+        "nameAccepted": 0, "quantity": 0,
         "unitPrice": 0, "totalPrice": 0, "allFields": 0,
         "receiptPerfect": 0, "totalAmountCorrect": 0,
         "charEditsWithSpaces": 0, "charTruthWithSpaces": 0,
@@ -306,10 +307,13 @@ def evaluate_predictions(args: argparse.Namespace) -> dict[str, Any]:
             normalized_name = expected_normalized_name == actual_normalized_name
             contained_name = bool(expected_normalized_name) and expected_normalized_name in actual_normalized_name
             fuzzy_name = pair.name_similarity >= args.fuzzy_threshold
+            # 한두 글자의 OCR 오타는 동일 상품을 검출한 것으로 인정한다.
+            # 완전 일치/포함 여부는 진단용 세부 지표로 별도 유지한다.
+            accepted_name = contained_name or fuzzy_name
             quantity_equal = integer_value(expected.get("quantity")) == integer_value(actual.get("quantity"))
             unit_price_equal = integer_value(expected.get("unitPrice")) == integer_value(actual.get("unitPrice"))
             total_price_equal = integer_value(expected.get("totalPrice")) == integer_value(actual.get("totalPrice"))
-            all_fields_equal = contained_name and quantity_equal and unit_price_equal and total_price_equal
+            all_fields_equal = accepted_name and quantity_equal and unit_price_equal and total_price_equal
 
             expected_with_spaces = character_text(expected.get("itemName"))
             actual_with_spaces = character_text(actual.get("itemName"))
@@ -336,6 +340,7 @@ def evaluate_predictions(args: argparse.Namespace) -> dict[str, Any]:
             aggregate["nameNormalized"] += int(normalized_name)
             aggregate["nameContained"] += int(contained_name)
             aggregate["nameFuzzy"] += int(fuzzy_name)
+            aggregate["nameAccepted"] += int(accepted_name)
             aggregate["quantity"] += int(quantity_equal)
             aggregate["unitPrice"] += int(unit_price_equal)
             aggregate["totalPrice"] += int(total_price_equal)
@@ -346,6 +351,7 @@ def evaluate_predictions(args: argparse.Namespace) -> dict[str, Any]:
                 "predicted": actual,
                 "nameSimilarity": round(pair.name_similarity, 4),
                 "nameContained": contained_name,
+                "nameAccepted": accepted_name,
                 "characterErrorsWithSpaces": levenshtein_distance(
                     expected_with_spaces, actual_with_spaces
                 ),
@@ -450,6 +456,7 @@ def evaluate_predictions(args: argparse.Namespace) -> dict[str, Any]:
             "nameNormalizedAccuracy": round(safe_ratio(aggregate["nameNormalized"], matched_count), 4),
             "nameContainmentAccuracy": round(safe_ratio(aggregate["nameContained"], matched_count), 4),
             "nameFuzzyAccuracy": round(safe_ratio(aggregate["nameFuzzy"], matched_count), 4),
+            "nameAcceptedAccuracy": round(safe_ratio(aggregate["nameAccepted"], matched_count), 4),
             "quantityAccuracy": round(safe_ratio(aggregate["quantity"], matched_count), 4),
             "unitPriceAccuracy": round(safe_ratio(aggregate["unitPrice"], matched_count), 4),
             "totalPriceAccuracy": round(safe_ratio(aggregate["totalPrice"], matched_count), 4),

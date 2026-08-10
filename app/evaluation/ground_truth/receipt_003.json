@@ -2,11 +2,11 @@
   "image": "receipt_003.jpg",
   "items": [
     {
-      "itemName": "P쓰레기봉투 50L 50L",
-      "quantity": 20,
-      "unitPrice": 920,
-      "totalPrice": 18400
+      "itemName": "001 에쎄라이트",
+      "quantity": 1,
+      "unitPrice": 4500,
+      "totalPrice": 4500
     }
   ],
-  "totalAmount": 18400
+  "totalAmount": 4500
 }

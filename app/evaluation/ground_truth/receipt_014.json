@@ -1,0 +1,48 @@
+{
+  "image": "receipt_014.jpg",
+  "items": [
+    {
+      "itemName": "아메리카노",
+      "quantity": 1,
+      "unitPrice": 2000,
+      "totalPrice": 2000
+    },
+    {
+      "itemName": "카페라떼",
+      "quantity": 1,
+      "unitPrice": 3000,
+      "totalPrice": 3000
+    },
+    {
+      "itemName": "오트(귀리)음",
+      "quantity": 1,
+      "unitPrice": 600,
+      "totalPrice": 600
+    },
+    {
+      "itemName": "아메리카노",
+      "quantity": 1,
+      "unitPrice": 2000,
+      "totalPrice": 2000
+    },
+    {
+      "itemName": "디카페인",
+      "quantity": 1,
+      "unitPrice": 800,
+      "totalPrice": 800
+    },
+    {
+      "itemName": "카페라떼",
+      "quantity": 1,
+      "unitPrice": 3000,
+      "totalPrice": 3000
+    },
+    {
+      "itemName": "우버라떼",
+      "quantity": 1,
+      "unitPrice": 4500,
+      "totalPrice": 4500
+    }
+  ],
+  "totalAmount": 15900
+}

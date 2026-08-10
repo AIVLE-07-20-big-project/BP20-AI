@@ -2,7 +2,7 @@
   "image": "receipt_001.jpg",
   "items": [
     {
-      "itemName": "카페라떼(HOT)",
+      "itemName": "카페라떼",
       "quantity": 1,
       "unitPrice": 3200,
       "totalPrice": 3200

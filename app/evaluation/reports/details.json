@@ -10,22 +10,23 @@
       "matchedItems": [
         {
           "expected": {
-            "itemName": "카페라떼(HOT)",
+            "itemName": "카페라떼",
             "quantity": 1,
             "unitPrice": 3200,
             "totalPrice": 3200
           },
           "predicted": {
-            "itemName": "품명 카페라떼(HOT)",
+            "itemName": "품명 카페라떼(H이T)",
             "quantity": 1,
             "unit": null,
             "unitPrice": 3200,
             "totalPrice": 3200
           },
-          "nameSimilarity": 0.875,
+          "nameSimilarity": 0.6154,
           "nameContained": true,
-          "characterErrorsWithSpaces": 3,
-          "characterErrorsWithoutSpaces": 2,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 8,
+          "characterErrorsWithoutSpaces": 7,
           "allFieldsMatch": true
         }
       ],
@@ -63,6 +64,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -83,12 +85,52 @@
       "itemCounts": {
         "groundTruth": 1,
         "predicted": 1,
+        "matched": 1
+      },
+      "matchedItems": [
+        {
+          "expected": {
+            "itemName": "001 에쎄라이트",
+            "quantity": 1,
+            "unitPrice": 4500,
+            "totalPrice": 4500
+          },
+          "predicted": {
+            "itemName": "001 에씨라이트",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 4500,
+            "totalPrice": 4500
+          },
+          "nameSimilarity": 0.875,
+          "nameContained": false,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 1,
+          "characterErrorsWithoutSpaces": 1,
+          "allFieldsMatch": true
+        }
+      ],
+      "missingItems": [],
+      "falsePositiveItems": [],
+      "receiptPerfectMatch": true,
+      "totalAmount": {
+        "expected": 4500,
+        "predicted": 4500,
+        "correct": true,
+        "absoluteError": 0
+      }
+    },
+    {
+      "receipt": "receipt_004",
+      "itemCounts": {
+        "groundTruth": 1,
+        "predicted": 3,
         "matched": 0
       },
       "matchedItems": [],
       "missingItems": [
         {
-          "itemName": "P쓰레기봉투 50L 50L",
+          "itemName": "쓰레기봉투",
           "quantity": 20,
           "unitPrice": 920,
           "totalPrice": 18400
@@ -96,152 +138,102 @@
       ],
       "falsePositiveItems": [
         {
-          "itemName": "001 에세라이트.",
+          "itemName": "001 P쓰I5OL5OL",
           "quantity": 1,
           "unit": null,
-          "unitPrice": 4500,
-          "totalPrice": 4500
+          "unitPrice": 15400,
+          "totalPrice": 15400
+        },
+        {
+          "itemName": "자06-B2-0312",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": -6,
+          "totalPrice": -6
+        },
+        {
+          "itemName": "할인",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": -1800,
+          "totalPrice": -1800
         }
       ],
       "receiptPerfectMatch": false,
       "totalAmount": {
         "expected": 18400,
-        "predicted": 4500,
+        "predicted": 15400,
         "correct": false,
-        "absoluteError": 13900
-      }
-    },
-    {
-      "receipt": "receipt_004",
-      "itemCounts": {
-        "groundTruth": 1,
-        "predicted": 4,
-        "matched": 0
-      },
-      "matchedItems": [],
-      "missingItems": [
-        {
-          "itemName": "에쎄라이트",
-          "quantity": 1,
-          "unitPrice": 4500,
-          "totalPrice": 4500
-        }
-      ],
-      "falsePositiveItems": [
-        {
-          "itemName": "001P만감()100g",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 11900,
-          "totalPrice": 11900
-        },
-        {
-          "itemName": "002P한라동(실속)1.2K/10L/지/국산",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 11900,
-          "totalPrice": 11900
-        },
-        {
-          "itemName": "003 P방어(국내산)",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 8800,
-          "totalPrice": 8800
-        },
-        {
-          "itemName": "004P100g",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 8800,
-          "totalPrice": 8800
-        }
-      ],
-      "receiptPerfectMatch": false,
-      "totalAmount": {
-        "expected": 4500,
-        "predicted": 41400,
-        "correct": false,
-        "absoluteError": 36900
+        "absoluteError": 3000
       }
     },
     {
       "receipt": "receipt_005",
       "itemCounts": {
-        "groundTruth": 4,
+        "groundTruth": 1,
         "predicted": 1,
-        "matched": 0
+        "matched": 1
       },
-      "matchedItems": [],
-      "missingItems": [
+      "matchedItems": [
         {
-          "itemName": "P만감(귤로향) 100g",
-          "quantity": 1,
-          "unitPrice": 11900,
-          "totalPrice": 11900
-        },
-        {
-          "itemName": "P한라봉(실속) 1.2Kg/10내/봉지/국산",
-          "quantity": 1,
-          "unitPrice": 11900,
-          "totalPrice": 11900
-        },
-        {
-          "itemName": "P빙어(국내산)",
-          "quantity": 1,
-          "unitPrice": 8800,
-          "totalPrice": 8800
-        },
-        {
-          "itemName": "P초밥 100g",
-          "quantity": 1,
-          "unitPrice": 8800,
-          "totalPrice": 8800
+          "expected": {
+            "itemName": "대파",
+            "quantity": 1,
+            "unitPrice": 2950,
+            "totalPrice": 2950
+          },
+          "predicted": {
+            "itemName": "01P대파 29A",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 2950,
+            "totalPrice": 2950
+          },
+          "nameSimilarity": 0.4,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 7,
+          "characterErrorsWithoutSpaces": 6,
+          "allFieldsMatch": true
         }
       ],
-      "falsePositiveItems": [
-        {
-          "itemName": "001P대파 2A",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 2950,
-          "totalPrice": 2950
-        }
-      ],
-      "receiptPerfectMatch": false,
+      "missingItems": [],
+      "falsePositiveItems": [],
+      "receiptPerfectMatch": true,
       "totalAmount": {
-        "expected": 41400,
+        "expected": 2950,
         "predicted": 2950,
-        "correct": false,
-        "absoluteError": 38450
+        "correct": true,
+        "absoluteError": 0
       }
     },
     {
       "receipt": "receipt_006",
       "itemCounts": {
         "groundTruth": 12,
-        "predicted": 10,
-        "matched": 10
+        "predicted": 11,
+        "matched": 11
       },
       "matchedItems": [
         {
           "expected": {
-            "itemName": "룸바이홈 도통한 기하학 무릎담요(그레이)",
+            "itemName": "룸바이홈 도통한 기하학 무릎담요",
             "quantity": 1,
             "unitPrice": 4130,
             "totalPrice": 4130
           },
           "predicted": {
-            "itemName": "움바이홈 도름한 기하학 무릎담요( 그레이)",
+            "itemName": "물바이홈 도름한 기하학 무릎담요(그레이)",
             "quantity": 1,
             "unit": null,
             "unitPrice": 4130,
             "totalPrice": 4130
           },
-          "nameSimilarity": 0.8824,
+          "nameSimilarity": 0.7742,
           "nameContained": false,
-          "characterErrorsWithSpaces": 3,
-          "characterErrorsWithoutSpaces": 2,
+          "nameAccepted": false,
+          "characterErrorsWithSpaces": 7,
+          "characterErrorsWithoutSpaces": 7,
           "allFieldsMatch": false
         },
         {
@@ -252,41 +244,64 @@
             "totalPrice": 7630
           },
           "predicted": {
-            "itemName": "헬로우 베어 담요 마스킹 테이프(폭색)1,000",
+            "itemName": "헬로우 베어 담요",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 7630,
+            "totalPrice": 7630
+          },
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "마스킹 테이프",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "totalPrice": 1000
+          },
+          "predicted": {
+            "itemName": "마스킹 테이프(폭색)1,000",
             "quantity": 1,
             "unit": null,
             "unitPrice": 1000,
             "totalPrice": 1000
           },
-          "nameSimilarity": 0.5385,
+          "nameSimilarity": 0.6667,
           "nameContained": true,
-          "characterErrorsWithSpaces": 17,
-          "characterErrorsWithoutSpaces": 15,
-          "allFieldsMatch": false
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 9,
+          "characterErrorsWithoutSpaces": 9,
+          "allFieldsMatch": true
         },
         {
           "expected": {
-            "itemName": "모닝 마하펜세트 (흑색)",
+            "itemName": "모닝 마하펜세트",
             "quantity": 1,
             "unitPrice": 2800,
             "totalPrice": 2800
           },
           "predicted": {
-            "itemName": "모닝 마하펜세트 (혹색)",
+            "itemName": "모닝 마하펜세트(흑색)",
             "quantity": 1,
             "unit": null,
             "unitPrice": 2800,
             "totalPrice": 2800
           },
-          "nameSimilarity": 0.8889,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 1,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
+          "nameSimilarity": 0.875,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 4,
+          "characterErrorsWithoutSpaces": 4,
+          "allFieldsMatch": true
         },
         {
           "expected": {
-            "itemName": "3M 박스테이프 (투명, 2+1)",
+            "itemName": "3M 박스테이프",
             "quantity": 1,
             "unitPrice": 6000,
             "totalPrice": 6000
@@ -298,10 +313,11 @@
             "unitPrice": 6000,
             "totalPrice": 6000
           },
-          "nameSimilarity": 1.0,
+          "nameSimilarity": 0.7778,
           "nameContained": true,
-          "characterErrorsWithSpaces": 3,
-          "characterErrorsWithoutSpaces": 0,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 9,
+          "characterErrorsWithoutSpaces": 8,
           "allFieldsMatch": true
         },
         {
@@ -320,6 +336,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -332,16 +349,17 @@
             "totalPrice": 7000
           },
           "predicted": {
-            "itemName": "블스권 스프레이 체인 7,000",
+            "itemName": "불스권 스프레이 체인 7,000",
             "quantity": 1,
             "unit": null,
             "unitPrice": 7000,
             "totalPrice": 7000
           },
-          "nameSimilarity": 0.6364,
+          "nameSimilarity": 0.7273,
           "nameContained": false,
-          "characterErrorsWithSpaces": 8,
-          "characterErrorsWithoutSpaces": 7,
+          "nameAccepted": false,
+          "characterErrorsWithSpaces": 7,
+          "characterErrorsWithoutSpaces": 6,
           "allFieldsMatch": false
         },
         {
@@ -352,21 +370,22 @@
             "totalPrice": 2600
           },
           "predicted": {
-            "itemName": "초이스엘 면 테이프 1,300",
+            "itemName": "초이스엘 면 테이프",
             "quantity": 1,
             "unit": null,
             "unitPrice": 2600,
             "totalPrice": 2600
           },
-          "nameSimilarity": 0.8,
+          "nameSimilarity": 1.0,
           "nameContained": true,
-          "characterErrorsWithSpaces": 6,
-          "characterErrorsWithoutSpaces": 5,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": false
         },
         {
           "expected": {
-            "itemName": "초이스엘 월드 바인더 클립 (소)",
+            "itemName": "초이스엘 월드 바인더 클립",
             "quantity": 1,
             "unitPrice": 3300,
             "totalPrice": 3300
@@ -378,283 +397,33 @@
             "unitPrice": 3300,
             "totalPrice": 3300
           },
-          "nameSimilarity": 0.9167,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 2,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "3M 다용도 테이프 기확 (3+1)",
-            "quantity": 1,
-            "unitPrice": 3800,
-            "totalPrice": 3800
-          },
-          "predicted": {
-            "itemName": "3M 다용도 테이프 기획 (3+1)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 3800,
-            "totalPrice": 3800
-          },
-          "nameSimilarity": 0.9167,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 1,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "오피스디포 오피스가위",
-            "quantity": 1,
-            "unitPrice": 2700,
-            "totalPrice": 2700
-          },
-          "predicted": {
-            "itemName": "오피 스디포 오피스가위2,700",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 2700,
-            "totalPrice": 2700
-          },
-          "nameSimilarity": 0.8333,
-          "nameContained": true,
-          "characterErrorsWithSpaces": 6,
-          "characterErrorsWithoutSpaces": 5,
-          "allFieldsMatch": true
-        }
-      ],
-      "missingItems": [
-        {
-          "itemName": "마스킹 테이브 (흑색)",
-          "quantity": 1,
-          "unitPrice": 1000,
-          "totalPrice": 1000
-        },
-        {
-          "itemName": "종이봉투 특 100원",
-          "quantity": 1,
-          "unitPrice": 100,
-          "totalPrice": 100
-        }
-      ],
-      "falsePositiveItems": [],
-      "receiptPerfectMatch": false,
-      "totalAmount": {
-        "expected": 42060,
-        "predicted": 42060,
-        "correct": true,
-        "absoluteError": 0
-      }
-    },
-    {
-      "receipt": "receipt_007",
-      "itemCounts": {
-        "groundTruth": 12,
-        "predicted": 11,
-        "matched": 11
-      },
-      "matchedItems": [
-        {
-          "expected": {
-            "itemName": "룸바이홈 도통한 기하학 무릎담요(그레이)",
-            "quantity": 1,
-            "unitPrice": 4130,
-            "totalPrice": 4130
-          },
-          "predicted": {
-            "itemName": "품바이홈 도통한 기하학 무릎담요(그레이)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 4130,
-            "totalPrice": 4130
-          },
-          "nameSimilarity": 0.9412,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 1,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "헬로우 베어 담요",
-            "quantity": 1,
-            "unitPrice": 7630,
-            "totalPrice": 7630
-          },
-          "predicted": {
-            "itemName": "헬로우 베어 담요",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 7630,
-            "totalPrice": 7630
-          },
-          "nameSimilarity": 1.0,
-          "nameContained": true,
-          "characterErrorsWithSpaces": 0,
-          "characterErrorsWithoutSpaces": 0,
-          "allFieldsMatch": true
-        },
-        {
-          "expected": {
-            "itemName": "마스킹 테이브 (흑색)",
-            "quantity": 1,
-            "unitPrice": 1000,
-            "totalPrice": 1000
-          },
-          "predicted": {
-            "itemName": "마스킹 테이프(흑색) 1,000",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 1000,
-            "totalPrice": 1000
-          },
-          "nameSimilarity": 0.7,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 8,
-          "characterErrorsWithoutSpaces": 6,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "모닝 마하펜세트 (흑색)",
-            "quantity": 1,
-            "unitPrice": 2800,
-            "totalPrice": 2800
-          },
-          "predicted": {
-            "itemName": "모닝 마하펜세트혹색)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 2800,
-            "totalPrice": 2800
-          },
-          "nameSimilarity": 0.8889,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 3,
-          "characterErrorsWithoutSpaces": 2,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "3M 박스테이프 (투명, 2+1)",
-            "quantity": 1,
-            "unitPrice": 6000,
-            "totalPrice": 6000
-          },
-          "predicted": {
-            "itemName": "SM 박스테이프(투명,2+1)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 6000,
-            "totalPrice": 6000
-          },
-          "nameSimilarity": 0.9091,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 3,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "롯데 이지온 투명테이프",
-            "quantity": 1,
-            "unitPrice": 1000,
-            "totalPrice": 1000
-          },
-          "predicted": {
-            "itemName": "롯데 이지온 투명테이프",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 1000,
-            "totalPrice": 1000
-          },
-          "nameSimilarity": 1.0,
-          "nameContained": true,
-          "characterErrorsWithSpaces": 0,
-          "characterErrorsWithoutSpaces": 0,
-          "allFieldsMatch": true
-        },
-        {
-          "expected": {
-            "itemName": "불스원 스프레이 체인",
-            "quantity": 1,
-            "unitPrice": 7000,
-            "totalPrice": 7000
-          },
-          "predicted": {
-            "itemName": "블스권 스프레이 체인 7,000",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 7000,
-            "totalPrice": 7000
-          },
-          "nameSimilarity": 0.6364,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 8,
-          "characterErrorsWithoutSpaces": 7,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "초이스엘 면 테이프",
-            "quantity": 2,
-            "unitPrice": 1300,
-            "totalPrice": 2600
-          },
-          "predicted": {
-            "itemName": "초이스엘 변 테이프",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 2600,
-            "totalPrice": 2600
-          },
-          "nameSimilarity": 0.875,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 1,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
-        },
-        {
-          "expected": {
-            "itemName": "초이스엘 월드 바인더 클립 (소)",
-            "quantity": 1,
-            "unitPrice": 3300,
-            "totalPrice": 3300
-          },
-          "predicted": {
-            "itemName": "초이스엘 월드 바인더 클립 (소)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 3300,
-            "totalPrice": 3300
-          },
-          "nameSimilarity": 1.0,
-          "nameContained": true,
-          "characterErrorsWithSpaces": 0,
-          "characterErrorsWithoutSpaces": 0,
-          "allFieldsMatch": true
-        },
-        {
-          "expected": {
-            "itemName": "3M 다용도 테이프 기확 (3+1)",
-            "quantity": 1,
-            "unitPrice": 3800,
-            "totalPrice": 3800
-          },
-          "predicted": {
-            "itemName": "3 다용도 테이프 기획(3+1)",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 3800,
-            "totalPrice": 3800
-          },
           "nameSimilarity": 0.8696,
           "nameContained": false,
-          "characterErrorsWithSpaces": 3,
-          "characterErrorsWithoutSpaces": 2,
-          "allFieldsMatch": false
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 4,
+          "characterErrorsWithoutSpaces": 4,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "3M 다용도 테이프 기획",
+            "quantity": 1,
+            "unitPrice": 3800,
+            "totalPrice": 3800
+          },
+          "predicted": {
+            "itemName": "3M 다용도 테이프 기획(3+1)",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 3800,
+            "totalPrice": 3800
+          },
+          "nameSimilarity": 0.9091,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 5,
+          "characterErrorsWithoutSpaces": 5,
+          "allFieldsMatch": true
         },
         {
           "expected": {
@@ -672,6 +441,7 @@
           },
           "nameSimilarity": 0.8333,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 5,
           "characterErrorsWithoutSpaces": 5,
           "allFieldsMatch": true
@@ -695,10 +465,245 @@
       }
     },
     {
+      "receipt": "receipt_007",
+      "itemCounts": {
+        "groundTruth": 12,
+        "predicted": 10,
+        "matched": 9
+      },
+      "matchedItems": [
+        {
+          "expected": {
+            "itemName": "룸바이홈 도통한 기하학 무릎담요(그레이)",
+            "quantity": 1,
+            "unitPrice": 4130,
+            "totalPrice": 4130
+          },
+          "predicted": {
+            "itemName": "룸바이홈 도통한 기하학 무릎담요(그레이)",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 4130,
+            "totalPrice": 4130
+          },
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "헬로우 베어 담요",
+            "quantity": 1,
+            "unitPrice": 7630,
+            "totalPrice": 7630
+          },
+          "predicted": {
+            "itemName": "헬로우 베어 담요",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 7630,
+            "totalPrice": 7630
+          },
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "마스킹 테이브 (흑색)",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "totalPrice": 1000
+          },
+          "predicted": {
+            "itemName": "마스킹 테이프(측색)1,000",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 1000,
+            "totalPrice": 1000
+          },
+          "nameSimilarity": 0.6,
+          "nameContained": false,
+          "nameAccepted": false,
+          "characterErrorsWithSpaces": 8,
+          "characterErrorsWithoutSpaces": 7,
+          "allFieldsMatch": false
+        },
+        {
+          "expected": {
+            "itemName": "모닝 마하펜세트 (흑색)",
+            "quantity": 1,
+            "unitPrice": 2800,
+            "totalPrice": 2800
+          },
+          "predicted": {
+            "itemName": "모닝 마하펜세트(혹색)",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 2800,
+            "totalPrice": 2800
+          },
+          "nameSimilarity": 0.8889,
+          "nameContained": false,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 2,
+          "characterErrorsWithoutSpaces": 1,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "3M 박스테이프 (투명, 2+1)",
+            "quantity": 1,
+            "unitPrice": 6000,
+            "totalPrice": 6000
+          },
+          "predicted": {
+            "itemName": "배 박스테이프(투명,211)",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 6000,
+            "totalPrice": 6000
+          },
+          "nameSimilarity": 0.8182,
+          "nameContained": false,
+          "nameAccepted": false,
+          "characterErrorsWithSpaces": 5,
+          "characterErrorsWithoutSpaces": 3,
+          "allFieldsMatch": false
+        },
+        {
+          "expected": {
+            "itemName": "롯데 이지온 투명테이프",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "totalPrice": 1000
+          },
+          "predicted": {
+            "itemName": "롯데 이지온 투명테이프",
+            "quantity": 7,
+            "unit": null,
+            "unitPrice": 142,
+            "totalPrice": 1000
+          },
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": false
+        },
+        {
+          "expected": {
+            "itemName": "초이스엘 월드 바인더 클립 (소)",
+            "quantity": 1,
+            "unitPrice": 3300,
+            "totalPrice": 3300
+          },
+          "predicted": {
+            "itemName": "초이스엘 월드 바인더 클립(소)",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 3300,
+            "totalPrice": 3300
+          },
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 1,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "3M 다용도 테이프 기확 (3+1)",
+            "quantity": 1,
+            "unitPrice": 3800,
+            "totalPrice": 3800
+          },
+          "predicted": {
+            "itemName": "3 다용도 테이프 기획(3+1)",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 3800,
+            "totalPrice": 3800
+          },
+          "nameSimilarity": 0.8696,
+          "nameContained": false,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 3,
+          "characterErrorsWithoutSpaces": 2,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "오피스디포 오피스가위",
+            "quantity": 1,
+            "unitPrice": 2700,
+            "totalPrice": 2700
+          },
+          "predicted": {
+            "itemName": "오피스디포 오피스가위2,700",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 2700,
+            "totalPrice": 2700
+          },
+          "nameSimilarity": 0.8333,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 5,
+          "characterErrorsWithoutSpaces": 5,
+          "allFieldsMatch": true
+        }
+      ],
+      "missingItems": [
+        {
+          "itemName": "종이봉투 특 100원",
+          "quantity": 1,
+          "unitPrice": 100,
+          "totalPrice": 100
+        },
+        {
+          "itemName": "불스원 스프레이 체인",
+          "quantity": 1,
+          "unitPrice": 7000,
+          "totalPrice": 7000
+        },
+        {
+          "itemName": "초이스엘 면 테이프",
+          "quantity": 2,
+          "unitPrice": 1300,
+          "totalPrice": 2600
+        }
+      ],
+      "falsePositiveItems": [
+        {
+          "itemName": "블스권 스프레이 체인 7,000 초이스엘 변테이프",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": 7000,
+          "totalPrice": 7000
+        }
+      ],
+      "receiptPerfectMatch": false,
+      "totalAmount": {
+        "expected": 42060,
+        "predicted": 42000,
+        "correct": false,
+        "absoluteError": 60
+      }
+    },
+    {
       "receipt": "receipt_008",
       "itemCounts": {
         "groundTruth": 3,
-        "predicted": 3,
+        "predicted": 4,
         "matched": 1
       },
       "matchedItems": [
@@ -718,6 +723,7 @@
           },
           "nameSimilarity": 0.7368,
           "nameContained": false,
+          "nameAccepted": false,
           "characterErrorsWithSpaces": 5,
           "characterErrorsWithoutSpaces": 4,
           "allFieldsMatch": false
@@ -746,7 +752,14 @@
           "totalPrice": 3900
         },
         {
-          "itemName": "XT 할인대상 상품 금액",
+          "itemName": "곳모낭를",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": -3900,
+          "totalPrice": -3900
+        },
+        {
+          "itemName": "KT 할인대상 상물 금액",
           "quantity": 1,
           "unit": null,
           "unitPrice": -7800,
@@ -756,9 +769,9 @@
       "receiptPerfectMatch": false,
       "totalAmount": {
         "expected": 7100,
-        "predicted": 7800,
-        "correct": false,
-        "absoluteError": 700
+        "predicted": 7100,
+        "correct": true,
+        "absoluteError": 0
       }
     },
     {
@@ -785,6 +798,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -805,6 +819,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -825,13 +840,14 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
         },
         {
           "expected": {
-            "itemName": "Only Price 물티슈(캡형)",
+            "itemName": "Only Price 물티슈",
             "quantity": 1,
             "unitPrice": 1000,
             "totalPrice": 1000
@@ -843,10 +859,11 @@
             "unitPrice": 1000,
             "totalPrice": 1000
           },
-          "nameSimilarity": 1.0,
+          "nameSimilarity": 0.9231,
           "nameContained": true,
-          "characterErrorsWithSpaces": 0,
-          "characterErrorsWithoutSpaces": 0,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 4,
+          "characterErrorsWithoutSpaces": 4,
           "allFieldsMatch": true
         },
         {
@@ -865,6 +882,7 @@
           },
           "nameSimilarity": 0.875,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 5,
           "characterErrorsWithoutSpaces": 5,
           "allFieldsMatch": true
@@ -917,6 +935,7 @@
           },
           "nameSimilarity": 0.8966,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 5,
           "characterErrorsWithoutSpaces": 3,
           "allFieldsMatch": true
@@ -937,6 +956,7 @@
           },
           "nameSimilarity": 0.88,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 4,
           "characterErrorsWithoutSpaces": 3,
           "allFieldsMatch": true
@@ -957,6 +977,7 @@
           },
           "nameSimilarity": 0.88,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 4,
           "characterErrorsWithoutSpaces": 3,
           "allFieldsMatch": true
@@ -976,8 +997,8 @@
       "receipt": "receipt_011",
       "itemCounts": {
         "groundTruth": 14,
-        "predicted": 13,
-        "matched": 12
+        "predicted": 12,
+        "matched": 11
       },
       "matchedItems": [
         {
@@ -996,6 +1017,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -1008,7 +1030,7 @@
             "totalPrice": 3980
           },
           "predicted": {
-            "itemName": "그린피스 와사비",
+            "itemName": "그린피스와사비",
             "quantity": 1,
             "unit": null,
             "unitPrice": 3980,
@@ -1016,7 +1038,8 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
-          "characterErrorsWithSpaces": 0,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 1,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
         },
@@ -1028,7 +1051,7 @@
             "totalPrice": 10360
           },
           "predicted": {
-            "itemName": "삼양 까르보불닭볶음면5,180",
+            "itemName": "삼양까르보불닭볶음면5,180",
             "quantity": 1,
             "unit": null,
             "unitPrice": 10360,
@@ -1036,7 +1059,8 @@
           },
           "nameSimilarity": 0.8333,
           "nameContained": true,
-          "characterErrorsWithSpaces": 5,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 6,
           "characterErrorsWithoutSpaces": 5,
           "allFieldsMatch": false
         },
@@ -1048,16 +1072,17 @@
             "totalPrice": 9980
           },
           "predicted": {
-            "itemName": "[M+N] 1+1덤 벤토 멀티팩",
+            "itemName": "[M+N]1+1 벤토 멀티팩",
             "quantity": 1,
             "unit": null,
             "unitPrice": 9980,
             "totalPrice": 9980
           },
-          "nameSimilarity": 0.6667,
+          "nameSimilarity": 0.7143,
           "nameContained": true,
-          "characterErrorsWithSpaces": 11,
-          "characterErrorsWithoutSpaces": 9,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 9,
+          "characterErrorsWithoutSpaces": 8,
           "allFieldsMatch": true
         },
         {
@@ -1076,6 +1101,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 1,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -1096,6 +1122,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 1,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -1108,7 +1135,7 @@
             "totalPrice": 3980
           },
           "predicted": {
-            "itemName": "MAXX 1A 신선한우유",
+            "itemName": "MAXX 1A신선한우유",
             "quantity": 1,
             "unit": null,
             "unitPrice": 3980,
@@ -1116,7 +1143,8 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
-          "characterErrorsWithSpaces": 0,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 1,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
         },
@@ -1128,17 +1156,18 @@
             "totalPrice": 10880
           },
           "predicted": {
-            "itemName": "매일 명균딸기우유(24입)",
+            "itemName": "매일 멸균딸기우유(24입)",
             "quantity": 1,
             "unit": null,
             "unitPrice": 10880,
             "totalPrice": 10880
           },
-          "nameSimilarity": 0.9091,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 1,
-          "characterErrorsWithoutSpaces": 1,
-          "allFieldsMatch": false
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": true
         },
         {
           "expected": {
@@ -1156,6 +1185,7 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
+          "nameAccepted": true,
           "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
@@ -1168,7 +1198,7 @@
             "totalPrice": 7180
           },
           "predicted": {
-            "itemName": "퀴네딜슈니텐슬라이스피클",
+            "itemName": "퀴네 딜슈니텐 슬라이스피클",
             "quantity": 1,
             "unit": null,
             "unitPrice": 7180,
@@ -1176,7 +1206,8 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
-          "characterErrorsWithSpaces": 2,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
         },
@@ -1188,7 +1219,7 @@
             "totalPrice": 7480
           },
           "predicted": {
-            "itemName": "하림동물복지닭볶음탕",
+            "itemName": "하림 동물복지닭볶음탕",
             "quantity": 1,
             "unit": null,
             "unitPrice": 7480,
@@ -1196,32 +1227,19 @@
           },
           "nameSimilarity": 1.0,
           "nameContained": true,
-          "characterErrorsWithSpaces": 2,
-          "characterErrorsWithoutSpaces": 0,
-          "allFieldsMatch": true
-        },
-        {
-          "expected": {
-            "itemName": "[M+N] 1+1덤",
-            "quantity": 1,
-            "unitPrice": -5180,
-            "totalPrice": -5180
-          },
-          "predicted": {
-            "itemName": "[M+N] 1+1덤",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": -5180,
-            "totalPrice": -5180
-          },
-          "nameSimilarity": 1.0,
-          "nameContained": true,
-          "characterErrorsWithSpaces": 0,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 1,
           "characterErrorsWithoutSpaces": 0,
           "allFieldsMatch": true
         }
       ],
       "missingItems": [
+        {
+          "itemName": "[M+N] 1+1덤",
+          "quantity": 1,
+          "unitPrice": -5180,
+          "totalPrice": -5180
+        },
         {
           "itemName": "[카드]가 2000원",
           "quantity": 1,
@@ -1253,121 +1271,188 @@
       }
     },
     {
-      "receipt": "receipt_012",
+      "receipt": "receipt_013",
       "itemCounts": {
-        "groundTruth": 1,
-        "predicted": 2,
+        "groundTruth": 6,
+        "predicted": 0,
         "matched": 0
       },
       "matchedItems": [],
       "missingItems": [
         {
-          "itemName": "P대파",
-          "quantity": 1,
-          "unitPrice": 2950,
-          "totalPrice": 2950
-        }
-      ],
-      "falsePositiveItems": [
-        {
-          "itemName": "클고기리반",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 4990,
-          "totalPrice": 4990
-        },
-        {
-          "itemName": "*국내신 양배추 오두기 3문최고기",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 1980,
-          "totalPrice": 1980
-        }
-      ],
-      "receiptPerfectMatch": false,
-      "totalAmount": {
-        "expected": 2950,
-        "predicted": 4990,
-        "correct": false,
-        "absoluteError": 2040
-      }
-    },
-    {
-      "receipt": "receipt_013",
-      "itemCounts": {
-        "groundTruth": 6,
-        "predicted": 2,
-        "matched": 1
-      },
-      "matchedItems": [
-        {
-          "expected": {
-            "itemName": "P하선정 바로먹기좋은장아찌 150g",
-            "quantity": 1,
-            "unitPrice": 1380,
-            "totalPrice": 1380
-          },
-          "predicted": {
-            "itemName": "005 P하선정 바로먹기은장아씨",
-            "quantity": 1,
-            "unit": null,
-            "unitPrice": 1380,
-            "totalPrice": 1380
-          },
-          "nameSimilarity": 0.6875,
-          "nameContained": false,
-          "characterErrorsWithSpaces": 11,
-          "characterErrorsWithoutSpaces": 9,
-          "allFieldsMatch": false
-        }
-      ],
-      "missingItems": [
-        {
-          "itemName": "P굿노밍우유 900ML",
+          "itemName": "굿노밍우유 900ML",
           "quantity": 1,
           "unitPrice": 1350,
           "totalPrice": 1350
         },
         {
-          "itemName": "P양파",
+          "itemName": "양파",
           "quantity": 1,
           "unitPrice": 3300,
           "totalPrice": 3300
         },
         {
-          "itemName": "P무",
+          "itemName": "무",
           "quantity": 1,
           "unitPrice": 500,
           "totalPrice": 500
         },
         {
-          "itemName": "P깻잎",
+          "itemName": "깻잎",
           "quantity": 1,
           "unitPrice": 750,
           "totalPrice": 750
         },
         {
-          "itemName": "P브로커리",
+          "itemName": "하선정 바로먹기좋은장아찌 150g",
+          "quantity": 1,
+          "unitPrice": 1380,
+          "totalPrice": 1380
+        },
+        {
+          "itemName": "브로커리",
           "quantity": 1,
           "unitPrice": 1280,
           "totalPrice": 1280
         }
       ],
-      "falsePositiveItems": [
-        {
-          "itemName": "002 P잉파",
-          "quantity": 1,
-          "unit": null,
-          "unitPrice": 3300,
-          "totalPrice": 3300
-        }
-      ],
+      "falsePositiveItems": [],
       "receiptPerfectMatch": false,
       "totalAmount": {
         "expected": 8560,
         "predicted": 8560,
         "correct": true,
         "absoluteError": 0
+      }
+    },
+    {
+      "receipt": "receipt_014",
+      "itemCounts": {
+        "groundTruth": 7,
+        "predicted": 5,
+        "matched": 4
+      },
+      "matchedItems": [
+        {
+          "expected": {
+            "itemName": "아메리카노",
+            "quantity": 1,
+            "unitPrice": 2000,
+            "totalPrice": 2000
+          },
+          "predicted": {
+            "itemName": "아메리카노",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 2000,
+            "totalPrice": 2000
+          },
+          "nameSimilarity": 1.0,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 0,
+          "characterErrorsWithoutSpaces": 0,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "카페라떼",
+            "quantity": 1,
+            "unitPrice": 3000,
+            "totalPrice": 3000
+          },
+          "predicted": {
+            "itemName": "선택안함 카페라떼",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 3000,
+            "totalPrice": 3000
+          },
+          "nameSimilarity": 0.6667,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 5,
+          "characterErrorsWithoutSpaces": 4,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "아메리카노",
+            "quantity": 1,
+            "unitPrice": 2000,
+            "totalPrice": 2000
+          },
+          "predicted": {
+            "itemName": "오트(귀리)음 아메리카노",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 2000,
+            "totalPrice": 2000
+          },
+          "nameSimilarity": 0.6667,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 8,
+          "characterErrorsWithoutSpaces": 7,
+          "allFieldsMatch": true
+        },
+        {
+          "expected": {
+            "itemName": "카페라떼",
+            "quantity": 1,
+            "unitPrice": 3000,
+            "totalPrice": 3000
+          },
+          "predicted": {
+            "itemName": "ICED M 카페라떼",
+            "quantity": 1,
+            "unit": null,
+            "unitPrice": 3000,
+            "totalPrice": 3000
+          },
+          "nameSimilarity": 0.6154,
+          "nameContained": true,
+          "nameAccepted": true,
+          "characterErrorsWithSpaces": 7,
+          "characterErrorsWithoutSpaces": 5,
+          "allFieldsMatch": true
+        }
+      ],
+      "missingItems": [
+        {
+          "itemName": "오트(귀리)음",
+          "quantity": 1,
+          "unitPrice": 600,
+          "totalPrice": 600
+        },
+        {
+          "itemName": "디카페인",
+          "quantity": 1,
+          "unitPrice": 800,
+          "totalPrice": 800
+        },
+        {
+          "itemName": "우버라떼",
+          "quantity": 1,
+          "unitPrice": 4500,
+          "totalPrice": 4500
+        }
+      ],
+      "falsePositiveItems": [
+        {
+          "itemName": "아임 다크 우베라떼",
+          "quantity": 1,
+          "unit": null,
+          "unitPrice": 4500,
+          "totalPrice": 4500
+        }
+      ],
+      "receiptPerfectMatch": false,
+      "totalAmount": {
+        "expected": 15900,
+        "predicted": 14459,
+        "correct": false,
+        "absoluteError": 1441
       }
     }
   ]

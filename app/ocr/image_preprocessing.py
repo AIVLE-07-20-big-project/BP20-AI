@@ -22,7 +22,7 @@ class ReceiptPreprocessConfig:
     min_receipt_area_ratio: float = 0.20
     max_skew_degrees: float = 15.0
     denoise_strength: int = 5
-    clahe_clip_limit: float = 2.0
+    clahe_clip_limit: float = 2.5
     enhancement_passes: int = 2
 
 
@@ -185,7 +185,7 @@ def enhance_clahe_sharpen(
         denoised = cv2.fastNlMeansDenoising(gray, h=config.denoise_strength)
         clahe = cv2.createCLAHE(config.clahe_clip_limit, (8, 8)).apply(denoised)
         blurred = cv2.GaussianBlur(clahe, (0, 0), 1.0)
-        sharpened = cv2.addWeighted(clahe, 1.6, blurred, -0.6, 0)
+        sharpened = cv2.addWeighted(clahe, 1.8, blurred, -0.8, 0)
         enhanced = cv2.cvtColor(sharpened, cv2.COLOR_GRAY2BGR)
     return enhanced
 
