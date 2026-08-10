@@ -6,6 +6,7 @@ from app.schemas.review import (
     ABSAClusterReport,
     ABSAAgentResponse,
     BatchReviewRequest,
+    MonthlyReviewReportRequest,
     ReviewAgentState,
     AspectSentiment,
     ReviewResponse,
@@ -20,7 +21,8 @@ class ABSAGraphRunner:
 
     async def run(self, payload: BatchReviewRequest) -> ABSAAgentResponse:
         initial_state = ReviewAgentState(
-            store_id=payload.store_id, reviews=payload.reviews
+            store_id=payload.store_id, 
+            reviews=payload.reviews,
         )
 
         final_state = await self.graph.ainvoke(initial_state)
@@ -47,4 +49,25 @@ class ABSAGraphRunner:
             reviews_analysis=reviews_analysis,
             clusters=report.keyword_clusters,
             improvement_report=final_state.get("improvement_report")
+        )
+
+    async def run_monthly_report(
+        self, payload: MonthlyReviewReportRequest
+    ) -> ABSAAgentResponse:
+        initial_state = ReviewAgentState(
+            store_id=payload.store_id,
+            reviews=payload.reviews,
+            roberta_results=[item.model_dump() for item in payload.preclassified_results],
+            generate_improvement=True,
+        )
+        final_state = await self.graph.ainvoke(initial_state)
+        report: ABSAClusterReport = final_state["final_report"]
+
+        return ABSAAgentResponse(
+            store_id=payload.store_id,
+            summary=report.overall_issue_summary,
+            total_reviews_analyzed=len(payload.reviews),
+            reviews_analysis=[],
+            clusters=report.keyword_clusters,
+            improvement_report=final_state.get("improvement_report"),
         )
