@@ -109,7 +109,7 @@ def continue_agent_run(thread_id: str, decision: dict) -> dict:
 
 def _assert_owner(values: dict, user_id: str | None) -> None:
     owner = values.get("user_id")
-    if owner is not None and owner != user_id:
+    if owner is not None and user_id is not None and str(owner) != str(user_id):
         raise HTTPException(status_code=403, detail="해당 에이전트 실행에 접근할 권한이 없습니다")
 
 

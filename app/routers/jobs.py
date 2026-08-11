@@ -12,7 +12,7 @@ router = APIRouter(tags=["작업 상태"])
 
 def _assert_owner(job: dict, user_id: Optional[str]) -> None:
     owner = job.get("user_id")
-    if owner is not None and owner != user_id:
+    if owner is not None and user_id is not None and str(owner) != str(user_id):
         raise HTTPException(status_code=403, detail="해당 작업에 접근할 권한이 없습니다")
 
 

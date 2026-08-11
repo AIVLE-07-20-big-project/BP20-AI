@@ -221,7 +221,7 @@ def append_log(
 
     state = snapshot.values
     owner = state.get("user_id")
-    if owner is not None and owner != user_id:
+    if owner is not None and user_id is not None and str(owner) != str(user_id):
         raise DecisionOwnershipMismatch("해당 추천 실행 결과를 기록할 권한이 없습니다")
     if state.get("approval_status") not in ("approved", "edited"):
         raise DecisionNotApproved(
