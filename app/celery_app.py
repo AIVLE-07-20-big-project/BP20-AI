@@ -16,7 +16,12 @@ from celery.schedules import crontab
 from app.core import bootstrap  # noqa: F401
 from app.core.huggingface_assets import sync_huggingface_assets
 
-sync_huggingface_assets()
+CONTAINER_ROLE = os.getenv("CONTAINER_ROLE", "worker").strip().lower()
+
+# Beat는 스케줄 메시지만 발행하므로 대용량 매출 분석·RAG 자산이 필요하지 않다.
+# API와 Worker만 S3 자산을 로컬 캐시에 동기화한다.
+if CONTAINER_ROLE != "beat":
+    sync_huggingface_assets()
 
 BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
