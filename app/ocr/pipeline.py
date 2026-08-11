@@ -171,21 +171,10 @@ _OCR_ENGINE = None
 def _get_ocr_engine():
     global _OCR_ENGINE
     if _OCR_ENGINE is None:
-        from paddleocr import PaddleOCR
+        from app.ocr.model_config import create_paddle_ocr
+
         print("PaddleOCR 모델 로딩 중 (최초 1회만 - 이후 요청부터는 재사용됩니다)...")
-        _OCR_ENGINE = PaddleOCR(
-            lang="korean",
-            # 기본값은 PP-OCRv5_server_det(서버/GPU 환경용 고성능·고부하 모델)라
-            # CPU 노트북에서 화면 버퍼링/끊김이 심하게 발생할 수 있음.
-            # 모바일용 경량 모델로 명시해서 CPU 부하와 처리 시간을 크게 낮춘다.
-            text_detection_model_name="PP-OCRv5_mobile_det",
-            text_recognition_model_name="korean_PP-OCRv5_mobile_rec",
-            use_doc_orientation_classify=False,  # 촬영 각도가 심하게 틀어진 경우 True로
-            use_doc_unwarping=False,             # 종이가 휘어져 찍힌 경우 True로
-            use_textline_orientation=False,      # 텍스트 줄이 세로/회전인 경우 True로
-            enable_mkldnn=False,  # PaddlePaddle 3.3.x CPU + oneDNN 조합의 알려진 버그
-                                  # (ConvertPirAttribute2RuntimeAttribute NotImplementedError) 회피
-        )
+        _OCR_ENGINE = create_paddle_ocr()
     return _OCR_ENGINE
 
 
