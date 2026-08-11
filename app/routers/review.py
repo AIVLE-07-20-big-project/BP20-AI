@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from typing import List
 import os
 from app.schemas.review import ReviewRequest, ReviewResponse
-from app.schemas.review import ABSAAgentResponse, BatchReviewRequest
+from app.schemas.review import ABSAAgentResponse, BatchReviewRequest, MonthlyReviewReportRequest
 from app.services.absa_service import ABSAService
 from app.services.review_analyze_agent import ABSAGraphRunner
 
@@ -81,3 +81,14 @@ async def analyze_reviews(payloads: List[ReviewRequest], request: Request):
         )
 
     return responses
+
+@router.post("/monthly-report", response_model=ABSAAgentResponse)
+async def generate_monthly_review_report(
+    payload: MonthlyReviewReportRequest,
+    runner: ABSAGraphRunner = Depends(get_graph_runner),
+):
+    """Generate a monthly report from ABSA results already saved by Spring Boot."""
+    try:
+        return await runner.run_monthly_report(payload)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Monthly report generation failed: {str(e)}")
