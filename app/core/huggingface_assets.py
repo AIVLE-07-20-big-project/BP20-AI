@@ -42,6 +42,19 @@ def _sync_s3_assets(*, force: bool) -> dict[str, str]:
     model_assets = {
         MODEL / "ai_sales_model.pkl": (MODEL_S3_PREFIX, "ai_sales_model.pkl"),
         MODEL / "cox_risk.pkl": (MODEL_S3_PREFIX, "cox_risk.pkl"),
+
+        MODEL / settings.ROBERTA_S3_DIRECTORY / "config.json": (
+            MODEL_S3_PREFIX, f"{settings.ROBERTA_S3_DIRECTORY}/config.json"
+        ),
+        MODEL / settings.ROBERTA_S3_DIRECTORY / "model.safetensors": (
+            MODEL_S3_PREFIX, f"{settings.ROBERTA_S3_DIRECTORY}/model.safetensors"
+        ),
+        MODEL / settings.ROBERTA_S3_DIRECTORY / "tokenizer_config.json": (
+            MODEL_S3_PREFIX, f"{settings.ROBERTA_S3_DIRECTORY}/tokenizer_config.json"
+        ),
+        MODEL / settings.ROBERTA_S3_DIRECTORY / "tokenizer.json": (
+            MODEL_S3_PREFIX, f"{settings.ROBERTA_S3_DIRECTORY}/tokenizer.json"
+        ),
         RAG_INDEX_EXPORT / "embeddings.npy": (RAG_S3_PREFIX, "export/embeddings.npy"),
         RAG_INDEX_EXPORT / "chunks.jsonl": (RAG_S3_PREFIX, "export/chunks.jsonl"),
         RAG_INDEX_EXPORT / "manifest.json": (RAG_S3_PREFIX, "export/manifest.json"),
