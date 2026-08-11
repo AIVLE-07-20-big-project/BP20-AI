@@ -31,6 +31,18 @@ class BatchReviewRequest(BaseModel):
     store_id: int
     reviews: List[ReviewRequest]
 
+class PreclassifiedReviewResult(BaseModel):
+    review_id: int
+    aspect: str
+    sentiment: str
+    confidence: float
+    review_text: str
+
+class MonthlyReviewReportRequest(BaseModel):
+    store_id: int
+    reviews: List[ReviewRequest]
+    preclassified_results: List[PreclassifiedReviewResult]
+
 class KeywordClusterItem(BaseModel):
     aspect: str = Field(
         description="속성 카테고리 (food, service, convenience, price, atmosphere)"
@@ -57,8 +69,18 @@ class ABSAClusterReport(BaseModel):
     )
     keyword_clusters: List[KeywordClusterItem]
 
+class LLMRefinementItem(BaseModel):
+    review_id: int
+    aspect: str
+    sentiment: str
+    confidence: float = Field(ge=0, le=100)
+    should_override: bool = Field(
+        description="Whether the original RoBERTa label has clear aspect-specific evidence to be replaced"
+    )
 
-    
+class LLMRefinementResponse(BaseModel):
+    refinements: List[LLMRefinementItem]
+
 class ABSAAgentResponse(BaseModel):
     store_id: int
     summary: str
@@ -66,14 +88,6 @@ class ABSAAgentResponse(BaseModel):
     reviews_analysis: List[ReviewResponse]
     clusters: List[KeywordClusterItem]
     improvement_report: Optional[StoreImprovementReport] = None
-
-class ReviewAgentState(BaseModel):
-    store_id: int
-    reviews: List[ReviewRequest]
-    roberta_results: List[Dict[str, Any]] = []
-    store_context: Optional[Dict[str, Any]] = None
-    existing_keywords: List[str] = []
-    final_report: Optional[ABSAClusterReport] = None
 
 class PriorityActionItem(BaseModel):
     priority: str = Field(
@@ -109,9 +123,15 @@ class StoreImprovementReport(BaseModel):
 class ReviewAgentState(BaseModel):
     store_id: int
     reviews: List[ReviewRequest]
+
     roberta_results: List[Dict[str, Any]] = []
+
     store_context: Optional[Dict[str, Any]] = None
+    tool_calls: Optional[List[Any]] = None
+
     existing_keywords: List[str] = []
     past_keyword_counts: Optional[Dict[str, int]] = {}
+
     final_report: Optional[ABSAClusterReport] = None
     improvement_report: Optional[StoreImprovementReport] = None
+    generate_improvement: bool = False
