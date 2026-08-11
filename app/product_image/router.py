@@ -1,11 +1,16 @@
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, Form, HTTPException, File
 from fastapi.responses import Response
+from openai import OpenAIError
+from PIL import UnidentifiedImageError
 
+from app.core.errors import api_error
 from .image_pipeline import generate_product_image, CATEGORY_PROMPTS, InvalidCategoryError
 
 router = APIRouter(prefix="/api/v1/product-images", tags=["ProductImage"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/categories")
@@ -46,7 +51,21 @@ async def generate(
         result_bytes = generate_product_image(image_bytes, category, prompt)
     except InvalidCategoryError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"이미지 생성 중 오류가 발생했습니다: {e}")
+    except UnidentifiedImageError:
+        raise api_error(
+            415,
+            "UNSUPPORTED_IMAGE_FILE",
+            "지원하는 이미지 파일을 업로드해 주세요.",
+        )
+    except OpenAIError:
+        # 공통 OpenAI 예외 처리기가 인증·권한·한도·타임아웃을 구분한다.
+        raise
+    except Exception:
+        logger.exception("상품 이미지 생성 파이프라인에서 예상하지 못한 오류가 발생했습니다.")
+        raise api_error(
+            500,
+            "PRODUCT_IMAGE_GENERATION_FAILED",
+            "상품 이미지 생성 중 오류가 발생했습니다.",
+        )
 
     return Response(content=result_bytes, media_type="image/png")
