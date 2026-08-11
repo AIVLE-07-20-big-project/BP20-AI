@@ -1,12 +1,24 @@
 -- BP20 AI 운영 저장소
--- BE가 사용하는 MySQL에 실행하되, AI 전용 테이블만 생성한다.
+-- BE and AI share the analysis table in MySQL.
+
+CREATE TABLE IF NOT EXISTS ai_analyses (
+    analysis_id VARCHAR(36) PRIMARY KEY,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    result_json LONGTEXT NOT NULL,
+    store_id BIGINT NULL,
+    svc_induty_cd VARCHAR(30) NOT NULL,
+    trdar_cd VARCHAR(30) NOT NULL,
+    user_id BIGINT NOT NULL,
+    yyqu_cd INT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS ai_analysis_jobs (
     job_id VARCHAR(64) PRIMARY KEY,
     celery_task_id VARCHAR(255),
     user_id VARCHAR(255),
     status VARCHAR(32) NOT NULL,
-    analysis_id VARCHAR(64),
+    analysis_id VARCHAR(36),
     error_code VARCHAR(64),
     error_message TEXT,
     created_at VARCHAR(40) NOT NULL,
@@ -14,19 +26,9 @@ CREATE TABLE IF NOT EXISTS ai_analysis_jobs (
     completed_at VARCHAR(40)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ai_internal_analyses (
-    analysis_id VARCHAR(64) PRIMARY KEY,
-    trdar_cd VARCHAR(64) NOT NULL,
-    svc_induty_cd VARCHAR(64) NOT NULL,
-    yyqu_cd INT,
-    report_json LONGTEXT NOT NULL,
-    diagnosis_json LONGTEXT NOT NULL,
-    warnings_json LONGTEXT NOT NULL,
-    created_at VARCHAR(40) NOT NULL,
-    user_id VARCHAR(255),
-    store_id VARCHAR(255),
-    detailed_analysis_json LONGTEXT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE ai_analysis_jobs
+    ADD CONSTRAINT fk_ai_jobs_analysis
+    FOREIGN KEY (analysis_id) REFERENCES ai_analyses (analysis_id);
 
 CREATE TABLE IF NOT EXISTS ai_agent_checkpoints (
     thread_id VARCHAR(255) NOT NULL,

@@ -29,7 +29,7 @@ def _connection():
                 celery_task_id VARCHAR(255),
                 user_id VARCHAR(255),
                 status VARCHAR(32) NOT NULL,
-                analysis_id VARCHAR(64),
+                analysis_id VARCHAR(36),
                 error_code VARCHAR(64),
                 error_message TEXT,
                 created_at VARCHAR(40) NOT NULL,

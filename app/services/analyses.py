@@ -44,23 +44,21 @@ def format_quarter_label(기준분기: int | None) -> str | None:
 def _connection():
     ANALYSES_DB.parent.mkdir(parents=True, exist_ok=True)
     with connect(str(ANALYSES_DB)) as connection:
-        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        table = "ai_analyses" if using_mysql() else "analyses"
         if not using_mysql():
             execute(connection, "PRAGMA journal_mode=WAL")
             execute(connection, "PRAGMA busy_timeout=10000")
         execute(connection, f"""
             CREATE TABLE IF NOT EXISTS {table} (
-                analysis_id VARCHAR(64) PRIMARY KEY,
+                analysis_id VARCHAR(36) PRIMARY KEY,
                 trdar_cd VARCHAR(64) NOT NULL,
                 svc_induty_cd VARCHAR(64) NOT NULL,
                 yyqu_cd INTEGER,
-                report_json LONGTEXT NOT NULL,
-                diagnosis_json LONGTEXT NOT NULL,
-                warnings_json LONGTEXT NOT NULL,
-                created_at VARCHAR(40) NOT NULL,
-                user_id VARCHAR(255),
-                store_id VARCHAR(255),
-                detailed_analysis_json LONGTEXT
+                result_json LONGTEXT NOT NULL,
+                created_at DATETIME(6) NOT NULL,
+                user_id BIGINT,
+                store_id BIGINT,
+                updated_at DATETIME(6) NOT NULL
             )
         """)
         try:
@@ -90,20 +88,22 @@ def create_analysis(
 ) -> dict:
     """지정한 analysis_id는 첫 결과만 저장하고, 없으면 새 ID를 생성한다."""
     analysis_id = analysis_id or str(uuid4())
-    created_at = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    created_at = now.replace(tzinfo=None) if using_mysql() else now.isoformat()
     with _connection() as connection:
-        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        table = "ai_analyses" if using_mysql() else "analyses"
         insert = "INSERT IGNORE" if using_mysql() else "INSERT OR IGNORE"
         execute(connection, f"""
             {insert} INTO {table} (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                report_json, diagnosis_json, detailed_analysis_json,
-                warnings_json, created_at, user_id, store_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                result_json, created_at, updated_at, user_id, store_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-            _dump(report), _dump(diagnosis), _dump(detailed_analysis),
-            _dump(warnings), created_at, user_id, store_id,
+            _dump({"report": report, "diagnosis": diagnosis, "warnings": warnings,
+                   "detailed_analysis": detailed_analysis}),
+            created_at, created_at, int(user_id) if user_id and str(user_id).isdigit() else None,
+            int(store_id) if store_id and str(store_id).isdigit() else None,
         ))
     return get_analysis(analysis_id)
 
@@ -113,9 +113,9 @@ def _value(row, key: str):
 
 
 def _row_to_dict(row) -> dict:
-    detailed = _value(row, "detailed_analysis_json")
-    detailed_analysis = json.loads(detailed) if detailed is not None else None
-    diagnosis = json.loads(_value(row, "diagnosis_json"))
+    payload = json.loads(_value(row, "result_json"))
+    detailed_analysis = payload.get("detailed_analysis")
+    diagnosis = payload.get("diagnosis", {})
     기준분기 = (diagnosis.get("대상") or {}).get("기준분기")
     return {
         "analysis_id": _value(row, "analysis_id"),
@@ -124,10 +124,10 @@ def _row_to_dict(row) -> dict:
         "trdar_cd": _value(row, "trdar_cd"),
         "svc_induty_cd": _value(row, "svc_induty_cd"),
         "yyqu_cd": _value(row, "yyqu_cd"),
-        "report": json.loads(_value(row, "report_json")),
+        "report": payload.get("report", {}),
         "diagnosis": diagnosis,
         "detailed_analysis": detailed_analysis,
-        "warnings": json.loads(_value(row, "warnings_json")),
+        "warnings": payload.get("warnings", []),
         "created_at": _value(row, "created_at"),
         # 목록 화면에서 같은 상권·업종의 여러 분석(예: 전략 전/후 비교)을 구분하기 위한
         # 사람이 읽는 기간 라벨 — 실제 POS 기간이 있으면 그걸 쓰고, 없으면 공공데이터
@@ -138,14 +138,14 @@ def _row_to_dict(row) -> dict:
 
 def get_analysis(analysis_id: str) -> dict | None:
     with _connection() as connection:
-        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        table = "ai_analyses" if using_mysql() else "analyses"
         row = fetchone(connection, f"SELECT * FROM {table} WHERE analysis_id = ?", (analysis_id,))
     return _row_to_dict(row) if row is not None else None
 
 
 def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
     query = "SELECT * FROM analyses WHERE user_id = ?"
-    table = "ai_internal_analyses" if using_mysql() else "analyses"
+    table = "ai_analyses" if using_mysql() else "analyses"
     query = f"SELECT * FROM {table} WHERE user_id = ?"
     params: list[object] = [user_id]
     if store_id is not None:
