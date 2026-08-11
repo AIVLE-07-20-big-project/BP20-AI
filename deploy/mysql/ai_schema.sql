@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ai_analyses (
     store_id BIGINT NULL,
     svc_induty_cd VARCHAR(30) NOT NULL,
     trdar_cd VARCHAR(30) NOT NULL,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NULL,
     yyqu_cd INT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
