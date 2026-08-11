@@ -83,5 +83,8 @@ class ABSASettings:
     ASPECTS: list = ["food", "service", "convenience", "price", "atmosphere"]
     LABEL_MAP: dict = {0: "부정", 1: "중립", 2: "긍정", 3: "none"}
     MAX_LENGTH: int = 128
+    LLM_REFINEMENT_CONFIDENCE_THRESHOLD: float = float(
+        os.getenv("LLM_REFINEMENT_CONFIDENCE_THRESHOLD", "65")
+    )
 
 settings = ABSASettings()
