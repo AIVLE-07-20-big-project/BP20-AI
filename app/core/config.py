@@ -73,6 +73,7 @@ BANDIT_EXPERIMENT_ENABLED = _bool_env("BANDIT_EXPERIMENT_ENABLED", False)
 BANDIT_EXPERIMENT_EPSILON = float(os.environ.get("BANDIT_EXPERIMENT_EPSILON", "0.10"))
 class ABSASettings:
     ROBERTA_MODEL_PATH: str = os.getenv("ROBERTA_MODEL_PATH", "thadus2/roberta-absa-best-4class")
+    ROBERTA_S3_DIRECTORY: str = os.getenv("ROBERTA_S3_DIRECTORY", "roberta_absa").strip("/")
 
     ROBERTA_HF_TOKEN: str = os.getenv("ROBERTA_HF_TOKEN", "")
     HF_MODEL_REPO_ID: str = os.getenv("HF_MODEL_REPO_ID", "")
