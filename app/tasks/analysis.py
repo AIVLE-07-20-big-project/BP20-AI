@@ -31,7 +31,14 @@ def run_analysis_task(
     from app.services.pipeline import CellNotFoundError
     from scripts.modeling.detailed_sales_external_analysis import DetailedSalesDataError
 
+    job = jobs.get_job(job_id)
+    print(f"[analysis-debug] before mark_running job_id={job_id}, job={job}")
+
     if not jobs.mark_running(job_id):
+        print(
+            f"[analysis-debug] mark_running failed "
+            f"job_id={job_id}, after={jobs.get_job(job_id)}"
+        )
         return {"skipped": True}
 
     try:
