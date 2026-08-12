@@ -40,29 +40,76 @@ def format_quarter_label(기준분기: int | None) -> str | None:
     return f"{year}년 {quarter}분기"
 
 
+def _migrate_legacy_sqlite_table(connection, table: str) -> None:
+    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+    if not columns or "result_json" in columns:
+        return
+    legacy_table = f"{table}_legacy"
+    connection.execute(f"ALTER TABLE {table} RENAME TO {legacy_table}")
+    connection.execute(f"""
+        CREATE TABLE {table} (
+            analysis_id VARCHAR(36) PRIMARY KEY,
+            trdar_cd VARCHAR(64) NOT NULL,
+            svc_induty_cd VARCHAR(64) NOT NULL,
+            yyqu_cd INTEGER,
+            result_json LONGTEXT NOT NULL,
+            created_at DATETIME(6) NOT NULL,
+            user_id BIGINT,
+            store_id BIGINT,
+            updated_at DATETIME(6) NOT NULL
+        )
+    """)
+    legacy_rows = connection.execute(f"SELECT * FROM {legacy_table}").fetchall()
+    for row in legacy_rows:
+        keys = row.keys()
+        detailed = row["detailed_analysis_json"] if "detailed_analysis_json" in keys else None
+        payload = json.dumps({
+            "report": json.loads(row["report_json"]) if "report_json" in keys else {},
+            "diagnosis": json.loads(row["diagnosis_json"]) if "diagnosis_json" in keys else {},
+            "warnings": json.loads(row["warnings_json"]) if "warnings_json" in keys else [],
+            "detailed_analysis": json.loads(detailed) if detailed is not None else None,
+        }, ensure_ascii=False)
+        created_at = row["created_at"] if "created_at" in keys else datetime.now(timezone.utc).isoformat()
+        connection.execute(
+            f"""
+            INSERT INTO {table} (
+                analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
+                result_json, created_at, updated_at, user_id, store_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["analysis_id"], row["trdar_cd"], row["svc_induty_cd"], row["yyqu_cd"],
+                payload, created_at, created_at,
+                row["user_id"] if "user_id" in keys else None,
+                row["store_id"] if "store_id" in keys else None,
+            ),
+        )
+    connection.execute(f"DROP TABLE {legacy_table}")
+
+
 @contextmanager
 def _connection():
     ANALYSES_DB.parent.mkdir(parents=True, exist_ok=True)
     with connect(str(ANALYSES_DB)) as connection:
-        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        table = "ai_analyses" if using_mysql() else "analyses"
         if not using_mysql():
             execute(connection, "PRAGMA journal_mode=WAL")
             execute(connection, "PRAGMA busy_timeout=10000")
         execute(connection, f"""
             CREATE TABLE IF NOT EXISTS {table} (
-                analysis_id VARCHAR(64) PRIMARY KEY,
+                analysis_id VARCHAR(36) PRIMARY KEY,
                 trdar_cd VARCHAR(64) NOT NULL,
                 svc_induty_cd VARCHAR(64) NOT NULL,
                 yyqu_cd INTEGER,
-                report_json LONGTEXT NOT NULL,
-                diagnosis_json LONGTEXT NOT NULL,
-                warnings_json LONGTEXT NOT NULL,
-                created_at VARCHAR(40) NOT NULL,
-                user_id VARCHAR(255),
-                store_id VARCHAR(255),
-                detailed_analysis_json LONGTEXT
+                result_json LONGTEXT NOT NULL,
+                created_at DATETIME(6) NOT NULL,
+                user_id BIGINT,
+                store_id BIGINT,
+                updated_at DATETIME(6) NOT NULL
             )
         """)
+        if not using_mysql():
+            _migrate_legacy_sqlite_table(connection, table)
         try:
             yield connection
             connection.commit()
@@ -73,6 +120,13 @@ def _connection():
 
 def _dump(value: object) -> str:
     return json.dumps(jsonable_encoder(value), ensure_ascii=False)
+
+
+def _to_bigint(value: object) -> object:
+    if not using_mysql() or value is None:
+        return value
+    text = str(value)
+    return int(text) if text.isdigit() else None
 
 
 def create_analysis(
@@ -90,20 +144,21 @@ def create_analysis(
 ) -> dict:
     """지정한 analysis_id는 첫 결과만 저장하고, 없으면 새 ID를 생성한다."""
     analysis_id = analysis_id or str(uuid4())
-    created_at = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    created_at = now.replace(tzinfo=None) if using_mysql() else now.isoformat()
     with _connection() as connection:
-        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        table = "ai_analyses" if using_mysql() else "analyses"
         insert = "INSERT IGNORE" if using_mysql() else "INSERT OR IGNORE"
         execute(connection, f"""
             {insert} INTO {table} (
                 analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-                report_json, diagnosis_json, detailed_analysis_json,
-                warnings_json, created_at, user_id, store_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                result_json, created_at, updated_at, user_id, store_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             analysis_id, trdar_cd, svc_induty_cd, yyqu_cd,
-            _dump(report), _dump(diagnosis), _dump(detailed_analysis),
-            _dump(warnings), created_at, user_id, store_id,
+            _dump({"report": report, "diagnosis": diagnosis, "warnings": warnings,
+                   "detailed_analysis": detailed_analysis}),
+            created_at, created_at, _to_bigint(user_id), _to_bigint(store_id),
         ))
     return get_analysis(analysis_id)
 
@@ -113,10 +168,15 @@ def _value(row, key: str):
 
 
 def _row_to_dict(row) -> dict:
-    detailed = _value(row, "detailed_analysis_json")
-    detailed_analysis = json.loads(detailed) if detailed is not None else None
-    diagnosis = json.loads(_value(row, "diagnosis_json"))
+    payload = json.loads(_value(row, "result_json"))
+    detailed_analysis = payload.get("detailed_analysis")
+    diagnosis = payload.get("diagnosis", {})
     기준분기 = (diagnosis.get("대상") or {}).get("기준분기")
+    created_at = _value(row, "created_at")
+    if isinstance(created_at, datetime):
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        created_at = created_at.isoformat()
     return {
         "analysis_id": _value(row, "analysis_id"),
         "user_id": _value(row, "user_id"),
@@ -124,11 +184,11 @@ def _row_to_dict(row) -> dict:
         "trdar_cd": _value(row, "trdar_cd"),
         "svc_induty_cd": _value(row, "svc_induty_cd"),
         "yyqu_cd": _value(row, "yyqu_cd"),
-        "report": json.loads(_value(row, "report_json")),
+        "report": payload.get("report", {}),
         "diagnosis": diagnosis,
         "detailed_analysis": detailed_analysis,
-        "warnings": json.loads(_value(row, "warnings_json")),
-        "created_at": _value(row, "created_at"),
+        "warnings": payload.get("warnings", []),
+        "created_at": created_at,
         # 목록 화면에서 같은 상권·업종의 여러 분석(예: 전략 전/후 비교)을 구분하기 위한
         # 사람이 읽는 기간 라벨 — 실제 POS 기간이 있으면 그걸 쓰고, 없으면 공공데이터
         # 기준분기로 폴백한다.
@@ -138,19 +198,18 @@ def _row_to_dict(row) -> dict:
 
 def get_analysis(analysis_id: str) -> dict | None:
     with _connection() as connection:
-        table = "ai_internal_analyses" if using_mysql() else "analyses"
+        table = "ai_analyses" if using_mysql() else "analyses"
         row = fetchone(connection, f"SELECT * FROM {table} WHERE analysis_id = ?", (analysis_id,))
     return _row_to_dict(row) if row is not None else None
 
 
 def list_analyses(user_id: str, store_id: str | None = None) -> list[dict]:
-    query = "SELECT * FROM analyses WHERE user_id = ?"
-    table = "ai_internal_analyses" if using_mysql() else "analyses"
+    table = "ai_analyses" if using_mysql() else "analyses"
     query = f"SELECT * FROM {table} WHERE user_id = ?"
-    params: list[object] = [user_id]
+    params: list[object] = [_to_bigint(user_id)]
     if store_id is not None:
         query += " AND store_id = ?"
-        params.append(store_id)
+        params.append(_to_bigint(store_id))
     query += " ORDER BY created_at DESC"
     with _connection() as connection:
         rows = fetchall(connection, query, params)

@@ -202,7 +202,7 @@ async def _create_analysis_sync(
 
 def _assert_owner(analysis: dict, user_id: str | None) -> None:
     owner = analysis.get("user_id")
-    if owner is not None and owner != user_id:
+    if owner is not None and user_id is not None and str(owner) != str(user_id):
         raise HTTPException(status_code=403, detail="해당 분석 결과에 접근할 권한이 없습니다")
 
 

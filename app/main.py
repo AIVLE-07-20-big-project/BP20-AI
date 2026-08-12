@@ -32,7 +32,7 @@ from app.routers import (
 
 ERROR_RESPONSES = {
     status: {"model": ErrorResponse}
-    for status in (400, 401, 403, 404, 409, 413, 415, 422, 500, 503)
+    for status in (400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 502, 503, 504)
 }
 OPENAPI_TAGS = [
     {"name": "매출 분석", "description": "매출 CSV 분석, 저장 및 이력 조회"},

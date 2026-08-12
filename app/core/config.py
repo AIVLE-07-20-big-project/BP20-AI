@@ -1,5 +1,3 @@
-import os
-
 # 경로 상수 — scripts/modeling/sales_analysis.py의 ROOT/DATA/MODEL 정의와 동일하게 유지
 import os
 from pathlib import Path
@@ -14,16 +12,20 @@ AGENT_DATA = DATA / "agent"
 PROCESSED_DATA = DATA / "processed"
 SOURCE_DATA = DATA / "source"
 UPLOAD_DATA = DATA / "uploads"  # API와 워커가 공유하는 업로드 저장소
-# 운영에서는 MySQL URL을 주입하고, 비워두면 개발용 SQLite를 사용한다.
-AI_DATABASE_URL = os.getenv("AI_DATABASE_URL", "")
+# 운영에서는 MySQL 연결 정보를 개별 환경 변수로 주입하고, host가 비어 있으면 SQLite를 사용한다.
+AI_DB_HOST = os.getenv("AI_DB_HOST", "").strip()
+AI_DB_PORT = os.getenv("AI_DB_PORT", "3306").strip()
+AI_DB_NAME = os.getenv("AI_DB_NAME", "").strip()
+AI_DB_USERNAME = os.getenv("AI_DB_USERNAME", "").strip()
+AI_DB_PASSWORD = os.getenv("AI_DB_PASSWORD", "")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
-MODEL_S3_PREFIX = os.getenv("MODEL_S3_PREFIX", "models")
-RAG_S3_PREFIX = os.getenv("RAG_S3_PREFIX", "rag")
+MODEL_S3_PREFIX = os.getenv("MODEL_S3_PREFIX", "models/v1")
+RAG_S3_PREFIX = os.getenv("RAG_S3_PREFIX", "rag/v1")
 DATA_S3_PREFIX = os.getenv("DATA_S3_PREFIX", "data")
 FEEDBACK_S3_PREFIX = os.getenv("FEEDBACK_S3_PREFIX", "feedback/v1")
 BANDIT_S3_PREFIX = os.getenv("BANDIT_S3_PREFIX", "bandit/v1")
 UPLOAD_S3_PREFIX = os.getenv("UPLOAD_S3_PREFIX", "uploads/v1")
-CAMPAIGN_LOGS_S3_PREFIX = os.getenv("CAMPAIGN_LOGS_S3_PREFIX", "logs/v2")
+CAMPAIGN_LOGS_S3_PREFIX = os.getenv("CAMPAIGN_LOGS_S3_PREFIX", "logs")
 
 AGENT_RUNS_DB = MODEL / "agent_runs.sqlite3"
 # 신규 가맹점 영업 타겟 추천 그래프(app/sales_target/graph.py) 체크포인트.
