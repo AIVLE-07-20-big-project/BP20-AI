@@ -14,7 +14,7 @@ from app.core.config import (
     RAG_S3_PREFIX,
     settings,
 )
-from app.core.object_storage import download_file, enabled as s3_enabled
+from app.core.object_storage import download_file, enabled as s3_enabled, list_objects
 
 
 def _missing_model_assets() -> bool:
@@ -33,6 +33,8 @@ def _missing_data_assets() -> bool:
         DATA / "processed" / "merged_sales_analysis.csv",
         DATA / "agent" / "trend_panel.csv",
         DATA / "source" / "store_stats.csv",
+        DATA / "source" / "area_coords.csv",
+        DATA / "source" / "sales_estimate.csv",
     )
     return any(not path.exists() for path in required)
 
@@ -59,11 +61,30 @@ def _sync_s3_assets(*, force: bool) -> dict[str, str]:
         RAG_INDEX_EXPORT / "chunks.jsonl": (RAG_S3_PREFIX, "export/chunks.jsonl"),
         RAG_INDEX_EXPORT / "manifest.json": (RAG_S3_PREFIX, "export/manifest.json"),
     }
-    data_assets = {
-        DATA / "processed" / "merged_sales_analysis.csv": (DATA_S3_PREFIX, "processed/merged_sales_analysis.csv"),
-        DATA / "agent" / "trend_panel.csv": (DATA_S3_PREFIX, "agent/trend_panel.csv"),
-        DATA / "source" / "store_stats.csv": (DATA_S3_PREFIX, "source/store_stats.csv"),
+    # 운영 데이터는 파일이 추가될 때마다 목록을 수정하지 않도록
+    # S3의 data prefix 아래 파일을 그대로 /app/data에 동기화한다.
+    # uploads는 사용자 업로드 전용 prefix(UPLOAD_S3_PREFIX)에서 관리하므로 제외한다.
+    remote_data_assets = {}
+    for obj in list_objects(prefix=DATA_S3_PREFIX):
+        key = obj.get("Key", "")
+        prefix = DATA_S3_PREFIX.strip("/") + "/"
+        if not key.startswith(prefix):
+            continue
+        name = key[len(prefix):]
+        if not name or name == "README.md" or name.startswith("uploads/"):
+            continue
+        remote_data_assets[DATA / name] = (DATA_S3_PREFIX, name)
+
+    # S3에 아직 업로드되지 않은 로컬 개발 파일은 기존처럼 동기화 대상에
+    # 포함시켜 개발 환경에서도 동작하게 한다.
+    local_data_assets = {
+        path: (DATA_S3_PREFIX, path.relative_to(DATA).as_posix())
+        for path in DATA.rglob("*")
+        if path.is_file()
+        and path.relative_to(DATA).parts[0] != "uploads"
+        and path.name != "README.md"
     }
+    data_assets = {**local_data_assets, **remote_data_assets}
     synced: dict[str, str] = {}
     for local_path, (prefix, name) in {**model_assets, **data_assets}.items():
         if force or not local_path.exists():
