@@ -16,6 +16,14 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r requirements.txt
 
+# 운영 Task가 시작될 때 PaddleOCR 모델을 다시 다운로드하지 않도록
+# 런타임과 동일한 모델 구성으로 빌드 단계에서 공식 모델을 캐시에 저장한다.
+COPY app/ocr/model_config.py /tmp/paddleocr_model_config.py
+RUN PYTHONPATH=/tmp python -c "from paddleocr_model_config import create_paddle_ocr; create_paddle_ocr()" \
+    && test -d /root/.paddlex/official_models/PP-OCRv5_mobile_det \
+    && test -d /root/.paddlex/official_models/korean_PP-OCRv5_mobile_rec \
+    && rm /tmp/paddleocr_model_config.py
+
 COPY app ./app
 COPY rag ./rag
 COPY scripts ./scripts

@@ -1,29 +1,77 @@
 """AI 상태 저장소 연결 유틸리티.
 
 개발 환경은 기존 SQLite를 그대로 사용할 수 있고, 운영 환경에서
-AI_DATABASE_URL을 지정하면 MySQL을 사용한다.
+AI_DB_HOST를 지정하면 개별 AI_DB_* 환경 변수로 MySQL을 사용한다.
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 from contextlib import contextmanager
 from typing import Iterator
-from urllib.parse import unquote, urlparse
+
+from app.core.config import (
+    AI_DB_HOST,
+    AI_DB_NAME,
+    AI_DB_PASSWORD,
+    AI_DB_PORT,
+    AI_DB_USERNAME,
+)
 
 
-def database_url() -> str:
-    return os.getenv("AI_DATABASE_URL", "").strip()
+def _mysql_connection_options() -> dict[str, object] | None:
+    if not AI_DB_HOST:
+        configured_without_host = [
+            name
+            for name, value in (
+                ("AI_DB_NAME", AI_DB_NAME),
+                ("AI_DB_USERNAME", AI_DB_USERNAME),
+                ("AI_DB_PASSWORD", AI_DB_PASSWORD),
+            )
+            if value
+        ]
+        if configured_without_host:
+            configured = ", ".join(configured_without_host)
+            raise RuntimeError(f"{configured}가 설정되었지만 AI_DB_HOST가 비어 있습니다")
+        return None
+
+    missing = [
+        name
+        for name, value in (
+            ("AI_DB_NAME", AI_DB_NAME),
+            ("AI_DB_USERNAME", AI_DB_USERNAME),
+            ("AI_DB_PASSWORD", AI_DB_PASSWORD),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(f"MySQL 연결 환경 변수가 누락되었습니다: {', '.join(missing)}")
+
+    try:
+        port = int(AI_DB_PORT)
+    except ValueError as exc:
+        raise RuntimeError("AI_DB_PORT는 숫자여야 합니다") from exc
+
+    if not 1 <= port <= 65535:
+        raise RuntimeError("AI_DB_PORT는 1~65535 범위여야 합니다")
+
+    return {
+        "host": AI_DB_HOST,
+        "port": port,
+        "user": AI_DB_USERNAME,
+        "password": AI_DB_PASSWORD,
+        "database": AI_DB_NAME,
+    }
 
 
 def using_mysql() -> bool:
-    return database_url().lower().startswith(("mysql://", "mysql+pymysql://"))
+    return bool(AI_DB_HOST)
 
 
 @contextmanager
 def connect(database_path: str) -> Iterator[object]:
     """SQLite 또는 MySQL 연결을 열고, 호출자가 commit/rollback을 수행한다."""
-    if not using_mysql():
+    mysql_options = _mysql_connection_options()
+    if mysql_options is None:
         connection = sqlite3.connect(database_path, timeout=10)
         connection.row_factory = sqlite3.Row
         try:
@@ -35,15 +83,10 @@ def connect(database_path: str) -> Iterator[object]:
     try:
         import pymysql
     except ImportError as exc:  # pragma: no cover - 운영 설정 오류 안내용
-        raise RuntimeError("AI_DATABASE_URL이 MySQL인데 PyMySQL이 설치되지 않았습니다") from exc
+        raise RuntimeError("AI_DB_HOST가 설정되었지만 PyMySQL이 설치되지 않았습니다") from exc
 
-    parsed = urlparse(database_url().replace("mysql+pymysql://", "mysql://", 1))
     connection = pymysql.connect(
-        host=parsed.hostname or "localhost",
-        port=parsed.port or 3306,
-        user=unquote(parsed.username or ""),
-        password=unquote(parsed.password or ""),
-        database=parsed.path.lstrip("/"),
+        **mysql_options,
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
