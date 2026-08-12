@@ -10,6 +10,8 @@
 #   - 아래 4개 환경변수가 설정되어 있어야 한다.
 #
 # 실행 방법 (PowerShell):
+#   레포 루트 .env에 PUBLIC_DATA_STORE_API_KEY / SEOUL_API_KEY / INTERNAL_API_KEY가 있으면
+#   자동으로 로드된다(아래 load_dotenv 참고). 필요하면 아래처럼 직접 셋업해서 .env 값을 덮어써도 된다.
 #   $env:PUBLIC_DATA_STORE_API_KEY = "..."
 #   $env:SEOUL_API_KEY = "..."
 #   $env:BACKEND_INTERNAL_BASE_URL = "http://localhost:8080"
@@ -25,6 +27,13 @@ import os
 import sys
 import uuid
 from datetime import datetime
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# 이 스크립트는 app.core.config를 import하지 않는 경로라 .env가 자동으로 안 실려서(버그였음),
+# 여기서 직접 로드한다. override=False라 이미 셋업된 쉘 환경변수($env:...)가 있으면 그게 우선한다.
+load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 from app.sales_target.backend_client import SalesTargetIngestClient
 from app.sales_target.pipeline import collect_and_generate, to_bulk_upsert_items
@@ -45,6 +54,16 @@ async def main(top_n: int, output_path: str, skip_backend_push: bool) -> None:
     seoul_api_key = _require_env("SEOUL_API_KEY")
     backend_base_url = os.environ.get("BACKEND_INTERNAL_BASE_URL", "http://localhost:8080")
     backend_internal_api_key = _require_env("INTERNAL_API_KEY")
+    # 6단계(리뷰 반영)는 선택 사항이라 _require_env가 아니라 optional로 읽는다. 키가 없으면
+    # collect_and_generate()가 조용히 6단계를 건너뛰고 review_score는 전부 NaN으로 남는다
+    # (pipeline.py의 collect_and_generate 참고). 아래에서 없으면 사용자에게 안내만 출력한다.
+    google_places_api_key = os.environ.get("GOOGLE_PLACES_API_KEY") or None
+    if not google_places_api_key:
+        print(
+            "[안내] GOOGLE_PLACES_API_KEY가 없어 6단계(리뷰 반영)를 건너뜁니다 — "
+            "review_score는 전부 NaN으로 남고 final_score는 3축(성장/유동인구/유사도)만으로 계산됩니다.",
+            flush=True,
+        )
 
     # district_metrics는 상권별 최근 2개 분기만 쓰므로 21개 전체 대신 최근 4개(1년치, 여유분
     # 포함)만 받는다 — 배치 소요시간이 여기서 가장 크게 줄어든다.
@@ -59,6 +78,7 @@ async def main(top_n: int, output_path: str, skip_backend_push: bool) -> None:
             backend_internal_api_key=backend_internal_api_key,
             quarter_codes=quarter_codes,
             top_n=None,
+            google_places_api_key=google_places_api_key,
         )
     except Exception as exc:
         print(f"[오류] 파이프라인 실행 중 예외 발생: {type(exc).__name__}: {exc}", file=sys.stderr)
