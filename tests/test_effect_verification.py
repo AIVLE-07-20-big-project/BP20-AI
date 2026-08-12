@@ -79,6 +79,43 @@ class EffectVerificationServiceTests(unittest.TestCase):
         self.assertGreaterEqual(response.effect_score, 70)
         self.assertEqual(len(response.metric_results), 8)
 
+    def test_review_verification_accepts_string_id_and_missing_optional_metrics(self):
+        before = self.review_metrics(3.5, 40, 50, 60, 20, 1_000_000)
+        after = self.review_metrics(4.0, 25, 35, 30, 25, 1_100_000)
+        before = ReviewMetrics(**{
+            **before.model_dump(),
+            "revisit_rate": None,
+            "sales": None,
+            "target_aspect_average_confidence": 91,
+        })
+        after = ReviewMetrics(**{
+            **after.model_dump(),
+            "revisit_rate": None,
+            "sales": None,
+            "target_aspect_average_confidence": 93,
+        })
+
+        response = verify_effect(EffectVerificationRequest(
+            store_id=2,
+            recommendation_id="review-3-1",
+            recommendation_type=RecommendationType.REVIEW,
+            condition=VerificationCondition(period_days=30, target_aspect="food"),
+            before=PeriodMetrics(review=before),
+            after=PeriodMetrics(review=after),
+        ))
+
+        self.assertEqual(response.recommendation_id, "review-3-1")
+        metric_names = {metric.metric_name for metric in response.metric_results}
+        self.assertNotIn("revisit_rate", metric_names)
+        self.assertNotIn("sales", metric_names)
+        self.assertGreater(response.effect_score, 0)
+        confidence = next(
+            metric for metric in response.metric_results
+            if metric.metric_name == "target_aspect_average_confidence"
+        )
+        self.assertEqual(confidence.before_value, 0.91)
+        self.assertEqual(confidence.after_value, 0.93)
+
     def test_sales_verification_returns_not_effective_when_metrics_decline(self):
         request = EffectVerificationRequest(
             store_id=1,

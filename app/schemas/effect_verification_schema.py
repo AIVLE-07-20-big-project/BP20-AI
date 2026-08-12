@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class RecommendationType(str, Enum):
@@ -82,18 +82,27 @@ class ReviewMetrics(BaseModel):
         description="검증 대상 속성 분석의 평균 신뢰도",
     )
 
+    @field_validator("target_aspect_average_confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: Any) -> Any:
+        if value is not None and float(value) > 1:
+            return float(value) / 100
+        return value
+
     review_count: int = Field(
         ge=0,
         description="전체 리뷰 수",
     )
 
-    revisit_rate: float = Field(
+    revisit_rate: Optional[float] = Field(
+        default=None,
         ge=0,
         le=100,
         description="재방문율(%)",
     )
 
-    sales: float = Field(
+    sales: Optional[float] = Field(
+        default=None,
         ge=0,
         description="동일 기간 매출",
     )
@@ -140,11 +149,16 @@ class EffectVerificationRequest(BaseModel):
     """AI 추천 실행 효과 검증 요청"""
 
     store_id: int
-    recommendation_id: int
+    recommendation_id: str
     recommendation_type: RecommendationType
     condition: VerificationCondition
     before: PeriodMetrics
     after: PeriodMetrics
+
+    @field_validator("recommendation_id", mode="before")
+    @classmethod
+    def normalize_recommendation_id(cls, value: Any) -> str:
+        return str(value)
 
     @model_validator(mode="after")
     def validate_metrics_for_recommendation_type(self):
@@ -186,7 +200,7 @@ class MetricResult(BaseModel):
 
 class EffectVerificationResponse(BaseModel):
     store_id: int
-    recommendation_id: int
+    recommendation_id: str
     recommendation_type: RecommendationType
     effect_score: float
     verdict: str
@@ -200,7 +214,7 @@ class EffectVerificationFromAnalysesRequest(BaseModel):
     before_analysis_id: str
     after_analysis_id: str
     store_id: int
-    recommendation_id: int
+    recommendation_id: str
     start_hour: Optional[int] = Field(default=None, ge=0, le=23)
     end_hour: Optional[int] = Field(default=None, ge=0, le=23)
     period_days: Optional[int] = Field(
@@ -208,6 +222,11 @@ class EffectVerificationFromAnalysesRequest(BaseModel):
         ge=1,
         description="비교 기간 일수(생략 시 적용후 분석의 POS 날짜 범위로 자동 계산)",
     )
+
+    @field_validator("recommendation_id", mode="before")
+    @classmethod
+    def normalize_recommendation_id(cls, value: Any) -> str:
+        return str(value)
 
 
 class EffectVerificationFromAnalysesResponse(EffectVerificationResponse):

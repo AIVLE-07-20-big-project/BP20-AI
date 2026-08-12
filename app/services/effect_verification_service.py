@@ -54,6 +54,28 @@ def create_metric_result(
     )
 
 
+def append_optional_metric_result(
+    metric_results: list[MetricResult],
+    metric_name: str,
+    before_value: float | None,
+    after_value: float | None,
+    higher_is_better: bool = True,
+) -> bool:
+    """Append a metric only when both comparison values are available."""
+
+    if before_value is None or after_value is None:
+        return False
+
+    metric_results.append(
+        create_metric_result(
+            metric_name,
+            before_value,
+            after_value,
+            higher_is_better=higher_is_better,
+        )
+    )
+    return True
+
 def normalize_positive_change(
     change_rate: float | None,
     target_rate: float,
@@ -290,9 +312,10 @@ def calculate_review_effect_score(
         before.target_aspect_review_count,
         after.target_aspect_review_count,
     )
-    sales_change = calculate_change_rate(
-        before.sales,
-        after.sales,
+    sales_change = (
+        calculate_change_rate(before.sales, after.sales)
+        if before.sales is not None and after.sales is not None
+        else None
     )
 
     metric_results = [
@@ -329,17 +352,22 @@ def calculate_review_effect_score(
             before.review_count,
             after.review_count,
         ),
-        create_metric_result(
+    ]
+
+    available_optional_metrics = {
+        "revisit_rate": append_optional_metric_result(
+            metric_results,
             "revisit_rate",
             before.revisit_rate,
             after.revisit_rate,
         ),
-        create_metric_result(
+        "sales": append_optional_metric_result(
+            metric_results,
             "sales",
             before.sales,
             after.sales,
         ),
-    ]
+    }
 
     scores = {
         "average_rating": normalize_point_increase(
@@ -359,20 +387,23 @@ def calculate_review_effect_score(
             target_aspect_review_count_change,
             target_decrease_rate=20,
         ),
-        "revisit_rate": normalize_point_increase(
-            before.revisit_rate,
-            after.revisit_rate,
-            target_point=5,
-        ),
-        "sales": normalize_positive_change(
-            sales_change,
-            target_rate=10,
-        ),
         "review_count": normalize_positive_change(
             review_count_change,
             target_rate=20,
         ),
     }
+
+    if available_optional_metrics["revisit_rate"]:
+        scores["revisit_rate"] = normalize_point_increase(
+            before.revisit_rate,
+            after.revisit_rate,
+            target_point=5,
+        )
+    if available_optional_metrics["sales"]:
+        scores["sales"] = normalize_positive_change(
+            sales_change,
+            target_rate=10,
+        )
 
     weights = {
         "average_rating": 0.10,
@@ -384,8 +415,9 @@ def calculate_review_effect_score(
         "review_count": 0.05,
     }
 
+    available_weight = sum(weights[key] for key in scores)
     effect_score = round(
-        sum(scores[key] * weights[key] for key in weights),
+        sum(scores[key] * weights[key] for key in scores) / available_weight,
         2,
     )
 
@@ -484,7 +516,7 @@ def verify_effect_from_analyses(
     after_analysis: dict,
     *,
     store_id: int,
-    recommendation_id: int,
+    recommendation_id: str,
     start_hour: int | None = None,
     end_hour: int | None = None,
     period_days: int | None = None,
