@@ -112,12 +112,18 @@ class CampaignLogsApiTests(unittest.TestCase):
 
 class ValidateLogsTests(unittest.TestCase):
     def _base_row(self, **overrides):
+        # 로그 스키마 v2 기준. action_id/propensity/executed/revenue_* 는
+        # executed_action/behavior_propensity/ope_eligible/net_sales_* 로 대체되었다.
         row = {
             "decision_id": "d1", "trdar_cd": 1, "svc_induty_cd": "CS100009",
-            "yyqu_cd": 20251, "treatment_yyqu_cd": 20252, "action_id": "즉시할인",
+            "yyqu_cd": 20251, "treatment_yyqu_cd": 20252,
+            "executed_action": "즉시할인",
             **{f"context_{i}": 0.1 for i in range(1, 7)},
-            "propensity": 0.5, "policy_version": "coldstart", "executed": True,
-            "revenue_before": 1000.0, "revenue_after": 1100.0, "reward": 0.1,
+            "behavior_propensity": 0.5, "ope_eligible": True,
+            "policy_version": "coldstart",
+            "net_sales_before": 1000.0, "net_sales_after": 1100.0,
+            # reward_status가 complete가 아니면 reward 재계산 검증을 건너뛴다.
+            "reward_status": "incomplete", "reward": 0.1,
             "데이터_출처": "real",
         }
         row.update(overrides)
@@ -148,17 +154,22 @@ class ValidateLogsTests(unittest.TestCase):
 
     def test_unknown_action_id_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = self._write(tmp, [self._base_row(action_id="존재하지_않는_방안")])
+            path = self._write(tmp, [self._base_row(executed_action="존재하지_않는_방안")])
             result = validate_logs(path)
         self.assertEqual(result["유효행수"], 0)
         self.assertEqual(result["제외사유"]["알 수 없는 action_id"], 1)
 
     def test_propensity_out_of_range_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = self._write(tmp, [self._base_row(propensity=0.0), self._base_row(decision_id="d2", propensity=1.5)])
+            path = self._write(tmp, [
+                self._base_row(behavior_propensity=0.0),
+                self._base_row(decision_id="d2", behavior_propensity=1.5),
+            ])
             result = validate_logs(path)
         self.assertEqual(result["유효행수"], 0)
-        self.assertEqual(result["제외사유"]["propensity 범위(0,1] 벗어남"], 2)
+        self.assertEqual(
+            result["제외사유"]["behavior_propensity 범위(0,1] 벗어남 — ope_eligible 행에 한함"], 2
+        )
 
     def test_treatment_before_yyqu_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -167,23 +178,29 @@ class ValidateLogsTests(unittest.TestCase):
         self.assertEqual(result["유효행수"], 0)
         self.assertEqual(result["제외사유"]["treatment_yyqu_cd가 yyqu_cd 이후가 아님"], 1)
 
-    def test_executed_without_reward_excluded(self):
+    def test_ope_ineligible_row_with_propensity_excluded(self):
+        # OPE 대상이 아닌데 behavior_propensity가 남아 있으면 학습 데이터로 쓸 수 없다.
         with tempfile.TemporaryDirectory() as tmp:
-            path = self._write(tmp, [self._base_row(reward=None)])
+            path = self._write(tmp, [self._base_row(ope_eligible=False)])
             result = validate_logs(path)
         self.assertEqual(result["유효행수"], 0)
-        self.assertEqual(result["제외사유"]["executed=True인데 reward 없음"], 1)
+        self.assertEqual(
+            result["제외사유"]["ope_eligible=False인데 behavior_propensity가 있음"], 1
+        )
 
     def test_reward_mismatch_excluded(self):
+        # reward_status=complete면 비용 데이터로 reward를 다시 계산해 대조한다.
         with tempfile.TemporaryDirectory() as tmp:
-            path = self._write(tmp, [self._base_row(reward=0.9)])
+            path = self._write(tmp, [self._base_row(reward_status="complete", reward=0.9)])
             result = validate_logs(path)
         self.assertEqual(result["유효행수"], 0)
         self.assertEqual(result["제외사유"]["reward 재계산 불일치"], 1)
 
-    def test_unexecuted_row_without_reward_is_valid(self):
+    def test_ope_ineligible_row_without_propensity_is_valid(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = self._write(tmp, [self._base_row(executed=False, reward=None, revenue_after=None)])
+            path = self._write(tmp, [
+                self._base_row(ope_eligible=False, behavior_propensity=None, reward=None),
+            ])
             result = validate_logs(path)
         self.assertEqual(result["유효행수"], 1)
 
