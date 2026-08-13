@@ -1,0 +1,69 @@
+name: AI Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: ai-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: bp20/ai
+  ECS_CLUSTER: bp20-prod-cluster
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Update three services
+        run: |
+          set -euo pipefail
+          deploy() {
+            FAMILY="$1"; CONTAINER="$2"; SERVICE="$3"
+            aws ecs describe-task-definition --task-definition "$FAMILY" \
+              --query taskDefinition > "/tmp/$FAMILY.json"
+            jq --arg IMG "$IMAGE" --arg C "$CONTAINER" \
+              '(.containerDefinitions[] | select(.name==$C) | .image) = $IMG
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                     .compatibilities, .registeredAt, .registeredBy)' \
+              "/tmp/$FAMILY.json" > "/tmp/$FAMILY-new.json"
+            ARN=$(aws ecs register-task-definition \
+              --cli-input-json "file:///tmp/$FAMILY-new.json" \
+              --query 'taskDefinition.taskDefinitionArn' --output text)
+            aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" \
+              --task-definition "$ARN"
+          }
+
+          deploy bp20-prod-fastapi       fastapi       bp20-prod-fastapi
+          deploy bp20-prod-celery-worker celery-worker bp20-prod-celery-worker
+          deploy bp20-prod-celery-beat   celery-beat   bp20-prod-celery-beat
+
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" \
+            --services bp20-prod-fastapi bp20-prod-celery-worker bp20-prod-celery-beat
