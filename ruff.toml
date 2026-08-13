@@ -1,0 +1,23 @@
+# CI(.github/workflows/ai-ci.yml)와 로컬에서 같은 규칙을 쓰기 위한 설정.
+#
+# 스타일 규칙은 잡지 않는다. 코드 취향을 두고 다투는 대신
+# "돌리면 터지는 것"만 막는 것이 목적이다.
+#   F  (pyflakes)  - 정의되지 않은 이름, 미사용 import/변수
+#   E9 (syntax)    - 구문 오류, 파일 read 실패
+#
+# import 순서(E402)나 lambda 대입(E731) 같은 스타일 지적은 제외한다.
+# main.py의 load_dotenv() 선행 호출, celery_app.py의 sys.path 설정처럼
+# 의도적으로 import 앞에 코드를 두는 패턴이 있기 때문이다.
+
+target-version = "py311"
+line-length = 120
+
+exclude = [
+    ".venv",
+    "data",
+    "model",
+    "rag/eval",
+]
+
+[lint]
+select = ["F", "E9"]
