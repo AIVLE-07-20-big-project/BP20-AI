@@ -16,15 +16,15 @@ def test_parse_missing_file_returns_422():
     assert response.status_code == 422
 
 
-def test_parse_invalid_image_returns_422():
-    # 이미지가 아닌 파일을 보내면(디코딩 실패) 422와 에러 메시지를 반환한다
+def test_parse_unsupported_type_returns_415():
+    # 이미지가 아닌 파일은 validate_upload_type이 415로 거부한다(디코딩까지 가지 않는다)
     client = TestClient(app)
     response = client.post(
         "/api/v1/receipts/parse",
         files={"file": ("not-an-image.txt", b"this is not a valid image", "text/plain")},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 415
     assert "detail" in response.json()
 
 
