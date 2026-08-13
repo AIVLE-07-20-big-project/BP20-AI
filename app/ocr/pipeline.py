@@ -1,7 +1,6 @@
 # 영수증 OCR 자동 정산 파이프라인 (로컬 VSCode 실행용)
 
 import datetime
-import json
 import re
 from statistics import median
 
@@ -401,7 +400,6 @@ def extract_items(ocr_results):
 
     for row in rows:
         texts = [text.strip() for _, text, _ in row]
-        row_joined = "".join(texts)
 
         # 세금/물품가액 요약 영역이 시작되면 이후 모든 행은 품목 후보에서 제외한다.
         if is_item_section_end_row(texts):

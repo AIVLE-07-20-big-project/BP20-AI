@@ -1,8 +1,6 @@
 """Hugging Face Hub의 프로젝트 모델·데이터 아티팩트 동기화."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from huggingface_hub import snapshot_download
 
 from app.core.config import (

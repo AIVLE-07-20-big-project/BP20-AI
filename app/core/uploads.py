@@ -13,7 +13,6 @@ from app.core.object_storage import (
     delete_object,
     download_bytes,
     enabled as s3_enabled,
-    list_objects,
     upload_bytes,
 )
 

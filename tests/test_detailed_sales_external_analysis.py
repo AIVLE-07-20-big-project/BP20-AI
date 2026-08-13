@@ -170,10 +170,13 @@ def test_internal_driver_decomposition_reconciles_revenue_change():
     formula_total = sum(
         item["contributionAmount"] for item in result["revenueFormulaDrivers"]
     )
-    for drivers in result["dimensionDrivers"].values():
+    for dimension, drivers in result["dimensionDrivers"].items():
+        # product_type·sales_channel 등 선택 차원은 해당 컬럼이 없으면 빈 목록이다.
+        if not drivers:
+            continue
         assert sum(item["contributionAmount"] for item in drivers) == pytest.approx(
             revenue_change, abs=0.01,
-        )
+        ), dimension
     price_quantity = result["priceQuantityDrivers"]
     assert formula_total == pytest.approx(revenue_change, abs=0.01)
     assert price_quantity["reconciledChange"] == pytest.approx(revenue_change, abs=0.01)

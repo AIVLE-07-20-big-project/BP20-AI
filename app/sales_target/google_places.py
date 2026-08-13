@@ -106,7 +106,9 @@ async def fetch_review_stats(
     async with httpx.AsyncClient(timeout=15.0) as client:
         for _, row in candidates.iterrows():
             name, address = row.get(business_name_col), row.get(address_col)
-            if not name or not address:
+            if pd.isna(name) or pd.isna(address):
+                continue
+            if not str(name).strip() or not str(address).strip():
                 continue
             try:
                 place_id = await find_place_id(client, api_key, str(name), str(address))

@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import httpx
-import pandas as pd
 
 from app.sales_target.backend_client import BackendStoreRegistryClient, SalesTargetIngestClient
 

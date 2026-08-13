@@ -1,5 +1,18 @@
 import unittest
-from rag.generator import DISCLAIMER, build_prompt, generate_report, verify_output
+from rag.generator import (
+    DISCLAIMER,
+    REQUIRED_SECTIONS,
+    build_prompt,
+    generate_report,
+    verify_output,
+)
+
+
+def _report(body: str) -> str:
+    # verify_output이 REQUIRED_SECTIONS를 모두 요구하므로,
+    # 검증 통과를 기대하는 본문은 섹션 제목을 갖춘 형태로 만든다.
+    sections = "\n".join(f"## {name}" for name in REQUIRED_SECTIONS)
+    return f"{sections}\n{body}"
 
 EVIDENCE = {
     "query": "세트메뉴가 객단가에 미치는 효과",
@@ -26,7 +39,7 @@ EMPTY_EVIDENCE = {"query": "배달채널 확대 효과", "axis": "delivery", "di
 
 class BuildPromptTests(unittest.TestCase):
     def test_includes_allowed_number_and_source(self):
-        prompt = build_prompt(EVIDENCE, "세트메뉴 도입", "치킨 전문점")
+        prompt = build_prompt(EVIDENCE, "세트메뉴 도입", shop_context="치킨 전문점")
         self.assertIn("7.4%", prompt)
         self.assertIn("테스트문서", prompt)
         self.assertIn(DISCLAIMER, prompt)
@@ -38,7 +51,7 @@ class BuildPromptTests(unittest.TestCase):
 
 class VerifyOutputTests(unittest.TestCase):
     def test_passes_when_only_allowed_numbers_and_disclaimer_present(self):
-        text = f"세트메뉴 도입 시 약 7.4% 객단가 상승 사례가 있습니다. {DISCLAIMER}"
+        text = _report(f"세트메뉴 도입 시 약 7.4% 객단가 상승 사례가 있습니다. {DISCLAIMER}")
         result = verify_output(text, EVIDENCE)
         self.assertTrue(result.ok)
         self.assertEqual(result.violations, [])
@@ -73,9 +86,9 @@ class GenerateReportTests(unittest.TestCase):
 
     def test_passes_on_first_attempt_when_llm_behaves(self):
         def good_llm(prompt):
-            return f"세트메뉴 도입 시 약 7.4% 객단가 상승 사례가 있습니다. {DISCLAIMER}"
+            return _report(f"세트메뉴 도입 시 약 7.4% 객단가 상승 사례가 있습니다. {DISCLAIMER}")
 
-        out = generate_report(EVIDENCE, "세트메뉴 도입", "치킨 전문점", llm=good_llm)
+        out = generate_report(EVIDENCE, "세트메뉴 도입", shop_context="치킨 전문점", llm=good_llm)
         self.assertTrue(out["verified"])
         self.assertEqual(out["attempts"], 1)
         self.assertEqual(out["evidence_refs"][0]["value"], "7.4%")
@@ -87,7 +100,7 @@ class GenerateReportTests(unittest.TestCase):
             calls["n"] += 1
             if calls["n"] == 1:
                 return "세트메뉴 도입 시 매출이 999% 상승합니다."
-            return f"세트메뉴 도입 시 약 7.4% 객단가 상승 사례가 있습니다. {DISCLAIMER}"
+            return _report(f"세트메뉴 도입 시 약 7.4% 객단가 상승 사례가 있습니다. {DISCLAIMER}")
 
         out = generate_report(EVIDENCE, "세트메뉴 도입", llm=bad_then_good)
         self.assertEqual(out["attempts"], 2)

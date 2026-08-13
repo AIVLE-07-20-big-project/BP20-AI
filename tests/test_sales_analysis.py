@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from unittest.mock import patch
 
 
@@ -395,6 +396,10 @@ class ExternalFactorTests(unittest.TestCase):
         end = pd.Timestamp("2025-04-02")
         self.assertEqual(list(_event_quarters(start, end)), [(20251, 2), (20252, 2)])
 
+    # 기본 경로(data/source/*.csv)의 실제 관측 데이터를 검사한다.
+    # 파일이 없으면 audit_weather()가 {"사용가능", "이유"} 두 키만 돌려주므로
+    # data/ 가 없는 CI에서는 제외한다.
+    @pytest.mark.integration
     def test_short_quarterly_weather_history_is_blocked(self):
         result = audit_weather()
         self.assertFalse(result["사용가능"])
