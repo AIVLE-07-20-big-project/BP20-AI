@@ -10,17 +10,36 @@ agent_runs.py(app/routers/agent_runs.py)의 start/read/continue 패턴을 그대
 
 from __future__ import annotations
 
+import logging
 import os
+import threading
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from langgraph.types import Command
 from pydantic import BaseModel
 
 from app.sales_target.graph import get_graph, new_thread_id
 
 router = APIRouter(prefix="/sales-targets", tags=["신규 가맹점 영업 타겟"])
+logger = logging.getLogger(__name__)
+
+# /generate가 그래프 실행을 백그라운드로 넘긴 뒤 즉시 thread_id를 반환하는 방식으로 바뀌면서
+# (CloudFront/ALB 타임아웃보다 파이프라인이 더 오래 걸려 FE에 조기 에러가 뜨던 문제 대응),
+# "백그라운드로 넘어갔지만 아직 첫 체크포인트가 안 찍힌" 짧은 공백 구간을 메워주는 용도.
+# 이 dict가 없으면 그 사이 GET /jobs/{thread_id}가 404를 내려서 FE 폴링이 곧바로 에러로 빠진다.
+#
+# 주의: 프로세스 로컬(in-memory) 상태다. bp20-prod-fastapi가 태스크 1개로 운영되는 동안에는
+# 문제없지만(2026-08 기준 Cloud Map에 인스턴스 1개만 등록됨), 나중에 태스크를 2개 이상으로
+# 늘리면 폴링 요청이 다른 인스턴스로 갈 수 있어 이 dict로는 부족해진다 — 그때는
+# SALES_TARGET_CHECKPOINT_DB_URL(Postgres)처럼 공유 저장소로 옮겨야 한다.
+_INFLIGHT: dict[str, str] = {}  # thread_id -> "처리중" | "오류"
+_INFLIGHT_LOCK = threading.Lock()
+
+_PROCESSING_STATUS_MESSAGE = (
+    "처리 중 — 공공데이터 수집 및 스코어링이 진행 중입니다. 완료되면 자동으로 승인 대기로 바뀝니다."
+)
 
 
 def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> dict:
@@ -31,8 +50,8 @@ def _to_response(thread_id: str, values: dict, interrupt_value: dict | None) -> 
     return payload
 
 
-def start_sales_target_run(initial_state: dict) -> dict:
-    thread_id = new_thread_id()
+def start_sales_target_run(initial_state: dict, thread_id: str | None = None) -> dict:
+    thread_id = thread_id or new_thread_id()
     config = {"configurable": {"thread_id": thread_id}}
     result = get_graph().invoke(initial_state, config=config)
     interrupts = result.pop("__interrupt__", None)
@@ -40,10 +59,36 @@ def start_sales_target_run(initial_state: dict) -> dict:
     return _to_response(thread_id, result, interrupt_value)
 
 
+def _run_generate_in_background(thread_id: str, initial_state: dict) -> None:
+    try:
+        start_sales_target_run(initial_state, thread_id=thread_id)
+    except Exception:
+        logger.exception("영업 타겟 배치 백그라운드 실행 실패 (thread_id=%s)", thread_id)
+        with _INFLIGHT_LOCK:
+            _INFLIGHT[thread_id] = "오류"
+        return
+    with _INFLIGHT_LOCK:
+        _INFLIGHT.pop(thread_id, None)
+
+
 def read_sales_target_run(thread_id: str) -> dict:
     config = {"configurable": {"thread_id": thread_id}}
     snapshot = get_graph().get_state(config)
     if not snapshot.values:
+        with _INFLIGHT_LOCK:
+            inflight_status = _INFLIGHT.get(thread_id)
+        if inflight_status == "처리중":
+            return {
+                "thread_id": thread_id,
+                "상태": _PROCESSING_STATUS_MESSAGE,
+                "대기중_승인": None,
+                "진행중": True,
+            }
+        if inflight_status == "오류":
+            raise HTTPException(
+                status_code=500,
+                detail="영업 타겟 배치 실행 중 오류가 발생했습니다. 다시 시도해 주세요.",
+            )
         raise HTTPException(status_code=404, detail=f"sales-target 실행을 찾을 수 없음: {thread_id}")
 
     interrupt_value = None
@@ -80,7 +125,7 @@ class GenerateRequest(BaseModel):
 
 
 @router.post("/generate")
-def generate(payload: GenerateRequest) -> dict:
+def generate(payload: GenerateRequest, background_tasks: BackgroundTasks) -> dict:
     from scripts.collection.collectors import latest_quarter_codes
 
     initial_state = {
@@ -98,7 +143,21 @@ def generate(payload: GenerateRequest) -> dict:
         "source_batch_id": f"{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}",
         "warnings": [],
     }
-    return start_sales_target_run(initial_state)
+
+    # 실제 파이프라인(공공데이터 수집~스코어링)은 몇 분씩 걸릴 수 있어, 이 요청 안에서 끝까지
+    # 기다리면 CloudFront/ALB 타임아웃에 걸려 FE에 "요청 처리 중 오류가 발생했습니다"가 먼저
+    # 뜨는 문제가 있었다(백엔드는 실제로는 끝까지 계속 실행됨). thread_id만 먼저 만들어 즉시
+    # 돌려주고, 실제 그래프 실행은 백그라운드로 넘긴다 — FE는 이 thread_id로 폴링한다.
+    thread_id = new_thread_id()
+    with _INFLIGHT_LOCK:
+        _INFLIGHT[thread_id] = "처리중"
+    background_tasks.add_task(_run_generate_in_background, thread_id, initial_state)
+    return {
+        "thread_id": thread_id,
+        "상태": _PROCESSING_STATUS_MESSAGE,
+        "대기중_승인": None,
+        "진행중": True,
+    }
 
 
 @router.get("/jobs/{thread_id}")
