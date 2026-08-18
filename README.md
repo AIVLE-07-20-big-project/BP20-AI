@@ -94,14 +94,7 @@ flowchart TD
     CLUSTER -->|불필요| END1([종료])
     PLAN --> END1
 ```
-
-### 6. 온라인 트렌드 리포트
-업종별로 요즘 인기 있는 메뉴가 무엇인지 온라인 검색 트렌드를 기반으로 리포트를 생성합니다.
-
-- 네이버 데이터랩 검색어트렌드 API로 업종별 후보 메뉴의 검색량 비교
-- 검색량 상위 메뉴를 선별해 HTML 리포트로 제공
-
-### 7. 캠페인 학습 로그
+### 6. 캠페인 학습 로그
 전략 추천이 실제로 실행된 뒤의 결과를 학습 데이터로 축적해, Bandit 정책이 점점 더 나은 방안을 추천하도록 개선합니다.
 
 ## 기술 스택
@@ -113,7 +106,6 @@ flowchart TD
 | AI 상품 이미지 생성 | rembg · Pillow · OpenAI `gpt-image-1` |
 | 영수증 OCR 자동 정산 | PaddleOCR · OpenCV · Pillow |
 | 리뷰 감성 분석 & 개선안 생성 | HuggingFace Transformers(RoBERTa ABSA) · LangGraph · OpenAI |
-| 온라인 트렌드 리포트 | 네이버 데이터랩 검색어트렌드 API · pandas |
 | 캠페인 학습 로그 | pandas · Celery/Redis(비동기 집계) |
 
 ## 실행 방법
