@@ -22,7 +22,6 @@ from app.core.object_storage import (
 from app.services.response import action_rules, bandit_store
 from app.services.response.log_schema import (
     CONTEXT_COLS,
-    PERIOD_COLUMNS,
     REQUIRED_SCHEMA_COLUMNS,
     SCHEMA_COLUMNS,
 )
