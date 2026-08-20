@@ -14,12 +14,7 @@ from scipy.spatial import cKDTree
 from scripts.modeling.sales_analysis import AMT, shift_quarter
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
-MODEL = ROOT / "model"
-AGENT_DATA = DATA / "agent"
-PROCESSED_DATA = DATA / "processed"
-SOURCE_DATA = DATA / "source"
+from app.core.config import AGENT_DATA, MODEL, PROCESSED_DATA, SOURCE_DATA
 PANEL = AGENT_DATA / "trend_panel.csv"
 AREA_COORDS = SOURCE_DATA / "area_coords.csv"
 EVENTS = SOURCE_DATA / "cultural_event.csv"
