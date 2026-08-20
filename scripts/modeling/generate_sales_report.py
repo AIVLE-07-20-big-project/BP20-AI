@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
+from app.core.config import MERGED_SALES_ANALYSIS, ROOT
 
 from scripts.modeling.ai_sales_analysis import AISalesAnalyzer, MODEL_PATH as AI_MODEL_PATH
 from scripts.modeling.external_factor_analysis import (
@@ -71,7 +71,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    df = pd.read_csv(ROOT / "data" / "processed" / "merged_sales_analysis.csv")
+    df = pd.read_csv(MERGED_SALES_ANALYSIS)
     target_q = int(args.yyqu_cd)
     row = df[
         (df["TRDAR_CD"] == int(args.trdar_cd))

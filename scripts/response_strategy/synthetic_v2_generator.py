@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from app.services.response import action_rules
-from app.services.response.campaign_logs import CONTEXT_COLS, SCHEMA_COLUMNS
+from app.services.response.log_schema import CONTEXT_COLS, SCHEMA_COLUMNS
 from app.services.response.context import CONTEXT_DIM, CONTEXT_SCHEMA_VERSION
 from app.services.response.policy import BanditPolicy
 from app.services.response.reward import (

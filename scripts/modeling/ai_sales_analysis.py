@@ -14,9 +14,10 @@ from sklearn.preprocessing import RobustScaler
 from scripts.modeling.sales_analysis import AMT, CO, MIN_CO, shift_quarter
 
 
-ROOT = Path(__file__).resolve().parents[2]
-PANEL = ROOT / "data" / "agent" / "trend_panel.csv"
-MODEL_PATH = ROOT / "model" / "ai_sales_model.pkl"
+from app.core.config import AGENT_DATA, MODEL
+
+PANEL = AGENT_DATA / "trend_panel.csv"
+MODEL_PATH = MODEL / "ai_sales_model.pkl"
 MIN_PEERS = 20
 
 STRUCTURE_FEATURES = [

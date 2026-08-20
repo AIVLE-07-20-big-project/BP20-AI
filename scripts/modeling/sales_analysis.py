@@ -10,12 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
-MODEL = ROOT / "model"
-AGENT_DATA = DATA / "agent"
-PROCESSED_DATA = DATA / "processed"
-SOURCE_DATA = DATA / "source"
+from app.core.config import AGENT_DATA, DATA, MODEL, PROCESSED_DATA, SOURCE_DATA
 MERGED = PROCESSED_DATA / "merged_sales_analysis.csv"
 PANEL = AGENT_DATA / "trend_panel.csv"
 AREA_COORDS = SOURCE_DATA / "area_coords.csv"
